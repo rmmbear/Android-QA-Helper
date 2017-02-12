@@ -223,15 +223,22 @@ def pick_device():
         print("Please choose which of the devices below you want to work with.")
         print()
         for counter, device in enumerate(device_list):
-            print(counter, end="")
+            print(counter, end=": ")
             device.print_basic_info()
+            print()
 
         user_choice = input("Enter your choice: ").strip()
-        if not user_choice.isnumeric() or (int(user_choice) > 0 and int(user_choice) <= len(device_list)):
-            print("Please choose one of the above numbers.")
+        if not user_choice.isnumeric():
+            print("The answer must be a number!")
             continue
 
-        return device_list[int(user_choice)]
+        user_choice = int(user_choice)
+
+        if user_choice < 0  or user_choice >= len(device_list):
+            print("Answer must be one of the above numbers!")
+            continue
+
+        return device_list[user_choice]
 
 
 class Device:
