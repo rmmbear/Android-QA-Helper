@@ -25,8 +25,10 @@ import os
 import re
 import subprocess
 import sys
-from time import strftime, sleep
+from collections import OrderedDict
 from pathlib import Path
+from time import strftime, sleep
+
 
 VERSION = "0.8"
 VERSION_DATE = "12-02-2017"
@@ -273,34 +275,45 @@ class Device:
         self.available_commands = None
 
         # think about using ordered dict
-        self.info = {"Product"   :{"Model"              :None,
-                                   "Name"               :None,
-                                   "Manufacturer"       :None,
-                                   "Brand"              :None,
-                                   "Device"             :None},
-                     "OS"        :{"Android Version"    :None,
-                                   "Android API Level"  :None,
-                                   "Build ID"           :None,
-                                   "Build Fingerprint"  :None},
-                     "RAM"       :{"Total"              :None},
-                     "CPU"       :{"Chipset"            :None,
-                                   "Processor"          :None,
-                                   "Cores"              :None,
-                                   "Architecture"       :None,
-                                   "Max Frequency"      :None,
-                                   "Available ABIs"     :None},
-                     "GPU"       :{"Model"              :None,
-                                   "GL Version"         :None,
-                                   "Compression Types"  :{}},
-                     "Display"   :{"Resolution"         :None,
-                                   "Refresh-rate"       :None,
-                                   "V-Sync"             :None,
-                                   "Soft V-Sync"        :None,
-                                   "Density"            :None,
-                                   "X-DPI"              :None,
-                                   "Y-DPI"              :None},
+        # I thought about it, and here it is!
+        self.info = OrderedDict()
 
-                    }
+        info = [
+            ("Product", ["Model",
+                         "Name",
+                         "Manufacturer",
+                         "Brand",
+                         "Device"]),
+            ("OS",      ["Android Version",
+                         "Android API Level",
+                         "Build ID",
+                         "Build Fingerprint"]),
+            ("RAM",     ["Total"]),
+            ("CPU",     ["Chipset",
+                         "Processor",
+                         "Cores",
+                         "Architecture",
+                         "Max Frequency",
+                         "Available ABIs"]),
+            ("GPU",     ["Model",
+                         "GL Version",
+                         "Compression Types"]),
+            ("Display", ["Resolution",
+                         "Refresh-rate",
+                         "V-Sync",
+                         "Soft V-Sync",
+                         "Density",
+                         "X-DPI",
+                         "Y-DPI"])
+            ]
+
+        for pair in info:
+            props = OrderedDict()
+
+            for prop in pair[1]:
+                props[prop] = None
+
+            self.info[pair[0]] = props
 
         self.initialized = False
 
@@ -392,16 +405,16 @@ class Device:
             prop_name, prop_value = prop_pair.split(": ")
             prop_dict[prop_name] = prop_value[1:-1]
 
-        info = {"Product":{"Model"              :"[ro.product.model]",
-                           "Name"               :"[ro.product.name]",
-                           "Manufacturer"       :"[ro.product.manufacturer]",
-                           "Brand"              :"[ro.product.brand]",
-                           "Device"             :"[ro.product.device]"},
-                "OS"     :{"Android Version"    :"[ro.build.version.release]",
-                           "Android API Level"  :"[ro.build.version.sdk]",
-                           "Build ID"           :"[ro.build.id]",
-                           "Build Fingerprint"  :"[ro.build.fingerprint]"},
-                "Display":{"Density"            :"[ro.sf.lcd_density]"}
+        info = {"Product":{"Model"            :"[ro.product.model]",
+                           "Name"             :"[ro.product.name]",
+                           "Manufacturer"     :"[ro.product.manufacturer]",
+                           "Brand"            :"[ro.product.brand]",
+                           "Device"           :"[ro.product.device]"},
+                "OS"     :{"Android Version"  :"[ro.build.version.release]",
+                           "Android API Level":"[ro.build.version.sdk]",
+                           "Build ID"         :"[ro.build.id]",
+                           "Build Fingerprint":"[ro.build.fingerprint]"},
+                "Display":{"Density"          :"[ro.sf.lcd_density]"}
                }
 
         for info_category in info:
@@ -455,7 +468,8 @@ class Device:
         max_freq = self.shell_command("cat", freq_file, return_output=True,
                                       as_list=False).strip()
 
-        cpuinfo = self.shell_command("cat", "/proc/cpuinfo", return_output=True, as_list=False)
+        cpuinfo = self.shell_command("cat", "/proc/cpuinfo",
+                                     return_output=True, as_list=False)
 
 
         processor = re.search("(?<=^model name)[^\n]*", cpuinfo, re.MULTILINE)
@@ -481,7 +495,8 @@ class Device:
                 else:
                     self.info["CPU"]["Chipset"] += (" (" + hardware + ")")
 
-        core_dump = self.shell_command("cat", "/sys/devices/system/cpu/present", return_output=True, as_list=False).strip()
+        core_dump = self.shell_command("cat", "/sys/devices/system/cpu/present",
+                                       return_output=True, as_list=False).strip()
         cores = core_dump.split("-")[-1]
 
         if cores and cores.isnumeric():
@@ -492,12 +507,12 @@ class Device:
             self.info["CPU"]["Max Frequency"] = str(int(max_freq) / 1000) + " MHz"
 
 
-
     def _get_surfaceflinger_info(self):
         """Extract information from "SufraceFlinger" service dump.
         """
 
-        dump = self.shell_command("dumpsys", "SurfaceFlinger", return_output=True, as_list=False)
+        dump = self.shell_command("dumpsys", "SurfaceFlinger",
+                                  return_output=True, as_list=False)
         gpu_model = None
         gl_version = None
 
@@ -535,16 +550,20 @@ class Device:
         self.info["Display"]["X-DPI"] = x_dpi
         self.info["Display"]["Y-DPI"] = y_dpi
 
+        compressions = []
         for identifier, name in COMPRESSION_EXTENSIONS.items():
             if identifier in dump:
-                self.info["GPU"]["Compression Types"][identifier] = name.strip()
+                compressions.append(name.strip())
+
+        if not self.info["GPU"]["Compression Types"]:
+            self.info["GPU"]["Compression Types"] = OrderedDict()
+
+        self.info["GPU"]["Compression Types"] = ", ".join(compressions)
 
 
     def print_full_info(self):
         """
         """
-        # TODO: Make the device info be always printed in the same order
-        # use ordered dict?
 
         indent = 4
 
@@ -552,8 +571,6 @@ class Device:
             print(info_category, ":", sep="")
 
             for info_name, prop in self.info[info_category].items():
-                if info_name == "Compression Types":
-                    print(indent*" ", info_name, ": ", ", ".join(prop.values()), sep="")
                 if prop is None:
                     prop = "Unknown"
                 print(indent*" ", info_name, ": ", prop, sep="")
@@ -568,7 +585,7 @@ class Device:
         print(self.info["Product"]["Manufacturer"], end=" - ")
         print(self.info["Product"]["Model"], end=" - ")
         print(self.info["OS"]["Android Version"])
-        print("Compression Types: ", ", ".join(self.info["GPU"]["Compression Types"].values()))
+        print("Compression Types: ", self.info["GPU"]["Compression Types"])
 
 
 def install(device, items):
@@ -843,14 +860,14 @@ if __name__ == "__main__" or __name__ == "helper__main__":
     if ARGS.pull_traces:
         destination = pull_traces(CHOSEN_DEVICE, ARGS.pull_traces)
         if destination:
-            print("Traces file was saved to:\n", destination)
+            print("Traces file was saved to:", destination, sep="\n")
         else:
             print("Unexpected error occurred -- could not save traces to drive")
 
     if ARGS.record:
         destination = record(CHOSEN_DEVICE, ARGS.record)
         if destination:
-            print("Recording was saved to:\n", destination)
+            print("Recording was saved to:", destination, sep="\n")
         else:
             print("Unexpected error occurred -- could not save recording to drive")
 
