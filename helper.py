@@ -62,8 +62,8 @@ PARSER_GROUP.add_argument("-t", "--pull_traces", nargs="?", const=".",
 PARSER_GROUP.add_argument("-r", "--record", nargs="?", const=".",
                           default=None, dest="record",
                           help="Start recording screen of your device")
-PARSER_GROUP.add_argument("-c", "--clean", nargs="?", const=".",
-                          default=None, dest="clean", help="Not implemented")
+#PARSER_GROUP.add_argument("-c", "--clean", nargs="?", const=".",
+#                          default=None, dest="clean", help="Not implemented")
 PARSER_GROUP.add_argument("-n", "--info", action="store_true",
                           dest="info", help="Use this command to display information for every device found by ADB")
 PARSER_GROUP.add_argument("-v", "--version", action="store_true",
@@ -603,13 +603,15 @@ def install(device, items):
 
         if item[-3:].lower() == "obb":
             if obb:
-                print("OBB ambiguity! Only one obb file can be pushed at a time!")
+                print("OBB ambiguity!",
+                      "Only one obb file can be pushed at a time!")
                 return False
 
             obb = item
 
     if len(app_list) > 1 and obb:
-        print("APK ambiguity! Only one apk file can be installed when also pushing obb file!!")
+        print("APK ambiguity! Only one apk file can be installed when",
+              "also pushing obb file!")
         return False
 
     if not app_list:
@@ -619,40 +621,44 @@ def install(device, items):
     if not obb:
         app_failure = []
         for app in app_list:
-            app_name = aapt_execute("dump", "badging", app, return_output=True, as_list=False)
+            app_name = aapt_execute("dump", "badging", app,
+                                    return_output=True, as_list=False)
             app_name = re.search("(?<=name=')[^']*", app_name).group()
 
 
-            print("BEGINNING INSTALLATION: {}".format(app_name))
+            print("BEGINNING INSTALLATION:", app_name)
             print("Your device may ask you for confirmation!\n")
 
             if not install_apk(device, app, app_name):
-                print("FAILED TO INSTALL: {}".format(app_name))
+                print("FAILED TO INSTALL:", app_name)
                 app_failure.append((app_name, app))
 
             else:
-                print("SUCCESFULLY INSTALLED: {}".format(app_name))
+                print("SUCCESFULLY INSTALLED:", app_name)
 
-        print("Installed {}/{} provided apps.".format(len(app_list) - len(app_failure), len(app_list)))
+        print("Installed", len(app_list) - len(app_failure), "out of",
+              len(app_list), "provided apks.")
 
         if app_failure:
-            print("The following apps could not be installed:")
+            indent = 4
+            print("The following apks could not be installed:")
 
             for app_path, app_name in app_failure:
-                print("{} : {}".format(Path(app_path).name, app_name))
+                print(indent*" ", Path(app_path).name, ":", app_name)
 
     else:
         app = app_list[0]
-        app_name = aapt_execute("dump", "badging", app, return_output=True, as_list=False)
+        app_name = aapt_execute("dump", "badging", app,
+                                return_output=True, as_list=False)
         app_name = re.search("(?<=name=')[^']*", app_name).group()
 
         if not install_apk(device, app, app_name):
-            print("FAILED TO INSTALL: {}".format(app_name))
+            print("FAILED TO INSTALL:", app_name)
             return False
 
         print("\nSUCCESSFULLY COPIED AND INSTALLED THE APK FILE\n")
 
-        print("BEGINNING COPYING OBB FILE FOR: {}".format(app_name))
+        print("BEGINNING COPYING OBB FILE FOR:", app_name)
 
         if not push_obb(device, obb, app_name):
             print("OBB COPYING FAILED")
@@ -666,11 +672,13 @@ def install_apk(device, apk_file, app_name, ignore_uninstall_err=False):
     """
     """
 
-    preinstall_log = device.shell_command("pm", "list", "packages", return_output=True, as_list=False)
+    preinstall_log = device.shell_command("pm", "list", "packages",
+                                          return_output=True, as_list=False)
 
     if app_name in preinstall_log:
-        print("Different version of the app is already installed, deleting...")
-        uninstall_log = device.adb_command("uninstall", app_name, return_output=True)
+        print("Different version of the app already installed, deleting...")
+        uninstall_log = device.adb_command("uninstall", app_name,
+                                           return_output=True)
 
         if uninstall_log[-1] != "Success":
             if device.status != "device":
@@ -678,30 +686,35 @@ def install_apk(device, apk_file, app_name, ignore_uninstall_err=False):
                 return False
             else:
                 print("Unexpected error!")
-                print("{} could not be uninstalled!".format(app_name))
-                print("This means that you're probably trying to do something weird... Stop that >:V")
+                print(app_name, "could not be uninstalled!")
+                print("Installation cannot continue.", "You can ignore",
+                      "this error with '--force' option alongside --install")
 
                 if ignore_uninstall_err:
-                    print("Error ignored, installer will attempt to replace the app.")
+                    print("Error ignored.")
+                    print("Installer will attempt to replace the app.")
                 else:
                     return False
 
-        print("Successfully uninstalled {}!\n".format(app_name))
+        print("Successfully uninstalled", app_name, "\n")
 
-    device.adb_command("install", "-r", "-i", "com.android.vending", apk_file)
+    device.adb_command("install", "-r", "-i", "com.android.vending",
+                       apk_file)
 
-    postinstall_log = device.shell_command("pm", "list", "packages", return_output=True)
+    postinstall_log = device.shell_command("pm", "list", "packages",
+                                           return_output=True)
 
     for log_line in postinstall_log:
         if app_name in log_line:
             return True
 
     if device.status != "device":
-        print("{} - Device has been suddenly disconnected!".format(device.info["Product"]["Model"]))
+        print(device.info["Product"]["Model"],
+              "- Device has been suddenly disconnected!")
     else:
         print("Installed app was not found by package manager")
-        print("{} could not be installed!".format(app_name))
-        print("Please make sure that your device meets the app's install criteria")
+        print(app_name, "could not be installed!")
+        print("Please make sure that your device meets app's criteria")
 
     return False
 
@@ -709,36 +722,32 @@ def install_apk(device, apk_file, app_name, ignore_uninstall_err=False):
 def push_obb(device, obb_file, app_name):
     """
     """
+    obb_folder = "/mnt/sdcard/Android/obb"
 
     obb_name = str(Path(obb_file).name)
 
     # prepare environment for copying
     # pipe the stdout to suppress unnecessary errors
-    device.shell_command("mkdir", "/mnt/sdcard/Android/obb",
-                         return_output=True)
-    device.shell_command("rm", "-fr",
-                         "/mnt/sdcard/Android/obb/{}".format(app_name),
-                         return_output=True)
-    device.shell_command("mkdir",
-                         "/mnt/sdcard/Android/obb/{}".format(app_name),
-                         return_output=True)
+    device.shell_command("mkdir", obb_folder, return_output=True)
+    device.shell_command("rm", "-fr", obb_folder + app_name, return_output=True)
+    device.shell_command("mkdir", obb_folder + app_name, return_output=True)
+
+    obb_target = "/mnt/sdcard/Android/obb/" + app_name + "/" + obb_name
 
     #pushing obb in two steps to circumvent write protection
+    device.adb_command("push", obb_file, "/mnt/sdcard/" + obb_name)
+    device.shell_command("mv", "/mnt/sdcard/" + obb_name, obb_target)
 
-    device.adb_command("push", obb_file, "/mnt/sdcard/{}".format(obb_name))
-    device.shell_command("mv", "/mnt/sdcard/{}".format(obb_name),
-                         "/mnt/sdcard/Android/obb/{}/{}".format(app_name, obb_name))
+    push_log = device.shell_command("ls", obb_target, return_output=True,
+                                    as_list=False)
 
-    push_log = device.shell_command("ls", "/mnt/sdcard/Android/obb/{}/{}".format(app_name, obb_name),
-                                    return_output=True, as_list=False)
-
-    if push_log == "/mnt/sdcard/Android/obb/{}/{}".format(app_name, obb_name):
+    if push_log == obb_target:
         return True
 
     if device.status != "device":
-        print("{} - Device has been suddenly disconnected!".format(device.info["Product"]["Model"]))
+        print("Device has been suddenly disconnected!")
     else:
-        print("{} - Pushed obb file could not be found in destination folder.".format(device.info["Product"]["Model"]))
+        print("Pushed obb file could not be found in destination folder.")
 
     return False
 
@@ -755,7 +764,7 @@ def record(device, output=None):
 
     Path(output).mkdir(exist_ok=True)
 
-    filename = "screenrecord_{}".format(strftime("%Y.%m.%d_%H.%M.%S"))
+    filename = "screenrecord_" + strftime("%Y.%m.%d_%H.%M.%S")
     remote_recording = "/mnt/sdcard/" + filename
 
     filename = device.info["Product"]["Model"] + "_" + filename
@@ -767,7 +776,8 @@ def record(device, output=None):
     input("Press enter whenever you are ready to record.\n")
 
     try:
-        device.shell_command("screenrecord", "--verbose", remote_recording, return_output=False)
+        device.shell_command("screenrecord", "--verbose", remote_recording,
+                             return_output=False)
         print("\nRecording stopped by device.")
     except KeyboardInterrupt:
         print("\nRecording stopped bu user.")
@@ -776,8 +786,8 @@ def record(device, output=None):
     # there must be a better way of doing this...
     sleep(1)
 
-    recording_log = device.shell_command("ls", remote_recording, return_output=True,
-                                         as_list=False)
+    recording_log = device.shell_command("ls", remote_recording,
+                                         return_output=True, as_list=False)
 
     if recording_log != remote_recording:
         if device.status != "device":
@@ -802,7 +812,7 @@ def pull_traces(device, output=None):
     # I have enountered devices which have the anr file set to read-only
     # that's why I am using 'cat anr > file' instead of just an 'adb pull'
 
-    if not output:
+    if output is None:
         output = Path()
     else:
         output = Path(output)
@@ -810,15 +820,17 @@ def pull_traces(device, output=None):
     output.mkdir(exist_ok=True)
     output = output.resolve()
 
-    anr_filename = "{}_anr_{}.txt".format(device.info["Product"]["Model"], strftime("%Y.%m.%d_%H.%M.%S"))
+    anr_filename = "".join([device.info["Product"]["Model"], "_anr_",
+                            strftime("%Y.%m.%d_%H.%M.%S"), ".txt"])
 
-    traces = device.shell_command("cat", "/data/anr/traces.txt", return_output=True, as_list=False)
+    traces = device.shell_command("cat", "/data/anr/traces.txt",
+                                  return_output=True, as_list=False)
 
     # TODO: check if what is saved is actually full traces file
     # device might have been suddenly disconnected during cating, which will result in only partial log
 
-    with Path(output, anr_filename).open(mode="w", encoding="utf-8") as local_anr_file:
-        local_anr_file.write(traces)
+    with open(str(output) + anr_filename, mode="w", encoding="utf-8") as anr_file:
+        anr_file.write(traces)
 
     return str(Path(output, anr_filename))
 
@@ -844,8 +856,10 @@ if __name__ == "__main__" or __name__ == "helper__main__":
         get_devices()
 
         if not ARGS.device in get_devices():
-            print("Device with serial number {} was not found by Helper!".format(ARGS.device))
-            print("Check your usb connection and make sure you're typing in a valid serial number.\n")
+            print("Device with serial number", ARGS.device,
+                  "was not found by Helper!")
+            print("Check your usb connection and make sure",
+                  "you're typing in a valid serial number.\n")
             sys.exit()
 
         CHOSEN_DEVICE = DEVICES[ARGS.device]
@@ -862,14 +876,16 @@ if __name__ == "__main__" or __name__ == "helper__main__":
         if destination:
             print("Traces file was saved to:", destination, sep="\n")
         else:
-            print("Unexpected error occurred -- could not save traces to drive")
+            print("Unexpected error occurred --",
+                  "could not save traces to drive")
 
     if ARGS.record:
         destination = record(CHOSEN_DEVICE, ARGS.record)
         if destination:
             print("Recording was saved to:", destination, sep="\n")
         else:
-            print("Unexpected error occurred -- could not save recording to drive")
+            print("Unexpected error occurred --",
+                  "could not save recording to drive")
 
     if ARGS.clean:
         raise NotImplementedError("A customizable cleaning function coming soon")
