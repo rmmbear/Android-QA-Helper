@@ -887,8 +887,8 @@ if __name__ == "__main__" or __name__ == "helper__main__":
             print("Unexpected error occurred --",
                   "could not save recording to drive")
 
-    if ARGS.clean:
-        raise NotImplementedError("A customizable cleaning function coming soon")
+#    if ARGS.clean:
+#        raise NotImplementedError("A customizable cleaning function coming soon")
 
     if ARGS.info:
         D = []
