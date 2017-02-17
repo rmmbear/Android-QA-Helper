@@ -4,7 +4,7 @@
 # 'remove'          - Specify a file or directory to be removed. Removes
 #                     directories only if they are empty.
 #                     Accepts wildcards (*).
-# 'remove_recurive' - Specify a folder whose entire contents -- and
+# 'remove_recursive'- Specify a folder whose entire contents -- and
 #                     contents of its subfolders -- will be removed.
 # 'uninstall'       - Remove an app, by specifying its name or path to
 #                     local apk file. Some apps cannot be removed.
