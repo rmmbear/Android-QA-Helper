@@ -30,8 +30,8 @@ from pathlib import Path
 from time import strftime, sleep
 
 
-VERSION = "0.8"
-VERSION_DATE = "12-02-2017"
+VERSION = "0.9"
+VERSION_DATE = "17-02-2017"
 GITHUB_SOURCE = "https://github.com/rmmbear/Android-QA-Helper"
 VERSION_STRING = " ".join(["Android QA Helper ver", VERSION, ":",
                            VERSION_DATE, ": Copyright (c) 2017 rmmbear"]
@@ -108,8 +108,9 @@ PARSER_GROUP.add_argument("-t", "--pull_traces", nargs="?", const=".",
                           default=None, dest="pull_traces", help=HELP_STR,
                           metavar="destination")
 HELP_STR = """Clean your device, as specified in cleaner_config file. You can
-tell helper to delete files, directories and uninstall apps. See the contents
-of '{}' for info on how to add items to the list.""".format(CLEANER_CONFIG)
+tell helper to delete files or directories, uninstall apps and replace files on
+device with ones from your drive. See the contents of '{}' for info on how to
+add items to the list.""".format(CLEANER_CONFIG)
 PARSER_GROUP.add_argument("-c", "--clean", nargs="?", const=CLEANER_CONFIG,
                           default=None, dest="clean", help=HELP_STR,
                           metavar="config")
