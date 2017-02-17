@@ -110,8 +110,9 @@ PARSER_GROUP.add_argument("-t", "--pull_traces", nargs="?", const=".",
 HELP_STR = """Clean your device, as specified in cleaner_config file. You can
 tell helper to delete files, directories and uninstall apps. See the contents
 of '{}' for info on how to add items to the list.""".format(CLEANER_CONFIG)
-#PARSER_GROUP.add_argument("-c", "--clean", nargs="?", const=CLEANER_CONFIG,
-#                          default=None, dest="clean", help=HELP_STR)
+PARSER_GROUP.add_argument("-c", "--clean", nargs="?", const=CLEANER_CONFIG,
+                          default=None, dest="clean", help=HELP_STR,
+                          metavar="config")
 HELP_STR = """Show info for all connected devices. If --device was specified,
 information only for that device will be shown."""
 PARSER_GROUP.add_argument("-n", "--info", action="store_true", dest="info",
@@ -875,7 +876,96 @@ def pull_traces(device, output=None):
 
 
 def clean(device, config=CLEANER_CONFIG):
-    pass
+    """
+    """
+    # TODO: Test each cleaning action for success / failure
+    # TODO: Count the number of removed files / apps
+
+    known_options = {"remove"           :(["shell", "rm", "--"]),
+                     "remove_recursive" :(["shell", "rm", "-r", "--"]),
+                     "uninstall"        :(["uninstall"]),
+                     "replace"          :(["shell", "rm", "-f", "--"], ["push"])
+                    }
+
+    parsed_config = {}
+    bad_config = []
+
+    for count, line in enumerate(open(config, mode="r").readlines()):
+        if line.startswith("#") or not line.strip():
+            continue
+
+        count += 1
+
+        pair = line.split(":")
+        if len(pair) != 2:
+            bad_config.append((count, "No value"))
+            continue
+
+        key = pair[0].strip()
+        value = pair[1].strip()
+
+        if key not in known_options:
+            bad_config.append((count, "Unknown command"))
+            continue
+
+        if not value:
+            bad_config.append((count, "No value"))
+            continue
+
+        if key not in parsed_config:
+            parsed_config[key] = []
+
+        if key == "replace":
+            items = []
+            for item in value.split(","):
+                items.append(item.strip())
+
+            parsed_config[key].append(items)
+        else:
+            if key == "uninstall":
+                if not Path(value).is_file():
+                    parsed_config[key].append(value)
+                    continue
+            if " " not in value:
+                parsed_config[key].append(value)
+                continue
+
+            if value[0] not in ["'", "\""]:
+                value = "\"" + value
+
+            if value[-1] not in ["'", "\""]:
+                value += "\""
+
+            parsed_config[key].append(value)
+
+    if bad_config:
+        print("Errors encountered in the config file")
+        print("(", config, ")", sep="")
+        indent = 4
+        for line, reason in bad_config:
+            print(indent*" ", "Line", line, "-", reason)
+
+    print(parsed_config)
+
+    for option, value in parsed_config.items():
+        for item in value:
+            if option == "replace":
+                print(*known_options[option][0], item[0])
+                print(*known_options[option][1], item[1], item[0])
+                input()
+                remote = ""
+                if item[0][0] not in ["'", "\""]:
+                    remote = "\"" + item[0]
+
+                if remote[-1] not in ["'", "\""]:
+                    remote += "\""
+
+                device.adb_command(*known_options[option][0], remote)
+                device.adb_command(*known_options[option][1], item[1], item[0])
+            else:
+                print(*known_options[option], item)
+                input()
+                device.adb_command(*known_options[option], item)
 
 
 if __name__ == "__main__" or __name__ == "helper__main__":
@@ -930,8 +1020,15 @@ if __name__ == "__main__" or __name__ == "helper__main__":
             print("Unexpected error occurred --",
                   "could not save recording to drive")
 
-#    if ARGS.clean:
-#        raise NotImplementedError("A customizable cleaning function coming soon")
+    if ARGS.clean:
+        D = []
+        if CHOSEN_DEVICE:
+            D = [CHOSEN_DEVICE]
+        else:
+            D.extend(get_devices())
+
+        for d in D:
+            clean(d, ARGS.clean)
 
     if ARGS.info:
         D = []
