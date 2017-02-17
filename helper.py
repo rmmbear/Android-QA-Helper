@@ -729,17 +729,20 @@ def push_obb(device, obb_file, app_name):
     # prepare environment for copying
     # pipe the stdout to suppress unnecessary errors
     device.shell_command("mkdir", obb_folder, return_output=True)
-    device.shell_command("rm", "-fr", obb_folder + app_name, return_output=True)
-    device.shell_command("mkdir", obb_folder + app_name, return_output=True)
+    device.shell_command("rm", "-fr", obb_folder + "/" + app_name,
+                         return_output=True)
+    device.shell_command("mkdir", obb_folder + "/" + app_name,
+                         return_output=True)
 
     obb_target = "/mnt/sdcard/Android/obb/" + app_name + "/" + obb_name
 
     #pushing obb in two steps to circumvent write protection
     device.adb_command("push", obb_file, "/mnt/sdcard/" + obb_name)
-    device.shell_command("mv", "/mnt/sdcard/" + obb_name, obb_target)
+    device.shell_command("mv", "\"/mnt/sdcard/" + obb_name + "\"",
+                         "\"" + obb_target + "\"")
 
-    push_log = device.shell_command("ls", obb_target, return_output=True,
-                                    as_list=False)
+    push_log = device.shell_command("ls", "\"" + obb_target + "\"",
+                                    return_output=True, as_list=False)
 
     if push_log == obb_target:
         return True
