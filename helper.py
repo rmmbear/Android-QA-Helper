@@ -47,29 +47,48 @@ ABI_TO_ARCH = {"armeabi"    :"32bit (ARM)",
                "mips64"     :"64bit (Mips64)",
               }
 
-PARSER = argparse.ArgumentParser(prog="helper", usage="%(prog)s [-d <serial>] [options]",
-                                 description="Launching without arguments enters the interactive helper loop.")
-#                                 add_help=False
-#                                )
-PARSER.add_argument("-d", "--device", nargs=1, dest="device", type=str,
-                    help="Specify device to be used with commands")
+HRLP_STR = """Launching without arguments enters the interactive helper loop.
+"""
+PARSER = argparse.ArgumentParser(prog="helper",
+                                 usage="%(prog)s [-d <serial>] [options]",
+                                 description=HRLP_STR)
+HRLP_STR = """Specify a device you want to work with. Option must be used
+alongside other option to be effective. If a device is not specified, helper
+will let you pick a device from the list of currently connected device, so this
+option is not needed for every command."""
+PARSER.add_argument("-d", "--device", nargs=1, dest="device", help=HRLP_STR,
+                    metavar="serial_no")
 PARSER_GROUP = PARSER.add_mutually_exclusive_group()
+HRLP_STR = """Install an app. Can install a single apk, single apk and
+accompanying obb file, or a series of apk files."""
 PARSER_GROUP.add_argument("-i", "--install", nargs="+", dest="install",
-                          help="Install an app, or series of apps. Must pass either a list of apk files or list of one apk and one obb file.")
+                          help=HRLP_STR, metavar="file")
+HRLP_STR = """Record the screen of your device. Helper will ask you for
+confirmation before starting the recording, and a countdown will be shown. Once
+the recording has started, it will stop on its own after the time limit has
+elapsed (3 minutes), or if you press 'ctrl+c'. After the recording has been
+stopped, helper will copy the file to specified location. If a location was not
+specified, the file will be copied to wherever helper is located on your
+drive. NOTE: Sound is not, and cannot be recorded."""
+PARSER_GROUP.add_argument("-r", "--record", nargs="?", const=".", default=None,
+                          dest="record", help=HRLP_STR, metavar="destination")
+HRLP_STR = """Pull the dalvik vm stack traces / anr log file to specified
+location. If a location was not specified, the file will be copied to wherever
+helper is located on your drive."""
 PARSER_GROUP.add_argument("-t", "--pull_traces", nargs="?", const=".",
-                          default=None, dest="pull_traces",
-                          help="Pull traces log to specified directory.")
-PARSER_GROUP.add_argument("-r", "--record", nargs="?", const=".",
-                          default=None, dest="record",
-                          help="Start recording screen of your device")
-#PARSER_GROUP.add_argument("-c", "--clean", nargs="?", const=".",
-#                          default=None, dest="clean", help="Not implemented")
-PARSER_GROUP.add_argument("-n", "--info", action="store_true",
-                          dest="info", help="Use this command to display information for every device found by ADB")
+                          default=None, dest="pull_traces", help=HRLP_STR,
+                          metavar="destination")
+#PARSER_GROUP.add_argument("-c", "--clean", nargs="?", const=".", default=None, dest="clean", help=clean_help)
+HRLP_STR = """Show info for all connected devices. If --device was specified,
+information only for that device will be shown."""
+PARSER_GROUP.add_argument("-n", "--info", action="store_true", dest="info",
+                          help=HRLP_STR)
+HRLP_STR = "Show version information."
 PARSER_GROUP.add_argument("-v", "--version", action="store_true",
-                          dest="version", help="Show version info.")
+                          dest="version", help=HRLP_STR)
 
 NO_ARGS = PARSER.parse_args([])
+
 
 def get_script_dir():
     """
@@ -85,13 +104,14 @@ def get_script_dir():
 
 
 BASE = get_script_dir()
-ADB = str(Path(BASE, "adb"))
-AAPT = str(Path(BASE, "build_tools/aapt"))
+ADB = BASE + "/adb"
+AAPT = BASE + "/build_tools/aapt"
+CLEANER_CONFIG = BASE + "/cleaner.cfg"
 DEVICES = {}
 COMPRESSION_EXTENSIONS = {}
 
 
-for line in Path(BASE, "compression_identifiers").open(mode="r", encoding="utf-8").read().split("\n"):
+for line in open(BASE + "/compression_identifiers", mode="r", encoding="utf-8").read().split("\n"):
     if not line:
         continue
 
@@ -121,7 +141,9 @@ def adb_execute(*args, return_output=False, check_server=True, as_list=True):
 
         subprocess.run((ADB,) + args)
     except FileNotFoundError:
-        sys.exit("Helper expected ADB to be located in '{}' but could not find it.\nPlease make sure the ADB binary is in the specified path.".format(ADB))
+        print("Helper expected ADB to be located in '", ADB,
+              "' but could not find it.", sep="")
+        sys.exit("Please make sure the ADB binary is in the specified path.")
 
 
 def aapt_execute(*args, return_output=False, as_list=True):
@@ -140,7 +162,9 @@ def aapt_execute(*args, return_output=False, as_list=True):
 
         subprocess.run((AAPT,) + args)
     except FileNotFoundError:
-        sys.exit("Helper expected AAPT to be located in '{}' but could not find it.\nPlease make sure the AAPT binary is in the specified path.".format(AAPT))
+        print("Helper expected AAPT to be located in '", AAPT,
+              "' but could not find it.", sep="")
+        sys.exit("Please make sure the AAPT binary is in the specified path.")
 
 
 def _get_devices():
@@ -200,7 +224,8 @@ def get_devices():
             device_list.append(device)
 
     if not device_list:
-        print("ERROR: No devices found! Check your USB connection and try again.\n")
+        print("ERROR: No devices found! Check your USB connection and try again.")
+        print()
 
     print()
     return device_list
@@ -222,7 +247,7 @@ def pick_device():
 
     while True:
         print("Multiple devices detected!")
-        print("Please choose which of the devices below you want to work with.")
+        print("Please choose which of devices below you want to work with.")
         print()
         for counter, device in enumerate(device_list):
             print(counter, end=": ")
@@ -273,9 +298,6 @@ class Device:
 
         self.anr_trace_path = None
         self.available_commands = None
-
-        # think about using ordered dict
-        # I thought about it, and here it is!
         self.info = OrderedDict()
 
         info = [
@@ -341,6 +363,7 @@ class Device:
         self._status = "Offline"
         return self._status
 
+
     @status.setter
     def status(self, status):
         """
@@ -365,23 +388,31 @@ class Device:
             self._get_prop_info()
             self._get_cpu_info()
 
-            ram = self.shell_command("cat", "/proc/meminfo", return_output=True)[0].split(":")[-1].strip()
+            ram = self.shell_command("cat", "/proc/meminfo",
+                                     return_output=True)[0]
+            ram = ram.split(":")[-1].strip()
+
             if ram:
                 ram = str(int(int(ram.split(" ")[0]) /1024)) + " MB"
 
             self.info["RAM"]["Total"] = ram
 
             if "wm" in self.available_commands:
-                wm_out = self.shell_command("wm", "size", return_output=True, as_list=False)
+                wm_out = self.shell_command("wm", "size", return_output=True,
+                                            as_list=False)
 
-                resolution = re.search("(?<=^Physical size:)[^\n]*", wm_out, re.MULTILINE)
+                resolution = re.search("(?<=^Physical size:)[^\n]*", wm_out,
+                                       re.MULTILINE)
                 if resolution:
                     self.info["Display"]["Resolution"] = resolution.group().strip()
 
                 if not self.info["Display"]["Density"]:
-                    wm_out = self.shell_command("wm", "density", return_output=True, as_list=False)
+                    wm_out = self.shell_command("wm", "density",
+                                                return_output=True,
+                                                as_list=False)
 
-                    density = re.search("(?<=^Physical density:)[^\n]*", wm_out, re.MULTILINE)
+                    density = re.search("(?<=^Physical density:)[^\n]*",
+                                        wm_out, re.MULTILINE)
                     if density:
                         self.info["Display"]["Resolution"] = density.group().strip()
 
@@ -830,12 +861,17 @@ def pull_traces(device, output=None):
                                   return_output=True, as_list=False)
 
     # TODO: check if what is saved is actually full traces file
-    # device might have been suddenly disconnected during cating, which will result in only partial log
+    # device might have been suddenly disconnected during cat-ing
+    # which will result in only partial log
 
     with open(str(output) + anr_filename, mode="w", encoding="utf-8") as anr_file:
         anr_file.write(traces)
 
     return str(Path(output, anr_filename))
+
+
+def clean(device, config=""):
+    pass
 
 
 if __name__ == "__main__" or __name__ == "helper__main__":
