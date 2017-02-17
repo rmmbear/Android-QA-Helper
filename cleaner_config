@@ -1,16 +1,18 @@
 # lines starting with '#' will be skipped
 #
 # categories:
-# 'remove'          - Specify a file or directory to be removed. Removes
-#                     directories only if they are empty.
-#                     Accepts wildcards (*).
-# 'remove_recursive'- Specify a folder whose entire contents -- and
-#                     contents of its subfolders -- will be removed.
+# 'remove'          - Specify a file or directory to be removed. Dirs
+#                     cannot be removed. Accepts wildcards (*).
+# 'remove_recursive'- Specify a directory for deletion. Directory and
+#                     ALL its contents -- including sub-directories --
+#                     will be removed.
 # 'uninstall'       - Remove an app, by specifying its name or path to
 #                     local apk file. Some apps cannot be removed.
 # 'replace'         - Replace specified remote file with a local file.
 #                     If the remote file does not exist, the local will
-#                     still be placed in the remote path.
+#                     still be placed in the remote path. Must provide
+#                     two -- no more, no less -- comma delimited files.
+#
 #
 # Example usage:
 # remove : /mnt/sdcard/Screenshots/*      - Remove all Screenshots
@@ -20,9 +22,9 @@
 # uninstall : com.android.browser         - Remove a package by its name
 # uninstall : /home/user/Desktop/some.apk - Remove a package by its apk
 #
-#                               | whitespace as deliminator
+#                               | comma as delimiter
 #                               v
-# replace : /mnt/sdcard/somefile /home/user/Desktop/someotherfile
+# replace : /mnt/sdcard/somefile, /home/user/Desktop/someotherfile
 #           ^                     ^
 #           | remote file         | local file
 #
