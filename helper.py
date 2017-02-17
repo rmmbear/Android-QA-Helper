@@ -47,23 +47,38 @@ ABI_TO_ARCH = {"armeabi"    :"32bit (ARM)",
                "mips64"     :"64bit (Mips64)",
               }
 
-HRLP_STR = """Launching without arguments enters the interactive helper loop.
+BASE = get_script_dir()
+ADB = BASE + "/adb"
+AAPT = BASE + "/build_tools/aapt"
+CLEANER_CONFIG = BASE + "/cleaner_config"
+DEVICES = {}
+COMPRESSION_EXTENSIONS = {}
+
+
+for line in open(BASE + "/compression_identifiers", mode="r", encoding="utf-8").read().split("\n"):
+    if not line:
+        continue
+
+    comp_id, comp_name = line.split(",")
+    COMPRESSION_EXTENSIONS[comp_id] = comp_name
+
+HELP_STR = """Launching without arguments enters the interactive helper loop.
 """
 PARSER = argparse.ArgumentParser(prog="helper",
                                  usage="%(prog)s [-d <serial>] [options]",
-                                 description=HRLP_STR)
-HRLP_STR = """Specify a device you want to work with. Option must be used
+                                 description=HELP_STR)
+HELP_STR = """Specify a device you want to work with. Option must be used
 alongside other option to be effective. If a device is not specified, helper
 will let you pick a device from the list of currently connected device, so this
 option is not needed for every command."""
-PARSER.add_argument("-d", "--device", nargs=1, dest="device", help=HRLP_STR,
+PARSER.add_argument("-d", "--device", nargs=1, dest="device", help=HELP_STR,
                     metavar="serial_no")
 PARSER_GROUP = PARSER.add_mutually_exclusive_group()
-HRLP_STR = """Install an app. Can install a single apk, single apk and
+HELP_STR = """Install an app. Can install a single apk, single apk and
 accompanying obb file, or a series of apk files."""
 PARSER_GROUP.add_argument("-i", "--install", nargs="+", dest="install",
-                          help=HRLP_STR, metavar="file")
-HRLP_STR = """Record the screen of your device. Helper will ask you for
+                          help=HELP_STR, metavar="file")
+HELP_STR = """Record the screen of your device. Helper will ask you for
 confirmation before starting the recording, and a countdown will be shown. Once
 the recording has started, it will stop on its own after the time limit has
 elapsed (3 minutes), or if you press 'ctrl+c'. After the recording has been
@@ -71,21 +86,25 @@ stopped, helper will copy the file to specified location. If a location was not
 specified, the file will be copied to wherever helper is located on your
 drive. NOTE: Sound is not, and cannot be recorded."""
 PARSER_GROUP.add_argument("-r", "--record", nargs="?", const=".", default=None,
-                          dest="record", help=HRLP_STR, metavar="destination")
-HRLP_STR = """Pull the dalvik vm stack traces / anr log file to specified
+                          dest="record", help=HELP_STR, metavar="destination")
+HELP_STR = """Pull the dalvik vm stack traces / anr log file to specified
 location. If a location was not specified, the file will be copied to wherever
 helper is located on your drive."""
 PARSER_GROUP.add_argument("-t", "--pull_traces", nargs="?", const=".",
-                          default=None, dest="pull_traces", help=HRLP_STR,
+                          default=None, dest="pull_traces", help=HELP_STR,
                           metavar="destination")
-#PARSER_GROUP.add_argument("-c", "--clean", nargs="?", const=".", default=None, dest="clean", help=clean_help)
-HRLP_STR = """Show info for all connected devices. If --device was specified,
+HELP_STR = """Clean your device, as specified in cleaner_config file. You can
+tell helper to delete files, directories and uninstall apps. See the contents
+of '{}' for info on how to add items to the list.""".format(CLEANER_CONFIG)
+#PARSER_GROUP.add_argument("-c", "--clean", nargs="?", const=CLEANER_CONFIG,
+#                          default=None, dest="clean", help=HELP_STR)
+HELP_STR = """Show info for all connected devices. If --device was specified,
 information only for that device will be shown."""
 PARSER_GROUP.add_argument("-n", "--info", action="store_true", dest="info",
-                          help=HRLP_STR)
-HRLP_STR = "Show version information."
+                          help=HELP_STR)
+HELP_STR = "Show version information."
 PARSER_GROUP.add_argument("-v", "--version", action="store_true",
-                          dest="version", help=HRLP_STR)
+                          dest="version", help=HELP_STR)
 
 NO_ARGS = PARSER.parse_args([])
 
@@ -101,22 +120,6 @@ def get_script_dir():
 
     path = os.path.realpath(path)
     return os.path.dirname(path)
-
-
-BASE = get_script_dir()
-ADB = BASE + "/adb"
-AAPT = BASE + "/build_tools/aapt"
-CLEANER_CONFIG = BASE + "/cleaner.cfg"
-DEVICES = {}
-COMPRESSION_EXTENSIONS = {}
-
-
-for line in open(BASE + "/compression_identifiers", mode="r", encoding="utf-8").read().split("\n"):
-    if not line:
-        continue
-
-    comp_id, comp_name = line.split(",")
-    COMPRESSION_EXTENSIONS[comp_id] = comp_name
 
 
 def adb_execute(*args, return_output=False, check_server=True, as_list=True):
@@ -870,7 +873,7 @@ def pull_traces(device, output=None):
     return str(Path(output, anr_filename))
 
 
-def clean(device, config=""):
+def clean(device, config=CLEANER_CONFIG):
     pass
 
 
