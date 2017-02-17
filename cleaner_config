@@ -17,7 +17,7 @@
 # Example usage:
 # remove : /mnt/sdcard/Screenshots/*      - Remove all Screenshots
 #
-# remove_recursive : /mnt/sdcard/DCIM     - Remove ALL contents of DCIM
+# remove_recursive : /mnt/sdcard/DCIM     - Remove the whole DCIM dir
 #
 # uninstall : com.android.browser         - Remove a package by its name
 # uninstall : /home/user/Desktop/some.apk - Remove a package by its apk
