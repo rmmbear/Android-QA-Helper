@@ -47,6 +47,20 @@ ABI_TO_ARCH = {"armeabi"    :"32bit (ARM)",
                "mips64"     :"64bit (Mips64)",
               }
 
+
+def get_script_dir():
+    """
+    """
+
+    if getattr(sys, 'frozen', False):
+        path = os.path.abspath(sys.executable)
+    else:
+        path = inspect.getabsfile(get_script_dir)
+
+    path = os.path.realpath(path)
+    return os.path.dirname(path)
+
+
 BASE = get_script_dir()
 ADB = BASE + "/adb"
 AAPT = BASE + "/build_tools/aapt"
@@ -107,19 +121,6 @@ PARSER_GROUP.add_argument("-v", "--version", action="store_true",
                           dest="version", help=HELP_STR)
 
 NO_ARGS = PARSER.parse_args([])
-
-
-def get_script_dir():
-    """
-    """
-
-    if getattr(sys, 'frozen', False):
-        path = os.path.abspath(sys.executable)
-    else:
-        path = inspect.getabsfile(get_script_dir)
-
-    path = os.path.realpath(path)
-    return os.path.dirname(path)
 
 
 def adb_execute(*args, return_output=False, check_server=True, as_list=True):
