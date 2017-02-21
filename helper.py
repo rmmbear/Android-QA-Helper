@@ -138,7 +138,8 @@ def adb_execute(*args, return_output=False, check_server=True, as_list=True):
 
         if return_output:
             cmd_out = subprocess.run((ADB,) + args, stdout=subprocess.PIPE,
-                                     universal_newlines=True).stdout.strip()
+                                     universal_newlines=True, encoding="utf-8"
+                                    ).stdout.strip()
 
             if as_list:
                 return cmd_out.split("\n")
@@ -159,7 +160,8 @@ def aapt_execute(*args, return_output=False, as_list=True):
     try:
         if return_output:
             cmd_out = subprocess.run((AAPT,) + args, stdout=subprocess.PIPE,
-                                     universal_newlines=True).stdout.strip()
+                                     universal_newlines=True, encoding="utf-8"
+                                    ).stdout.strip()
 
             if as_list:
                 return cmd_out.split("\n")
@@ -231,9 +233,7 @@ def get_devices():
 
     if not device_list:
         print("ERROR: No devices found! Check your USB connection and try again.")
-        print()
 
-    print()
     return device_list
 
 
@@ -277,26 +277,6 @@ def pick_device():
 class Device:
     """Container for
     """
-
-    def adb_command(self, *args, return_output=False, check_server=True,
-                    as_list=True):
-        """
-        """
-
-        return adb_execute("-s", self.serial, *args,
-                           return_output=return_output, as_list=as_list,
-                           check_server=check_server)
-
-
-    def shell_command(self, *args, return_output=False, check_server=True,
-                      as_list=True):
-        """
-        """
-
-        return adb_execute("-s", self.serial, "shell", *args,
-                           return_output=return_output, as_list=as_list,
-                           check_server=check_server)
-
 
     def __init__(self, serial, status=None):
 
@@ -351,6 +331,26 @@ class Device:
             self.status = status
 
 
+    def adb_command(self, *args, return_output=False, check_server=True,
+                    as_list=True):
+        """
+        """
+
+        return adb_execute("-s", self.serial, *args,
+                           return_output=return_output, as_list=as_list,
+                           check_server=check_server)
+
+
+    def shell_command(self, *args, return_output=False, check_server=True,
+                      as_list=True):
+        """
+        """
+
+        return adb_execute("-s", self.serial, "shell", *args,
+                           return_output=return_output, as_list=as_list,
+                           check_server=check_server)
+
+
     @property
     def status(self):
         """Device's current state, as announced by adb.
@@ -396,7 +396,7 @@ class Device:
 
             ram = self.shell_command("cat", "/proc/meminfo",
                                      return_output=True)[0]
-            ram = ram.split(":")[-1].strip()
+            ram = ram.split(":", maxsplit=1)[-1].strip()
 
             if ram:
                 ram = str(int(int(ram.split(" ")[0]) /1024)) + " MB"
@@ -428,8 +428,7 @@ class Device:
 
 
     def _get_prop_info(self):
-        """Extract all manner of different info from Android's property
-        list.
+        """Extract all manner of different info from Android's property list.
         """
 
         prop_dump = self.shell_command("getprop", return_output=True)
@@ -439,8 +438,9 @@ class Device:
             if not prop_pair.strip():
                 continue
 
-            prop_name, prop_value = prop_pair.split(": ")
-            prop_dict[prop_name] = prop_value[1:-1]
+            prop_name, prop_val = prop_pair.split(":", maxsplit=1)
+            prop_dict[prop_name.strip()] = prop_val.strip()[1:-1]
+
 
         info = {"Product":{"Model"            :"[ro.product.model]",
                            "Name"             :"[ro.product.name]",
@@ -514,13 +514,13 @@ class Device:
             processor = re.search("(?<=^Processor)[^\n]*", cpuinfo, re.MULTILINE)
 
         if processor:
-            processor = processor.group().split(":")[-1].strip()
+            processor = processor.group().split(":", maxsplit=1)[-1].strip()
 
             self.info["CPU"]["Processor"] = processor
 
         hardware = re.search("(?<=^Hardware)[^\n]*", cpuinfo, re.MULTILINE)
         if hardware:
-            hardware = hardware.group().split(":")[-1].strip()
+            hardware = hardware.group().split(":", maxsplit=1)[-1].strip()
 
             if not self.info["CPU"]["Chipset"]:
                 self.info["CPU"]["Chipset"] = hardware
@@ -560,15 +560,15 @@ class Device:
 
         refresh_rate = re.search("(?<=refresh-rate)[^\n]*", dump)
         if refresh_rate:
-            refresh_rate = refresh_rate.group().split(":")[-1].strip()
+            refresh_rate = refresh_rate.group().split(":", maxsplit=1)[-1].strip()
 
         x_dpi = re.search("(?<=x-dpi)[^\n]*", dump)
         if x_dpi:
-            x_dpi = x_dpi.group().split(":")[-1].strip()
+            x_dpi = x_dpi.group().split(":", maxsplit=1)[-1].strip()
 
         y_dpi = re.search("(?<=y-dpi)[^\n]*", dump)
         if y_dpi:
-            y_dpi = y_dpi.group().split(":")[-1].strip()
+            y_dpi = y_dpi.group().split(":", maxsplit=1)[-1].strip()
 
         vsync = re.search("(?<=VSYNC state:)[^\n]*", dump)
         if vsync:
@@ -897,7 +897,7 @@ def clean(device, config=CLEANER_CONFIG):
 
         count += 1
 
-        pair = line.split(":")
+        pair = line.split(":", maxsplit=1)
         if len(pair) != 2:
             bad_config.append((count, "No value"))
             continue
