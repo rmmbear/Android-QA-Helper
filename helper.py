@@ -69,7 +69,7 @@ DEVICES = {}
 COMPRESSION_EXTENSIONS = {}
 
 
-for line in open(BASE + "/compression_identifiers", mode="r", encoding="utf-8").read().split("\n"):
+for line in open(BASE + "/compression_identifiers", mode="r", encoding="utf-8").read().splitlines():
     if not line:
         continue
 
@@ -142,7 +142,7 @@ def adb_execute(*args, return_output=False, check_server=True, as_list=True):
                                     ).stdout.strip()
 
             if as_list:
-                return cmd_out.split("\n")
+                return cmd_out.splitlines()
 
             return cmd_out
 
@@ -164,7 +164,7 @@ def aapt_execute(*args, return_output=False, as_list=True):
                                     ).stdout.strip()
 
             if as_list:
-                return cmd_out.split("\n")
+                return cmd_out.splitlines()
 
             return cmd_out
 
