@@ -1,4 +1,4 @@
-# lines starting with '#' will be skipped
+# lines starting with '#' will be ignored
 #
 # categories:
 # 'remove'          - Specify a file or directory to be removed. Dirs
@@ -22,9 +22,9 @@
 # uninstall : com.android.browser         - Remove a package by its name
 # uninstall : /home/user/Desktop/some.apk - Remove a package by its apk
 #
-#                               | comma as delimiter
-#                               v
-# replace : /mnt/sdcard/somefile, /home/user/Desktop/someotherfile
-#           ^                     ^
-#           | remote file         | local file
+#                                | comma as delimiter
+#                                v
+# replace : /mnt/sdcard/somefile , /home/user/Desktop/someotherfile
+#            ^                      ^
+#            | remote file          | local file
 #
