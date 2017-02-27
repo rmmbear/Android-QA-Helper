@@ -1,3 +1,12 @@
+# lines starting with '#' will be ignored
+# this file lists known common texture compression types
+# you can extend it by adding extension name string followed by a
+# human-readable name, the two must be comma delimited
+#
+# for reference on GLES extensions, see:
+# https://www.khronos.org/registry/gles/extensions/
+#
+
 GL_AMD_compressed_ATC_texture, ATC
 GL_OES_compressed_ETC1_RGB8_texture, ETC1
 GL_OES_compressed_ETC2_RGB8_texture, ETC2
