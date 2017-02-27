@@ -31,7 +31,7 @@ from time import strftime, sleep
 
 
 VERSION = "0.9"
-VERSION_DATE = "17-02-2017"
+VERSION_DATE = "28-02-2017"
 GITHUB_SOURCE = "https://github.com/rmmbear/Android-QA-Helper"
 VERSION_STRING = " ".join(["Android QA Helper ver", VERSION, ":",
                            VERSION_DATE, ": Copyright (c) 2017 rmmbear"]
@@ -46,6 +46,13 @@ ABI_TO_ARCH = {"armeabi"    :"32bit (ARM)",
                "mips"       :"32bit (Mips)",
                "mips64"     :"64bit (Mips64)",
               }
+
+CLEANER_OPTIONS = {"remove"           :(["shell", "rm", "--"]),
+                   "remove_recursive" :(["shell", "rm", "-r", "--"]),
+                   "uninstall"        :(["uninstall"]),
+                   "replace"          :(["shell", "rm", "-f", "--"],
+                                        ["push"])
+                  }
 
 
 def get_script_dir():
@@ -65,16 +72,23 @@ BASE = get_script_dir()
 ADB = BASE + "/adb"
 AAPT = BASE + "/build_tools/aapt"
 CLEANER_CONFIG = BASE + "/cleaner_config"
+COMPRESSION_DEFINITIONS = BASE + "/compression_identifiers"
 DEVICES = {}
-COMPRESSION_EXTENSIONS = {}
+COMPRESSION_TYPES = {}
 
+def load_compression_types():
+    """
+    """
 
-for line in open(BASE + "/compression_identifiers", mode="r", encoding="utf-8").read().splitlines():
-    if not line:
-        continue
+    with open(COMPRESSION_DEFINITIONS, mode="r", encoding="utf-8") as comps:
+        for line in comps.read().splitlines():
+            if not line or line.startswith("#"):
+                continue
 
-    comp_id, comp_name = line.split(",")
-    COMPRESSION_EXTENSIONS[comp_id] = comp_name
+            comp_id, comp_name = line.split(",")
+            COMPRESSION_TYPES[comp_id] = comp_name
+
+load_compression_types()
 
 HELP_STR = """Launching without arguments enters the interactive helper loop.
 """
@@ -232,15 +246,14 @@ def get_devices():
             device_list.append(device)
 
     if not device_list:
-        print("ERROR: No devices found! Check your USB connection and try again.")
+        print("ERROR: No devices found! Check USB connection and try again.")
 
     return device_list
 
 
 def pick_device():
-    """Asks the user to pick which device they want to use. If there are
-    no devices to choose from it will return the sole connected device
-    or None.
+    """Asks the user to pick which device they want to use. If there are no
+    devices to choose from it will return the sole connected device or None.
     """
 
     device_list = get_devices()
@@ -588,7 +601,7 @@ class Device:
         self.info["Display"]["Y-DPI"] = y_dpi
 
         compressions = []
-        for identifier, name in COMPRESSION_EXTENSIONS.items():
+        for identifier, name in COMPRESSION_TYPES.items():
             if identifier in dump:
                 compressions.append(name.strip())
 
@@ -849,16 +862,12 @@ def pull_traces(device, output=None):
     """
     """
 
-    # I have enountered devices which have the anr file set to read-only
-    # that's why I am using 'cat anr > file' instead of just an 'adb pull'
-
     if output is None:
         output = Path()
     else:
         output = Path(output)
 
     output.mkdir(exist_ok=True)
-    output = output.resolve()
 
     anr_filename = "".join([device.info["Product"]["Model"], "_anr_",
                             strftime("%Y.%m.%d_%H.%M.%S"), ".txt"])
@@ -870,23 +879,19 @@ def pull_traces(device, output=None):
     # device might have been suddenly disconnected during cat-ing
     # which will result in only partial log
 
-    with open(str(output) + anr_filename, mode="w", encoding="utf-8") as anr_file:
+    # maybe 'mv /data/anr/traces/ /mnt/sdcard/tmp_traces' and use adb pull?
+    # may be a bit messy...
+
+    with (output / anr_filename).open(mode="w", encoding="utf-8") as anr_file:
         anr_file.write(traces)
 
-    return str(Path(output, anr_filename))
+    return str((output / anr_filename).resolve())
 
-
-def clean(device, config=CLEANER_CONFIG):
+def parse_cleaner_config(config=CLEANER_CONFIG):
+    """Function for parsing cleaner config files. Returns tuple containing a
+    parsed config (dict) and bad config (list). The former can be passed to
+    clean().
     """
-    """
-    # TODO: Test each cleaning action for success / failure
-    # TODO: Count the number of removed files / apps
-
-    known_options = {"remove"           :(["shell", "rm", "--"]),
-                     "remove_recursive" :(["shell", "rm", "-r", "--"]),
-                     "uninstall"        :(["uninstall"]),
-                     "replace"          :(["shell", "rm", "-f", "--"], ["push"])
-                    }
 
     parsed_config = {}
     bad_config = []
@@ -905,7 +910,7 @@ def clean(device, config=CLEANER_CONFIG):
         key = pair[0].strip()
         value = pair[1].strip()
 
-        if key not in known_options:
+        if key not in CLEANER_OPTIONS:
             bad_config.append((count, "Unknown command"))
             continue
 
@@ -939,6 +944,21 @@ def clean(device, config=CLEANER_CONFIG):
 
             parsed_config[key].append(value)
 
+
+    return (parsed_config, bad_config)
+
+
+def clean(device, config=CLEANER_CONFIG, parsed_config=None, force=False):
+    """
+    """
+    # TODO: Test each cleaning action for success / failure
+    # TODO: Count the number of removed files / apps
+
+    bad_config = []
+
+    if not parsed_config:
+        parsed_config, bad_config = parse_cleaner_config(config=config)
+
     if bad_config:
         print("Errors encountered in the config file")
         print("(", config, ")", sep="")
@@ -946,14 +966,49 @@ def clean(device, config=CLEANER_CONFIG):
         for line, reason in bad_config:
             print(indent*" ", "Line", line, "-", reason)
 
-    print(parsed_config)
+        print("Aborting cleaning!")
+        return False
+
+    if not parsed_config:
+        print("Empty config! Cannot clean!")
+        return False
+
+    if not force:
+        print("The following actions will be performed:")
+        indent = 2
+        for key, action in [("remove", "remove"),
+                            ("remove_recursive", "remove"),
+                            ("uninstall", "uninstall")]:
+
+            if key not in parsed_config:
+                continue
+
+            for item in parsed_config[key]:
+                print(action, ":", item)
+
+        if "replace" in parsed_config:
+            print()
+            for pair in parsed_config["replace"]:
+                print("The file:", pair[0])
+                print(indent * " ", end="")
+                print("will be replaced with:")
+                print(indent * 2 * " ", end="")
+                print(pair[1])
+
+        print()
+        print("Is this ok?")
+
+        while True:
+            usr_choice = input("Y/N : ").strip().upper()
+            if usr_choice == "N":
+                print("User canceled cleaning")
+                return False
+            elif usr_choice == "Y":
+                break
 
     for option, value in parsed_config.items():
         for item in value:
             if option == "replace":
-                print(*known_options[option][0], item[0])
-                print(*known_options[option][1], item[1], item[0])
-                input()
                 remote = ""
                 if item[0][0] not in ["'", "\""]:
                     remote = "\"" + item[0]
@@ -961,12 +1016,10 @@ def clean(device, config=CLEANER_CONFIG):
                 if remote[-1] not in ["'", "\""]:
                     remote += "\""
 
-                device.adb_command(*known_options[option][0], remote)
-                device.adb_command(*known_options[option][1], item[1], item[0])
+                device.adb_command(*CLEANER_OPTIONS[option][0], remote)
+                device.adb_command(*CLEANER_OPTIONS[option][1], item[1], item[0])
             else:
-                print(*known_options[option], item)
-                input()
-                device.adb_command(*known_options[option], item)
+                device.adb_command(*CLEANER_OPTIONS[option], item)
 
 
 if __name__ == "__main__" or __name__ == "helper__main__":
