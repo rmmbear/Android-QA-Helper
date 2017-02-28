@@ -68,14 +68,6 @@ def get_script_dir():
     return os.path.dirname(path)
 
 
-BASE = get_script_dir()
-ADB = BASE + "/adb"
-AAPT = BASE + "/build_tools/aapt"
-CLEANER_CONFIG = BASE + "/cleaner_config"
-COMPRESSION_DEFINITIONS = BASE + "/compression_identifiers"
-DEVICES = {}
-COMPRESSION_TYPES = {}
-
 def load_compression_types():
     """
     """
@@ -88,7 +80,17 @@ def load_compression_types():
             comp_id, comp_name = line.split(",")
             COMPRESSION_TYPES[comp_id] = comp_name
 
+
+BASE = get_script_dir()
+ADB = BASE + "/adb"
+AAPT = BASE + "/build_tools/aapt"
+CLEANER_CONFIG = BASE + "/cleaner_config"
+COMPRESSION_DEFINITIONS = BASE + "/compression_identifiers"
+DEVICES = {}
+COMPRESSION_TYPES = {}
+
 load_compression_types()
+
 
 HELP_STR = """Launching without arguments enters the interactive helper loop.
 """
@@ -645,36 +647,30 @@ def install(device, items):
     """
 
     app_list = []
-    obb = None
+    obb_list = []
 
     for item in items:
         if item[-3:].lower() == "apk":
             app_list.append(item)
 
         if item[-3:].lower() == "obb":
-            if obb:
-                print("OBB ambiguity!",
-                      "Only one obb file can be pushed at a time!")
-                return False
+            obb_list.append(item)
 
-            obb = item
-
-    if len(app_list) > 1 and obb:
+    if len(app_list) > 1 and obb_list:
         print("APK ambiguity! Only one apk file can be installed when",
-              "also pushing obb file!")
+              "also pushing obb files!")
         return False
 
     if not app_list:
         print("No APK found among provided files, aborting!")
         return False
 
-    if not obb:
+    if not obb_list:
         app_failure = []
         for app in app_list:
             app_name = aapt_execute("dump", "badging", app,
                                     return_output=True, as_list=False)
             app_name = re.search("(?<=name=')[^']*", app_name).group()
-
 
             print("BEGINNING INSTALLATION:", app_name)
             print("Your device may ask you for confirmation!\n")
@@ -710,9 +706,11 @@ def install(device, items):
 
         print("BEGINNING COPYING OBB FILE FOR:", app_name)
 
-        if not push_obb(device, obb, app_name):
-            print("OBB COPYING FAILED")
-            return False
+        for obb_file in obb_list:
+            if not push_obb(device, obb_file, app_name):
+                print("OBB COPYING FAILED")
+                print("Failed to copy", obb_file)
+                return False
 
         print("SUCCESSFULLY COPIED OBB FILE TO ITS DESTINATION.\n")
         print("Installation complete!")
