@@ -642,8 +642,8 @@ class Device:
 
 def install(device, items):
     """Installs apps.
-    Accepts either a list of apk paths, or list with one apk and one obb
-    path.
+    Accepts either a list of apk files, or list with one apk and as many obb
+    files as you like.
     """
 
     app_list = []
@@ -768,7 +768,12 @@ def install_apk(device, apk_file, app_name, ignore_uninstall_err=False):
 
 
 def push_obb(device, obb_file, app_name):
-    """
+    """Push <obb_file> to /mnt/sdcard/Android/obb/<your.app.name> on <Device>.
+
+    Clears contents of the obb folder and recreates it if necessary. File is
+    then copied to internal storage (/mnt/sdcard/), and from there to the obb
+    folder. This is done in two steps because of write protection of sorts --
+    attempts to adb push it directly into obb folder may fail on some devices.
     """
     obb_folder = "/mnt/sdcard/Android/obb"
 
@@ -857,7 +862,7 @@ def record(device, output=None):
 
 
 def pull_traces(device, output=None):
-    """
+    """Copy contents of the 'traces' into file in the specified folder.
     """
 
     if output is None:
