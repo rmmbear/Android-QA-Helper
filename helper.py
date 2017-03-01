@@ -97,29 +97,28 @@ HELP_STR = """Launching without arguments enters the interactive helper loop.
 PARSER = argparse.ArgumentParser(prog="helper",
                                  usage="%(prog)s [-d <serial>] [options]",
                                  description=HELP_STR)
-HELP_STR = """Specify a device you want to work with. Option must be used
-alongside other option to be effective. If a device is not specified, helper
-will let you pick a device from the list of currently connected device, so this
-option is not needed for every command."""
+HELP_STR = """Specify a device you want to work with. Must be used alongside
+other options to be effective. This argument is optional and if not specified,
+helper will let you choose from the list of currently connected devices."""
 PARSER.add_argument("-d", "--device", nargs=1, dest="device", help=HELP_STR,
                     metavar="serial_no")
 PARSER_GROUP = PARSER.add_mutually_exclusive_group()
 HELP_STR = """Install an app. Can install a single apk, single apk and
-accompanying obb file, or a series of apk files."""
+accompanying obb file (multiple obb files are accepted, but there can be only
+one apk present when pushing obb files), or series of apks."""
 PARSER_GROUP.add_argument("-i", "--install", nargs="+", dest="install",
                           help=HELP_STR, metavar="file")
 HELP_STR = """Record the screen of your device. Helper will ask you for
-confirmation before starting the recording, and a countdown will be shown. Once
-the recording has started, it will stop on its own after the time limit has
-elapsed (3 minutes), or if you press 'ctrl+c'. After the recording has been
-stopped, helper will copy the file to specified location. If a location was not
-specified, the file will be copied to wherever helper is located on your
-drive. NOTE: Sound is not, and cannot be recorded."""
+confirmation before starting the recording. Once the recording has started, it
+will stop on its own after the time limit has elapsed (3 minutes), or if you
+press 'ctrl+c'. After the recording has been stopped, helper will copy the file
+to specified location. If a location was not specified, the file will be copied
+to wherever helper is located. NOTE: Sound is not, and cannot be recorded."""
 PARSER_GROUP.add_argument("-r", "--record", nargs="?", const=".", default=None,
                           dest="record", help=HELP_STR, metavar="destination")
 HELP_STR = """Pull the dalvik vm stack traces / anr log file to specified
-location. If a location was not specified, the file will be copied to wherever
-helper is located on your drive."""
+location. If a location is not specified, the file will be copied to wherever
+helper is located."""
 PARSER_GROUP.add_argument("-t", "--pull_traces", nargs="?", const=".",
                           default=None, dest="pull_traces", help=HELP_STR,
                           metavar="destination")
