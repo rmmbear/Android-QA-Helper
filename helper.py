@@ -649,7 +649,7 @@ def get_app_name(apk_file):
                             as_list=False)
     app_name = re.search("(?<=name=')[^']*", app_dump)
 
-    if app name:
+    if app_name:
         return app_name.group()
 
     return ""
