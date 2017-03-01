@@ -831,7 +831,7 @@ def record(device, output=None):
 
     Path(output).mkdir(exist_ok=True)
 
-    filename = "screenrecord_" + strftime("%Y.%m.%d_%H.%M.%S")
+    filename = "screenrecord_" + strftime("%Y.%m.%d_%H.%M.%S") + ".mp4"
     remote_recording = "/mnt/sdcard/" + filename
 
     filename = device.info["Product"]["Model"] + "_" + filename
@@ -914,7 +914,7 @@ def parse_cleaner_config(config=CLEANER_CONFIG):
         if line.startswith("#") or not line.strip():
             continue
 
-        count += 1
+        count += 1 # start from 1 not 0
 
         pair = line.split(":", maxsplit=1)
         if len(pair) != 2:
