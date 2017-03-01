@@ -31,7 +31,7 @@ from time import strftime, sleep
 
 
 VERSION = "0.9"
-VERSION_DATE = "28-02-2017"
+VERSION_DATE = "01-03-2017"
 GITHUB_SOURCE = "https://github.com/rmmbear/Android-QA-Helper"
 VERSION_STRING = " ".join(["Android QA Helper ver", VERSION, ":",
                            VERSION_DATE, ": Copyright (c) 2017 rmmbear"]
@@ -821,9 +821,9 @@ def push_obb(device, obb_file, app_name):
 
 def record(device, output=None):
     """Start recording device's screen.
-    Recording can be stopped by either reaching the time limit, or pressing ctrl+c.
-    After the recording has stopped, the helper confirms that the recording has
-    been saved to device's storage and copies it to user's drive.
+    Recording can be stopped by either reaching the time limit, or pressing
+    ctrl+c. After the recording has stopped, the helper confirms that the
+    recording has been saved to device's storage and copies it to drive.
     """
 
     if not output:
@@ -1042,9 +1042,8 @@ if __name__ == "__main__" or __name__ == "helper__main__":
     CHOSEN_DEVICE = None
 
     if ARGS == NO_ARGS:
-        import helper_interactive
-
-        helper_interactive.interactive_loop()
+        # no arguments passed, display help
+        PARSER.parse_args(["-h"])
         sys.exit()
 
     if ARGS.version:
@@ -1060,7 +1059,7 @@ if __name__ == "__main__" or __name__ == "helper__main__":
             print("Device with serial number", ARGS.device,
                   "was not found by Helper!")
             print("Check your usb connection and make sure",
-                  "you're typing in a valid serial number.\n")
+                  "you're entering a valid serial number.\n")
             sys.exit()
 
         CHOSEN_DEVICE = DEVICES[ARGS.device]
@@ -1077,16 +1076,14 @@ if __name__ == "__main__" or __name__ == "helper__main__":
         if destination:
             print("Traces file was saved to:", destination, sep="\n")
         else:
-            print("Unexpected error occurred --",
-                  "could not save traces to drive")
+            print("Unexpected error -- could not save traces to drive")
 
     if ARGS.record:
         destination = record(CHOSEN_DEVICE, ARGS.record)
         if destination:
             print("Recording was saved to:", destination, sep="\n")
         else:
-            print("Unexpected error occurred --",
-                  "could not save recording to drive")
+            print("Unexpected error -- could not save recording to drive")
 
     if ARGS.clean:
         D = []
