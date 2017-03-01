@@ -640,6 +640,21 @@ class Device:
         print("Compression Types: ", self.info["GPU"]["Compression Types"])
 
 
+def get_app_name(apk_file):
+    """Extracts app name of the provided apk, from its manifest file.
+    Returns name if it is found, an empty string otherwise.
+    """
+
+    app_dump = aapt_execute("dump", "badging", apk_file, return_output=True,
+                            as_list=False)
+    app_name = re.search("(?<=name=')[^']*", app_dump)
+
+    if app name:
+        return app_name.group()
+
+    return ""
+
+
 def install(device, items):
     """Installs apps.
     Accepts either a list of apk files, or list with one apk and as many obb
@@ -668,9 +683,7 @@ def install(device, items):
     if not obb_list:
         app_failure = []
         for app in app_list:
-            app_name = aapt_execute("dump", "badging", app,
-                                    return_output=True, as_list=False)
-            app_name = re.search("(?<=name=')[^']*", app_name).group()
+            app_name = get_app_name(app)
 
             print("BEGINNING INSTALLATION:", app_name)
             print("Your device may ask you for confirmation!\n")
@@ -694,9 +707,7 @@ def install(device, items):
 
     else:
         app = app_list[0]
-        app_name = aapt_execute("dump", "badging", app,
-                                return_output=True, as_list=False)
-        app_name = re.search("(?<=name=')[^']*", app_name).group()
+        app_name = get_app_name(app)
 
         if not install_apk(device, app, app_name):
             print("FAILED TO INSTALL:", app_name)
