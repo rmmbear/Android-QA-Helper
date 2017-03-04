@@ -24,11 +24,11 @@ import os
 import re
 import subprocess
 import sys
+import xml.etree.ElementTree as ET
 from argparse import ArgumentParser
 from collections import OrderedDict
 from pathlib import Path
 from time import strftime, sleep
-
 
 VERSION = "0.9"
 VERSION_DATE = "04-03-2017"
@@ -86,9 +86,9 @@ ADB = BASE + "/adb"
 AAPT = BASE + "/build_tools/aapt"
 CLEANER_CONFIG = BASE + "/cleaner_config"
 COMPRESSION_DEFINITIONS = BASE + "/compression_identifiers"
+
 DEVICES = {}
 COMPRESSION_TYPES = {}
-
 load_compression_types()
 
 
@@ -620,6 +620,10 @@ class Device:
         self.info["GPU"]["Compression Types"] = ", ".join(compressions)
 
 
+    def dump_xml(self):
+        pass
+
+
     def print_full_info(self):
         """
         """
@@ -1043,7 +1047,7 @@ def clean(device, config=CLEANER_CONFIG, parsed_config=None, force=False):
                 device.adb_command(*CLEANER_OPTIONS[option], item)
 
 
-if __name__ == "__main__" or __name__ == "helper__main__":
+def main():
     ARGS = PARSER.parse_args()
 
     CHOSEN_DEVICE = None
