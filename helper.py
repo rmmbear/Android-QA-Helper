@@ -19,19 +19,19 @@
 Work in progress, bless this mess.
 """
 
-import argparse
 import inspect
 import os
 import re
 import subprocess
 import sys
+from argparse import ArgumentParser
 from collections import OrderedDict
 from pathlib import Path
 from time import strftime, sleep
 
 
 VERSION = "0.9"
-VERSION_DATE = "01-03-2017"
+VERSION_DATE = "04-03-2017"
 GITHUB_SOURCE = "https://github.com/rmmbear/Android-QA-Helper"
 VERSION_STRING = " ".join(["Android QA Helper ver", VERSION, ":",
                            VERSION_DATE, ": Copyright (c) 2017 rmmbear"]
@@ -92,11 +92,7 @@ COMPRESSION_TYPES = {}
 load_compression_types()
 
 
-HELP_STR = """Launching without arguments enters the interactive helper loop.
-"""
-PARSER = argparse.ArgumentParser(prog="helper",
-                                 usage="%(prog)s [-d <serial>] [options]",
-                                 description=HELP_STR)
+PARSER = ArgumentParser(prog="helper", usage="%(prog)s [-d <serial>] [options]")
 HELP_STR = """Specify a device you want to work with. Must be used alongside
 other options to be effective. This argument is optional and if not specified,
 helper will let you choose from the list of currently connected devices."""
@@ -409,11 +405,16 @@ class Device:
             self._get_cpu_info()
 
             ram = self.shell_command("cat", "/proc/meminfo",
-                                     return_output=True)[0]
-            ram = ram.split(":", maxsplit=1)[-1].strip()
+                                     return_output=True)
 
             if ram:
-                ram = str(int(int(ram.split(" ")[0]) /1024)) + " MB"
+                ram = ram[0].split(":", maxsplit=1)[-1].strip()
+                try:
+                    ram = str(int(int(ram.split(" ")[0]) /1024)) + " MB"
+                except ValueError:
+                    ram = None
+            else:
+                ram = None
 
             self.info["RAM"]["Total"] = ram
 
@@ -452,8 +453,11 @@ class Device:
             if not prop_pair.strip():
                 continue
 
-            prop_name, prop_val = prop_pair.split(":", maxsplit=1)
-            prop_dict[prop_name.strip()] = prop_val.strip()[1:-1]
+            props = prop_pair.split(":", maxsplit=1)
+            if len(props) != 2:
+                continue
+
+            prop_dict[props[0].strip()] = props[1].strip()[1:-1]
 
 
         info = {"Product":{"Model"            :"[ro.product.model]",
@@ -474,6 +478,10 @@ class Device:
                     continue
 
                 self.info[info_category][info_key] = prop_dict[prop_name]
+
+        self.anr_trace_path = None
+        board = None
+        main_abi = None
 
 
         if "[dalvik.vm.stack-trace-file]" in prop_dict:
