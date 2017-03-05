@@ -1,3 +1,3 @@
-from helper.helper import main
+from helper.cli import main
 
 main()
