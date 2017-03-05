@@ -43,6 +43,9 @@ BASE = get_script_dir()
 DEFAULT_ADB = BASE + "/adb/adb"
 DEFAULT_AAPT = BASE + "/build_tools/aapt"
 
+if sys.platform == "win32":
+    DEFAULT_AAPT += ".exe"
+    DEFAULT_ADB += ".exe"
 
 ADB = shutil.which("adb")
 if not ADB:
