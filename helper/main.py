@@ -14,29 +14,23 @@
 #   You should have received a copy of the GNU General Public License
 #   along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-"""Program for performing common ADB operations automatically.
-
-Work in progress, bless this mess.
+"""Program for performing common Android operations.
+Current functionality includes:
+    - Installing apps
+    - Pulling dalvik vm stack traces
+    - Recording device's screen (Android 4.4+)
+    - Cleaning device's storage with customizable cleaning config
 """
 
-import inspect
-import os
 import re
 import subprocess
-import sys
 import xml.etree.ElementTree as ET
-from argparse import ArgumentParser
-from collections import OrderedDict
-from pathlib import Path
 from time import strftime, sleep
+import helper as _helper
+from helper import sys
+from helper import Path
+from helper import OrderedDict
 
-VERSION = "0.9"
-VERSION_DATE = "04-03-2017"
-GITHUB_SOURCE = "https://github.com/rmmbear/Android-QA-Helper"
-VERSION_STRING = " ".join(["Android QA Helper ver", VERSION, ":",
-                           VERSION_DATE, ": Copyright (c) 2017 rmmbear"]
-                         )
-SOURCE_STRING = "Check the source code at " + GITHUB_SOURCE
 
 ABI_TO_ARCH = {"armeabi"    :"32bit (ARM)",
                "armeabi-v7a":"32bit (ARM)",
@@ -54,86 +48,11 @@ CLEANER_OPTIONS = {"remove"           :(["shell", "rm", "--"]),
                                         ["push"])
                   }
 
-
-def get_script_dir():
-    """
-    """
-
-    if getattr(sys, 'frozen', False):
-        path = os.path.abspath(sys.executable)
-    else:
-        path = inspect.getabsfile(get_script_dir)
-
-    path = os.path.realpath(path)
-    return os.path.dirname(path)
-
-
-def load_compression_types():
-    """
-    """
-
-    with open(COMPRESSION_DEFINITIONS, mode="r", encoding="utf-8") as comps:
-        for line in comps.read().splitlines():
-            if not line or line.startswith("#"):
-                continue
-
-            comp_id, comp_name = line.split(",")
-            COMPRESSION_TYPES[comp_id] = comp_name
-
-
-BASE = get_script_dir()
-ADB = BASE + "/adb"
-AAPT = BASE + "/build_tools/aapt"
-CLEANER_CONFIG = BASE + "/cleaner_config"
-COMPRESSION_DEFINITIONS = BASE + "/compression_identifiers"
-
 DEVICES = {}
-COMPRESSION_TYPES = {}
-load_compression_types()
-
-
-PARSER = ArgumentParser(prog="helper", usage="%(prog)s [-d <serial>] [options]")
-HELP_STR = """Specify a device you want to work with. Must be used alongside
-other options to be effective. This argument is optional and if not specified,
-helper will let you choose from the list of currently connected devices."""
-PARSER.add_argument("-d", "--device", nargs=1, dest="device", help=HELP_STR,
-                    metavar="serial_no")
-PARSER_GROUP = PARSER.add_mutually_exclusive_group()
-HELP_STR = """Install an app. Can install a single apk, single apk and
-accompanying obb file (multiple obb files are accepted, but there can be only
-one apk present when pushing obb files), or series of apks."""
-PARSER_GROUP.add_argument("-i", "--install", nargs="+", dest="install",
-                          help=HELP_STR, metavar="file")
-HELP_STR = """Record the screen of your device. Helper will ask you for
-confirmation before starting the recording. Once the recording has started, it
-will stop on its own after the time limit has elapsed (3 minutes), or if you
-press 'ctrl+c'. After the recording has been stopped, helper will copy the file
-to specified location. If a location was not specified, the file will be copied
-to wherever helper is located. NOTE: Sound is not, and cannot be recorded."""
-PARSER_GROUP.add_argument("-r", "--record", nargs="?", const=".", default=None,
-                          dest="record", help=HELP_STR, metavar="destination")
-HELP_STR = """Pull the dalvik vm stack traces / anr log file to specified
-location. If a location is not specified, the file will be copied to wherever
-helper is located."""
-PARSER_GROUP.add_argument("-t", "--pull_traces", nargs="?", const=".",
-                          default=None, dest="pull_traces", help=HELP_STR,
-                          metavar="destination")
-HELP_STR = """Clean your device, as specified in cleaner_config file. You can
-tell helper to delete files or directories, uninstall apps and replace files on
-device with ones from your drive. See the contents of '{}' for info on how to
-add items to the list.""".format(CLEANER_CONFIG)
-PARSER_GROUP.add_argument("-c", "--clean", nargs="?", const=CLEANER_CONFIG,
-                          default=None, dest="clean", help=HELP_STR,
-                          metavar="config")
-HELP_STR = """Show info for all connected devices. If --device was specified,
-information only for that device will be shown."""
-PARSER_GROUP.add_argument("-n", "--info", action="store_true", dest="info",
-                          help=HELP_STR)
-HELP_STR = "Show version information."
-PARSER_GROUP.add_argument("-v", "--version", action="store_true",
-                          dest="version", help=HELP_STR)
-
-NO_ARGS = PARSER.parse_args([])
+COMPRESSION_TYPES = _helper.COMPRESSION_TYPES
+ADB = _helper.ADB
+AAPT = _helper.AAPT
+CLEANER_CONFIG = _helper.CLEANER_CONFIG
 
 
 def adb_execute(*args, return_output=False, check_server=True, as_list=True):
@@ -696,7 +615,7 @@ def install(device, items):
         for app in app_list:
             app_name = get_app_name(app)
 
-            print("BEGINNING INSTALLATION:", app_name)
+            print("\nBEGINNING INSTALLATION:", app_name)
             print("Your device may ask you for confirmation!\n")
 
             if not install_apk(device, app, app_name):
@@ -912,6 +831,7 @@ def pull_traces(device, output=None):
 
     return str((output / anr_filename).resolve())
 
+
 def parse_cleaner_config(config=CLEANER_CONFIG):
     """Function for parsing cleaner config files. Returns tuple containing a
     parsed config (dict) and bad config (list). The former can be passed to
@@ -957,6 +877,10 @@ def parse_cleaner_config(config=CLEANER_CONFIG):
                 if not Path(value).is_file():
                     parsed_config[key].append(value)
                     continue
+
+                parsed_config[key].append(get_app_name(value))
+                continue
+
             if " " not in value:
                 parsed_config[key].append(value)
                 continue
@@ -1045,73 +969,3 @@ def clean(device, config=CLEANER_CONFIG, parsed_config=None, force=False):
                 device.adb_command(*CLEANER_OPTIONS[option][1], item[1], item[0])
             else:
                 device.adb_command(*CLEANER_OPTIONS[option], item)
-
-
-def main():
-    ARGS = PARSER.parse_args()
-
-    CHOSEN_DEVICE = None
-
-    if ARGS == NO_ARGS:
-        # no arguments passed, display help
-        PARSER.parse_args(["-h"])
-        sys.exit()
-
-    if ARGS.version:
-        print(VERSION_STRING)
-        print(SOURCE_STRING)
-        print()
-        sys.exit()
-
-    if ARGS.device:
-        get_devices()
-
-        if not ARGS.device in get_devices():
-            print("Device with serial number", ARGS.device,
-                  "was not found by Helper!")
-            print("Check your usb connection and make sure",
-                  "you're entering a valid serial number.\n")
-            sys.exit()
-
-        CHOSEN_DEVICE = DEVICES[ARGS.device]
-    elif not ARGS.info:
-        CHOSEN_DEVICE = pick_device()
-        if not CHOSEN_DEVICE:
-            sys.exit()
-
-    if ARGS.install:
-        install(CHOSEN_DEVICE, ARGS.install)
-
-    if ARGS.pull_traces:
-        destination = pull_traces(CHOSEN_DEVICE, ARGS.pull_traces)
-        if destination:
-            print("Traces file was saved to:", destination, sep="\n")
-        else:
-            print("Unexpected error -- could not save traces to drive")
-
-    if ARGS.record:
-        destination = record(CHOSEN_DEVICE, ARGS.record)
-        if destination:
-            print("Recording was saved to:", destination, sep="\n")
-        else:
-            print("Unexpected error -- could not save recording to drive")
-
-    if ARGS.clean:
-        D = []
-        if CHOSEN_DEVICE:
-            D = [CHOSEN_DEVICE]
-        else:
-            D.extend(get_devices())
-
-        for d in D:
-            clean(d, ARGS.clean)
-
-    if ARGS.info:
-        D = []
-        if CHOSEN_DEVICE:
-            D = [CHOSEN_DEVICE]
-        else:
-            D.extend(get_devices())
-
-        for d in D:
-            d.print_full_info()
