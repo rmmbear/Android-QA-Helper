@@ -756,6 +756,17 @@ def record(device, output=None):
     recording has been saved to device's storage and copies it to drive.
     """
 
+    if not "screenrecord" in device.available_commands:
+        # it is dependent on Android version, but let's look for command instead
+        # just to be safe
+        android_ver = device.info["OS"]["Android Version"]
+        api_level = device.info["OS"]["Android API Level"]
+        print("This device's shell does not have the 'screenrecord' command.",
+              "Screenrecord command is available on all devices with Android",
+              "4.4 or higher (API level 19 or higher)",
+              "your device has Android {} (API level {})".format(android_ver, api_level))
+
+
     if not output:
         output = "./"
 
@@ -767,10 +778,15 @@ def record(device, output=None):
     filename = device.info["Product"]["Model"] + "_" + filename
     output = str(Path(Path(output).resolve(), filename))
 
-    print("Helper will record your device's screen (audio is not captured).")
-    print("The recording will stop after pressing 'ctrl+c', or if 3 minutes have elapsed.")
-    print("Recording will be then saved to '{}'".format(output))
-    input("Press enter whenever you are ready to record.\n")
+    print("Helper will record your device's screen (audio is not captured).",
+          "The recording will stop after pressing 'ctrl+c', or if 3 minutes",
+          "have elapsed. Recording will be then saved to '{}'".format(output))
+    try:
+        input("Press enter whenever you are ready to record.\n")
+    except KeyboardInterrupt:
+        print("\nRecording canceled bu user.")
+        sys.exit()
+
 
     try:
         device.shell_command("screenrecord", "--verbose", remote_recording,
