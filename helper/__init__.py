@@ -1,3 +1,19 @@
+#         Android QA Helper - helping you test Android apps!
+#          Copyright (C) 2017  rmmbear
+#
+#   This program is free software: you can redistribute it and/or modify
+#   it under the terms of the GNU General Public License as published by
+#   the Free Software Foundation, either version 3 of the License, or
+#   (at your option) any later version.
+#
+#   This program is distributed in the hope that it will be useful,
+#   but WITHOUT ANY WARRANTY; without even the implied warranty of
+#   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#   GNU General Public License for more details.
+#
+#   You should have received a copy of the GNU General Public License
+#   along with this program. If not, see <http://www.gnu.org/licenses/>.
+
 import sys
 import os
 import inspect
@@ -40,8 +56,8 @@ def load_compression_types():
 
 
 BASE = get_script_dir()
-DEFAULT_ADB = BASE + "../adb/adb"
-DEFAULT_AAPT = BASE + "../aapt/aapt"
+DEFAULT_ADB = BASE + "/../adb/adb"
+DEFAULT_AAPT = BASE + "/../aapt/aapt"
 
 if sys.platform == "win32":
     DEFAULT_AAPT += ".exe"
@@ -54,6 +70,7 @@ if not ADB:
     else:
         print("Helper could not find ADB, which is required for this program.")
         print("Please enter the path pointing to ADB binary and press enter")
+        print(DEFAULT_ADB)
         user_adb = input(": ").strip()
         if not Path(user_adb).is_file():
             print("Provided path is not a file!")
@@ -68,6 +85,7 @@ if not AAPT:
     else:
         print("Helper could not find AAPT, which is required for this program.")
         print("Please enter the path pointing to AAPT binary and press enter")
+        print(DEFAULT_AAPT)
         user_aapt = input(": ").strip()
         if not Path(user_aapt).is_file():
             print("Provided path is not a file!")
@@ -75,7 +93,7 @@ if not AAPT:
 
         AAPT = str(Path(user_aapt).resolve())
 
-CLEANER_CONFIG = BASE + "../cleaner_config"
-COMPRESSION_DEFINITIONS = BASE + "../compression_identifiers"
+CLEANER_CONFIG = BASE + "/../cleaner_config"
+COMPRESSION_DEFINITIONS = BASE + "/../compression_identifiers"
 COMPRESSION_TYPES = {}
 load_compression_types()
