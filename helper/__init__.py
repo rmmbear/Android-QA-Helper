@@ -40,8 +40,8 @@ def load_compression_types():
 
 
 BASE = get_script_dir()
-DEFAULT_ADB = BASE + "/adb/adb"
-DEFAULT_AAPT = BASE + "/build_tools/aapt"
+DEFAULT_ADB = BASE + "../adb/adb"
+DEFAULT_AAPT = BASE + "../aapt/aapt"
 
 if sys.platform == "win32":
     DEFAULT_AAPT += ".exe"
@@ -75,7 +75,7 @@ if not AAPT:
 
         AAPT = str(Path(user_aapt).resolve())
 
-CLEANER_CONFIG = BASE + "/cleaner_config"
-COMPRESSION_DEFINITIONS = BASE + "/compression_identifiers"
+CLEANER_CONFIG = BASE + "../cleaner_config"
+COMPRESSION_DEFINITIONS = BASE + "../compression_identifiers"
 COMPRESSION_TYPES = {}
 load_compression_types()
