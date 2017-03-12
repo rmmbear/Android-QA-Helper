@@ -29,6 +29,22 @@ VERSION_STRING = " ".join(["Android QA Helper ver", VERSION, ":",
                          )
 SOURCE_STRING = "Check the source code at " + GITHUB_SOURCE
 
+ABI_TO_ARCH = {"armeabi"    :"32bit (ARM)",
+               "armeabi-v7a":"32bit (ARM)",
+               "arm64-v8a"  :"64bit (ARM64)",
+               "x86"        :"32bit (Intel x86)",
+               "x86_64"     :"64bit (Intel x86_64)",
+               "mips"       :"32bit (Mips)",
+               "mips64"     :"64bit (Mips64)",
+              }
+
+CLEANER_OPTIONS = {"remove"           :(["shell", "rm", "--"]),
+                   "remove_recursive" :(["shell", "rm", "-r", "--"]),
+                   "uninstall"        :(["uninstall"]),
+                   "replace"          :(["shell", "rm", "-f", "--"],
+                                        ["push"])
+                  }
+
 def get_script_dir():
     """
     """
@@ -97,3 +113,6 @@ CLEANER_CONFIG = BASE + "/../cleaner_config"
 COMPRESSION_DEFINITIONS = BASE + "/../compression_identifiers"
 COMPRESSION_TYPES = {}
 load_compression_types()
+
+OUTPUT = sys.stdout
+REDIRECT_OUTPUT = False
