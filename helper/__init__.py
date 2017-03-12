@@ -113,6 +113,3 @@ CLEANER_CONFIG = BASE + "/../cleaner_config"
 COMPRESSION_DEFINITIONS = BASE + "/../compression_identifiers"
 COMPRESSION_TYPES = {}
 load_compression_types()
-
-OUTPUT = sys.stdout
-REDIRECT_OUTPUT = False
