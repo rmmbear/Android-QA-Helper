@@ -1,8 +1,5 @@
-"""
-"""
 import sys
 from argparse import ArgumentParser
-import helper.main as _main
 import helper as _helper
 
 
@@ -35,8 +32,8 @@ PARSER_GROUP.add_argument("-t", "--pull_traces", nargs="?", const=".",
 HELP_STR = """Clean your device, as specified in cleaner_config file. You can
 tell helper to delete files or directories, uninstall apps and replace files on
 device with ones from your drive. See the contents of '{}' for info on how to
-add items to the list.""".format(_main.CLEANER_CONFIG)
-PARSER_GROUP.add_argument("-c", "--clean", nargs="?", const=_main.CLEANER_CONFIG,
+add items to the list.""".format(_helper.CLEANER_CONFIG)
+PARSER_GROUP.add_argument("-c", "--clean", nargs="?", const=_helper.CLEANER_CONFIG,
                           default=None, dest="clean", help=HELP_STR,
                           metavar="config")
 HELP_STR = """Show info for all connected devices. If --device was specified,
@@ -59,11 +56,15 @@ def main():
         PARSER.parse_args(["-h"])
         sys.exit()
 
+
     if args.version:
         print(_helper.VERSION_STRING)
         print(_helper.SOURCE_STRING)
         print()
         sys.exit()
+
+
+    import helper.main as _main
 
     if args.device:
         _main.get_devices()
