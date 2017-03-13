@@ -1,5 +1,4 @@
 import helper as _helper
-from helper import sys
 from helper import shutil
 from helper import Path
 from helper import OrderedDict
@@ -7,7 +6,6 @@ from helper import main as _main
 
 
 FULL_DEVICE_CONFIG = _helper.BASE + "/tests/full_config"
-GARBAGE_DEVICE_CONFIG = _helper.BASE + "/tests/garbage_full_config"
 DEVICE_CONFIG = {
     "ls /system/bin"                        :"available_commands",
     "cat /proc/meminfo"                     :"meminfo",
@@ -20,6 +18,7 @@ DEVICE_CONFIG = {
     "dumpsys SurfaceFlinger"                :"surfaceflinger_dump"
     }
 
+GARBAGE = "".join([chr(x) for x in range(1, 0x110000) if chr(x).isprintable()])
 
 class DummyDevice(_main.Device):
 
@@ -117,7 +116,7 @@ class DummyDevice(_main.Device):
 
 class TestDeviceInit:
     def test_empty(self):
-        """Test device initiation without any actual input.
+        """Test device initialization without any actual input.
         """
         an_unlikely_directory = "/a/b/c/d/f/v/g/h/n/v/sd/a"
         # TODO: generate an unlikely directory instead of having it hard-coded
@@ -137,8 +136,8 @@ class TestDeviceInit:
 
 
     def test_garbage(self):
-        """Test device initiation with garbage unicode input for all device's
-        info gathering methods.
+        """Test device initialization with garbage unicode input for all
+        device's info gathering methods.
         """
         tmp = Path(_helper.BASE + "/tests/garbage_config")
         tmp.mkdir(exist_ok=True)
@@ -147,7 +146,7 @@ class TestDeviceInit:
 
         garbage = tmp / config_filenames[0]
         with garbage.open(mode="w", encoding="utf-8") as eff_me_up:
-            eff_me_up.write("".join([chr(x) for x in range(1, 0x110000) if chr(x).isprintable()]))
+            eff_me_up.write(GARBAGE)
 
         for filename in config_filenames[1::]:
             shutil.copy(str(garbage), str(tmp / filename))
@@ -173,7 +172,8 @@ class TestDeviceInit:
 
 
     def test_full(self):
-        """Test device initiation with a complete input from an actual device.
+        """Test device initialization with a complete input from an actual
+        device.
         """
 
         device = DummyDevice(FULL_DEVICE_CONFIG)
@@ -186,6 +186,61 @@ class TestDeviceInit:
             for key, value in category.items():
                 assert key
                 assert value
+
+        return device
+
+
+    def test_full_garbage(self):
+        """Test device initialization with a complete input consisting of
+        unicode garbage, meaning that all attributes will be filled with
+        meaningless unicode string.
+        """
+        tmp = Path(_helper.BASE + "/tests/garbage_full_config")
+        tmp.mkdir(exist_ok=True)
+
+        for filename in DEVICE_CONFIG.values():
+            shutil.copy(FULL_DEVICE_CONFIG + "/" + filename, str(tmp) + "/" + filename)
+
+        # generate getprop
+        prop_names = ["[dalvik.vm.stack-trace-file]",
+                      "[ro.product.cpu.abi]",
+                      "[ro.product.cpu.abi2]",
+                      "[ro.product.cpu.abilist]",
+                      "[ro.product.cpu.abilist32]",
+                      "[ro.product.cpu.abilist64]",
+                      "[ro.product.cpu.abi]",
+                      "[ro.mediatek.platform]",
+                      "[ro.board.platform]",
+                      "[dalvik.vm.stack-trace-file]",
+                      "[ro.product.model]",
+                      "[ro.product.name]",
+                      "[ro.product.manufacturer]",
+                      "[ro.product.brand]",
+                      "[ro.product.device]",
+                      "[ro.build.version.release]",
+                      "[ro.build.version.sdk]",
+                      "[ro.build.id]",
+                      "[ro.build.fingerprint]",
+                      "[ro.sf.lcd_density]"]
+
+        with (tmp / "getprop").open(mode="w", encoding="utf-8") as getprop_file:
+            for prop in prop_names:
+                getprop_file.write(prop + " : [")
+                getprop_file.write(GARBAGE)
+                getprop_file.write("]\n")
+
+        device = DummyDevice(tmp)
+        #for config_file in tmp.iterdir():
+        #    config_file.unlink()
+        #tmp.rmdir()
+
+        assert device.initialized
+        assert device.available_commands
+        assert device.anr_trace_path
+
+        for category in device.info.values():
+            for key, value in category.items():
+                assert value, key
 
         return device
 
@@ -229,10 +284,20 @@ def dump_devices(directory):
           "see.",)
     input("Press enter to continue")
 
+    Path(directory).mkdir(exist_ok=True)
+
     for device in _main.get_devices():
+        device_id = device.info["Product"]["Model"] + "_" + device.info["Product"]["Manufacturer"]
+        device_dir = Path(directory, device_id + "_DUMP")
+        device_dir.mkdir(exist_ok=True)
+        print()
+        print("Dumping", device_id)
+
         for command, filename in DEVICE_CONFIG.items():
             output = device.shell_command(command, return_output=True,
                                           as_list=False)
 
-            with Path(directory, filename).open(mode="w", encoding="utf-8") as dump_file:
+            with Path(device_dir, filename).open(mode="w", encoding="utf-8") as dump_file:
                 dump_file.write(output)
+
+        print("Device dumped to", str(device_dir.resolve()))
