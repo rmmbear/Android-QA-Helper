@@ -32,22 +32,8 @@ from helper import Path
 from helper import OrderedDict
 
 
-ABI_TO_ARCH = {"armeabi"    :"32bit (ARM)",
-               "armeabi-v7a":"32bit (ARM)",
-               "arm64-v8a"  :"64bit (ARM64)",
-               "x86"        :"32bit (Intel x86)",
-               "x86_64"     :"64bit (Intel x86_64)",
-               "mips"       :"32bit (Mips)",
-               "mips64"     :"64bit (Mips64)",
-              }
-
-CLEANER_OPTIONS = {"remove"           :(["shell", "rm", "--"]),
-                   "remove_recursive" :(["shell", "rm", "-r", "--"]),
-                   "uninstall"        :(["uninstall"]),
-                   "replace"          :(["shell", "rm", "-f", "--"],
-                                        ["push"])
-                  }
-
+ABI_TO_ARCH = _helper.ABI_TO_ARCH
+CLEANER_OPTIONS = _helper.CLEANER_OPTIONS
 DEVICES = {}
 COMPRESSION_TYPES = _helper.COMPRESSION_TYPES
 ADB = _helper.ADB
@@ -68,8 +54,8 @@ def adb_execute(*args, return_output=False, check_server=True, as_list=True):
 
         if return_output:
             cmd_out = subprocess.run((ADB,) + args, stdout=subprocess.PIPE,
-                                     universal_newlines=True, encoding="utf-8"
-                                    ).stdout.strip()
+                                     stderr=subprocess.STDOUT, encoding="utf-8",
+                                     universal_newlines=True).stdout.strip()
 
             if as_list:
                 return cmd_out.splitlines()
@@ -417,7 +403,10 @@ class Device:
 
         if "[ro.product.cpu.abi]" in prop_dict:
             main_abi = prop_dict["[ro.product.cpu.abi]"]
-            self.info["CPU"]["Architecture"] = ABI_TO_ARCH[main_abi]
+            if main_abi in ABI_TO_ARCH:
+                self.info["CPU"]["Architecture"] = ABI_TO_ARCH[main_abi]
+            else:
+                self.info["CPU"]["Architecture"] = "UNRECOGNIZED"
 
         possible_abi_prop_names = ["[ro.product.cpu.abi]",
                                    "[ro.product.cpu.abi2]",
@@ -647,6 +636,7 @@ def install(device, items):
 
         print("BEGINNING COPYING OBB FILE FOR:", app_name)
 
+        prepare_obb_dir(device, app_name)
         for obb_file in obb_list:
             if not push_obb(device, obb_file, app_name):
                 print("OBB COPYING FAILED")
@@ -708,26 +698,27 @@ def install_apk(device, apk_file, app_name, ignore_uninstall_err=False):
     return False
 
 
-def push_obb(device, obb_file, app_name):
-    """Push <obb_file> to /mnt/sdcard/Android/obb/<your.app.name> on <Device>.
-
-    Clears contents of the obb folder and recreates it if necessary. File is
-    then copied to internal storage (/mnt/sdcard/), and from there to the obb
-    folder. This is done in two steps because of write protection of sorts --
-    attempts to adb push it directly into obb folder may fail on some devices.
+def prepare_obb_dir(device, app_name):
+    """Prepares the obb directory for installation.
     """
-    obb_folder = "/mnt/sdcard/Android/obb"
-
-    obb_name = str(Path(obb_file).name)
-
-    # prepare environment for copying
     # pipe the stdout to suppress unnecessary errors
-    device.shell_command("mkdir", obb_folder, return_output=True)
+    obb_folder = "/mnt/sdcard/Android/obb"
     device.shell_command("rm", "-fr", obb_folder + "/" + app_name,
                          return_output=True)
     device.shell_command("mkdir", obb_folder + "/" + app_name,
                          return_output=True)
 
+
+def push_obb(device, obb_file, app_name):
+    """Push <obb_file> to /mnt/sdcard/Android/obb/<your.app.name> on <Device>.
+
+    File is copied to internal storage (/mnt/sdcard/), and from there to the
+    obb folder. This is done in two steps because of write protection of sorts
+    -- attempts to adb push it directly into obb folder may fail on some
+    devices.
+    """
+    obb_folder = "/mnt/sdcard/Android/obb"
+    obb_name = str(Path(obb_file).name)
     obb_target = "/mnt/sdcard/Android/obb/" + app_name + "/" + obb_name
 
     #pushing obb in two steps to circumvent write protection
