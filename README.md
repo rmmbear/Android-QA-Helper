@@ -7,8 +7,8 @@ Current release is v0.10-alpha (05-03-2017). Go here for changelog and windows b
 - AAPT (can be found in build-tools from Android SDK)
 - py.test for tests
 
-Both ADB and AAPT are required for this program to work. They can be found in their respective packages. To get those packages, you can do one of two things:
-- Download the whole Android SDK suite and download the required packages using the 'Android SDK manager'
+Both ADB and AAPT are required for this program to work. To get them, you can do one of two things:
+- Download the whole Android SDK suite and get their packages using the 'Android SDK manager'
 - Download the packages directly from Google's Android repository
 
 While the first option is pretty straight-forward, it may be quite an overkill to install the whole SDK, when you only need two files. To download the packages directly go to https://dl-ssl.google.com/android/repository/repository-11.xml the link points to an xml tree, which contains an overview of the whole (publicly available) Android repository (this file is what the Android SDK manager uses internally to find new packages and updates).
