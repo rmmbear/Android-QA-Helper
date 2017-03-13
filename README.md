@@ -1,12 +1,35 @@
 # Android-QA-Helper
 Current release is v0.10-alpha (05-03-2017). Go here for changelog and windows binary package: https://github.com/rmmbear/Android-QA-Helper/releases/tag/0.10-alpha
-# ADB and AAPT
-Get adb from platform-tools and aapt from build-tools: https://dl-ssl.google.com/android/repository/repository-11.xml
+
+# Requirements:
+- Python 3.6
+- ADB (can be found in platform-tools from Android SDK)
+- AAPT (can be found in build-tools from Android SDK)
+- py.test for tests
+
+Both ADB and AAPT are required for this program to work. They can be found in their respective packages. To get those packages, you can do one of two things:
+- Download the whole Android SDK suite and download the required packages using the 'Android SDK manager'
+- Download the packages directly from Google's Android repository
+
+While the first option is pretty straight-forward, it may be quite an overkill to install the whole SDK, when you only need two files. To download the packages directly go to https://dl-ssl.google.com/android/repository/repository-11.xml the link points to an xml tree, which contains an overview of the whole (publicly available) Android repository (this file is what the Android SDK manager uses internally to find new packages and updates).
+
+To download the platform-tools package, search for ```<sdk:url>platform-tools```, find the package corresponding to your platform, copy the url and replace the last part of the page's url with it. At the time of writing, this would be https://dl-ssl.google.com/android/repository/platform-tools_r25.0.3-linux.zip .
+Do the same for build-tools: search for ```<sdk:url>build-tools```, find your platform, replace the last part of the page's url with the found url and download (at the time of writing: https://dl-ssl.google.com/android/repository/build-tools_r25.0.2-linux.zip).
+
+# Installation:
+Download or clone this repository using ```git clone``` (if you are on windows, you can also download the frozen code from the [realeases page](https://github.com/rmmbear/Android-QA-Helper/releases)).
+
+In the root directory of the project there should be two directories: "adb" and "aapt". Place the adb (and its dlls, if on windows) and aapt into their corresponding directories. See requirements section on instructions how to get them.
+
+# Usage:
+From the root of the project:```python -m helper <option>```. You can use ```--help``` to see the list of available options.
+If you're using the frozen code package on windows, you must call the 'helper.exe' from command line, since helper is a command-line only utility (for now). 
+
 # Plans for future:
 - Create an actual readme / documentation
 - Clean up the code some more
 - Fill out missing docstrings / update existing ones
 - Finish the restructuring process to make it suitable for pip packaging
 - Extend cleaning to support user-defined commands *-- not for 1.0*
-- Revisit the interactive mode idea, but with actual GUI *-- not for 1.0*
+- Revisit the interactive mode idea, but with actual GUI ~~*-- not for 1.0*~~ *-- In progress*
 - Plan new functionality (screenshots? functions enabling doze/standby for testing?) *-- not for 1.0*
