@@ -421,8 +421,9 @@ class Device:
             if prop_name in prop_dict:
                 abi_list.append(prop_dict[prop_name])
 
-        abis = ",".join(set(abi_list))
-        abis = abis.replace(",", ", ")
+        abis = ", ".join(abi_list)
+        abis = set(abis.split(", "))
+        abis = ", ".join(abis)
 
         self.info["CPU"]["Available ABIs"] = abis
 
