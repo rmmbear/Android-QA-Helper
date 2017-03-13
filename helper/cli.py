@@ -1,5 +1,5 @@
 import sys
-from argparse import ArgumentParser
+from argparse import ArgumentParser, SUPPRESS
 import helper as _helper
 
 
@@ -43,6 +43,10 @@ PARSER_GROUP.add_argument("-n", "--info", action="store_true", dest="info",
 HELP_STR = "Show version information."
 PARSER_GROUP.add_argument("-v", "--version", action="store_true",
                           dest="version", help=HELP_STR)
+# Hidden options
+PARSER_GROUP.add_argument("--bugreport", nargs="?", const=".", default=None,
+                          dest="bugreport", help=SUPPRESS)
+
 
 PARSER_NO_ARGS = PARSER.parse_args([])
 
@@ -61,6 +65,12 @@ def main():
         print(_helper.VERSION_STRING)
         print(_helper.SOURCE_STRING)
         print()
+        sys.exit()
+
+    if args.bugreport:
+        from helper.tests.test_pytest import dump_devices, DEVICE_CONFIG
+
+        dump_devices(args.bugreport)
         sys.exit()
 
 
