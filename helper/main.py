@@ -32,9 +32,21 @@ from helper import Path
 from helper import OrderedDict
 
 
-ABI_TO_ARCH = _helper.ABI_TO_ARCH
+ABI_TO_ARCH = {"armeabi"    :"32bit (ARM)",
+               "armeabi-v7a":"32bit (ARM)",
+               "arm64-v8a"  :"64bit (ARM64)",
+               "x86"        :"32bit (Intel x86)",
+               "x86_64"     :"64bit (Intel x86_64)",
+               "mips"       :"32bit (Mips)",
+               "mips64"     :"64bit (Mips64)",
+              }
 
-CLEANER_OPTIONS = _helper.CLEANER_OPTIONS
+CLEANER_OPTIONS = {"remove"           :(["shell", "rm", "--"]),
+                   "remove_recursive" :(["shell", "rm", "-r", "--"]),
+                   "uninstall"        :(["uninstall"]),
+                   "replace"          :(["shell", "rm", "-f", "--"],
+                                        ["push"])
+                  }
 
 DEVICES = {}
 COMPRESSION_TYPES = _helper.COMPRESSION_TYPES
@@ -43,8 +55,7 @@ AAPT = _helper.AAPT
 CLEANER_CONFIG = _helper.CLEANER_CONFIG
 
 
-def adb_execute(*args, return_output=False, check_server=True, as_list=True,
-                _stdout=sys.stdout):
+def adb_execute(*args, return_output=False, check_server=True, as_list=True):
     """Execute an ADB command, and return -- or don't -- its result.
 
     If check_server is true, function will first make sure that an ADB
@@ -65,27 +76,14 @@ def adb_execute(*args, return_output=False, check_server=True, as_list=True,
 
             return cmd_out
 
-        if _stdout != sys.__stdout__:
-            cmd_out = subprocess.Popen((ADB,) + args, stdout=subprocess.PIPE,
-                                       universal_newlines=True, encoding="utf-8")
-
-            last_line = ''
-            for line in cmd_out.stdout:
-                if line != last_line:
-                    _stdout.write(line)
-                    last_line = line
-        else:
-            subprocess.run((ADB,) + args)
-
+        subprocess.run((ADB,) + args)
     except FileNotFoundError:
-        _stdout.write("Helper expected ADB to be located in '")
-        _stdout.write(ADB)
-        _stdout.write("' but could not find it.")
-        _stdout.write("\n")
+        print("Helper expected ADB to be located in '", ADB,
+              "' but could not find it.", sep="")
         sys.exit("Please make sure the ADB binary is in the specified path.")
 
 
-def aapt_execute(*args, return_output=False, as_list=True, _stdout=sys.stdout):
+def aapt_execute(*args, return_output=False, as_list=True):
     """Execute an AAPT command, and return -- or don't -- its result.
     """
 
@@ -100,22 +98,10 @@ def aapt_execute(*args, return_output=False, as_list=True, _stdout=sys.stdout):
 
             return cmd_out
 
-        if _stdout != sys.__stdout__:
-            cmd_out = subprocess.Popen((AAPT,) + args, stdout=subprocess.PIPE,
-                                       universal_newlines=True, encoding="utf-8")
-
-            last_line = ''
-            for line in cmd_out.stdout:
-                if line != last_line:
-                    _stdout.write(line)
-                    last_line = line
-        else:
-            subprocess.run((AAPT,) + args)
+        subprocess.run((AAPT,) + args)
     except FileNotFoundError:
-        _stdout.write("Helper expected AAPT to be located in '")
-        _stdout.write(AAPT)
-        _stdout.write("' but could not find it.")
-        _stdout.write("\n")
+        print("Helper expected AAPT to be located in '", AAPT,
+              "' but could not find it.", sep="")
         sys.exit("Please make sure the AAPT binary is in the specified path.")
 
 
@@ -138,7 +124,7 @@ def _get_devices():
     return device_list
 
 
-def get_devices(_stdout=sys.stdout):
+def get_devices():
     """Returns a list of currently connected devices, as announced by
     ADB.
 
@@ -163,25 +149,25 @@ def get_devices(_stdout=sys.stdout):
             # device was suddenly disconnected or user did not authorize
             # usb debugging
 
-            unreachable = "{} - {} - Could not be reached! Got status '{}'.\n"
+            unreachable = "{} - {} - Could not be reached! Got status '{}'."
 
             if device.initialized:
-                _stdout.write(unreachable.format(device.info["Product"]["Manufacturer"],
-                                                device.info["Product"]["Model"],
-                                                device_status))
+                print(unreachable.format(device.info["Product"]["Manufacturer"],
+                                         device.info["Product"]["Model"],
+                                         device_status))
             else:
-                _stdout.write(unreachable.format(device_serial, "UNKNOWN DEVICE",
-                                                device_status))
+                print(unreachable.format(device_serial, "UNKNOWN DEVICE",
+                                         device_status))
         else:
             device_list.append(device)
 
     if not device_list:
-        _stdout.write("ERROR: No devices found! Check USB connection and try again.\n")
+        print("ERROR: No devices found! Check USB connection and try again.")
 
     return device_list
 
 
-def pick_device(_stdout=sys.stdout):
+def pick_device():
     """Asks the user to pick which device they want to use. If there are no
     devices to choose from it will return the sole connected device or None.
     """
@@ -195,23 +181,23 @@ def pick_device(_stdout=sys.stdout):
         return device_list[0]
 
     while True:
-        _stdout.write("Multiple devices detected!\n")
-        _stdout.write("Please choose which of devices below you want to work with.")
-        _stdout.write("\n")
+        print("Multiple devices detected!")
+        print("Please choose which of devices below you want to work with.")
+        print()
         for counter, device in enumerate(device_list):
-            _stdout.write(counter + ": ")
+            print(counter, end=": ")
             device.print_basic_info()
-            _stdout.write("\n")
+            print()
 
         user_choice = input("Enter your choice: ").strip()
         if not user_choice.isnumeric():
-            _stdout.write("The answer must be a number!\n")
+            print("The answer must be a number!")
             continue
 
         user_choice = int(user_choice)
 
         if user_choice < 0  or user_choice >= len(device_list):
-            _stdout.write("Answer must be one of the above numbers!\n")
+            print("Answer must be one of the above numbers!")
             continue
 
         return device_list[user_choice]
@@ -274,12 +260,24 @@ class Device:
             self.status = status
 
 
-    def adb_command(self, *args, **kwargs):
-        return adb_execute("-s", self.serial, *args, **kwargs)
+    def adb_command(self, *args, return_output=False, check_server=True,
+                    as_list=True):
+        """
+        """
+
+        return adb_execute("-s", self.serial, *args,
+                           return_output=return_output, as_list=as_list,
+                           check_server=check_server)
 
 
-    def shell_command(self, *args, **kwargs):
-        return adb_execute("-s", self.serial, "shell", *args, **kwargs)
+    def shell_command(self, *args, return_output=False, check_server=True,
+                      as_list=True):
+        """
+        """
+
+        return adb_execute("-s", self.serial, "shell", *args,
+                           return_output=return_output, as_list=as_list,
+                           check_server=check_server)
 
 
     @property
@@ -545,35 +543,32 @@ class Device:
         pass
 
 
-    def print_full_info(self, _stdout=sys.stdout):
+    def print_full_info(self):
         """
         """
 
         indent = 4
 
         for info_category in self.info:
-            _stdout.write(info_category + ":")
-            _stdout.write("\n")
+            print(info_category, ":", sep="")
 
             for info_name, prop in self.info[info_category].items():
                 if prop is None:
                     prop = "Unknown"
-                _stdout.write(indent*" " + info_name + ": " + prop)
-                _stdout.write("\n")
+                print(indent*" ", info_name, ": ", prop, sep="")
 
 
-    def print_basic_info(self, _stdout=sys.stdout):
+    def print_basic_info(self):
         """Print basic device information to console.
         prints: manufacturer, model, OS version and available texture
         compression types.
         """
 
-        _stdout.write(self.info["Product"]["Manufacturer"] + " - ")
-        _stdout.write(self.info["Product"]["Model"] + " - ")
-        _stdout.write(self.info["OS"]["Android Version"])
-        _stdout.write("\n")
-        _stdout.write("Compression Types: " + self.info["GPU"]["Compression Types"])
-        _stdout.write("\n")
+        print(self.info["Product"]["Manufacturer"], end=" - ")
+        print(self.info["Product"]["Model"], end=" - ")
+        print(self.info["OS"]["Android Version"])
+        print("Compression Types: ", self.info["GPU"]["Compression Types"])
+
 
 def get_app_name(apk_file):
     """Extracts app name of the provided apk, from its manifest file.
@@ -590,7 +585,7 @@ def get_app_name(apk_file):
     return ""
 
 
-def install(device, items, _stdout=sys.stdout):
+def install(device, items):
     """Installs apps.
     Accepts either a list of apk files, or list with one apk and as many obb
     files as you like.
@@ -607,11 +602,12 @@ def install(device, items, _stdout=sys.stdout):
             obb_list.append(item)
 
     if len(app_list) > 1 and obb_list:
-        _stdout.write("APK ambiguity! Only one apk file can be installed when also pushing obb files!\n")
+        print("APK ambiguity! Only one apk file can be installed when",
+              "also pushing obb files!")
         return False
 
     if not app_list:
-        _stdout.write("No APK found among provided files, aborting!\n")
+        print("No APK found among provided files, aborting!")
         return False
 
     if not obb_list:
@@ -619,53 +615,49 @@ def install(device, items, _stdout=sys.stdout):
         for app in app_list:
             app_name = get_app_name(app)
 
-            _stdout.write("\nBEGINNING INSTALLATION: " + app_name + "\n")
-            _stdout.write("Your device may ask you for confirmation!\n")
+            print("\nBEGINNING INSTALLATION:", app_name)
+            print("Your device may ask you for confirmation!\n")
 
             if not install_apk(device, app, app_name):
-                _stdout.write("FAILED TO INSTALL: " + app_name + "\n")
+                print("FAILED TO INSTALL:", app_name)
                 app_failure.append((app_name, app))
 
             else:
-                _stdout.write("SUCCESFULLY INSTALLED: " + app_name + "\n")
+                print("SUCCESFULLY INSTALLED:", app_name)
 
-        _stdout.write("Installed ")
-        _stdout.write(str(len(app_list) - len(app_failure)))
-        _stdout.write(" out of " + str(len(app_list)) + "provided apks.\n")
+        print("Installed", len(app_list) - len(app_failure), "out of",
+              len(app_list), "provided apks.")
 
         if app_failure:
             indent = 4
-            _stdout.write("The following apks could not be installed:")
+            print("The following apks could not be installed:")
 
             for app_path, app_name in app_failure:
-                _stdout.write(indent*" " + Path(app_path).name + " : " + app_name)
-                _stdout.write("\n")
+                print(indent*" ", Path(app_path).name, ":", app_name)
 
     else:
         app = app_list[0]
         app_name = get_app_name(app)
 
         if not install_apk(device, app, app_name):
-            _stdout.write("FAILED TO INSTALL: " + app_name + "\n")
+            print("FAILED TO INSTALL:", app_name)
             return False
 
-        _stdout.write("\nSUCCESSFULLY COPIED AND INSTALLED THE APK FILE\n")
-        _stdout.write("\n")
-        _stdout.write("BEGINNING COPYING OBB FILE FOR: " + app_name + "\n")
+        print("\nSUCCESSFULLY COPIED AND INSTALLED THE APK FILE\n")
+
+        print("BEGINNING COPYING OBB FILE FOR:", app_name)
 
         for obb_file in obb_list:
             if not push_obb(device, obb_file, app_name):
-                _stdout.write("OBB COPYING FAILED\n")
-                _stdout.write("Failed to copy " + obb_file)
-                _stdout.write("\n")
+                print("OBB COPYING FAILED")
+                print("Failed to copy", obb_file)
                 return False
 
-        _stdout.write("SUCCESSFULLY COPIED OBB FILE TO ITS DESTINATION.\n")
-        _stdout.write("Installation complete!\n")
+        print("SUCCESSFULLY COPIED OBB FILE TO ITS DESTINATION.\n")
+        print("Installation complete!")
 
 
-def install_apk(device, apk_file, app_name, ignore_uninstall_err=False,
-                _stdout=sys.stdout):
+def install_apk(device, apk_file, app_name, ignore_uninstall_err=False):
     """
     """
 
@@ -673,34 +665,30 @@ def install_apk(device, apk_file, app_name, ignore_uninstall_err=False,
                                           return_output=True, as_list=False)
 
     if app_name in preinstall_log:
-        _stdout.write("Different version of the app already installed, deleting...")
-        _stdout.write("\n")
+        print("Different version of the app already installed, deleting...")
         uninstall_log = device.adb_command("uninstall", app_name,
                                            return_output=True)
 
         if uninstall_log[-1] != "Success":
             if device.status != "device":
-                _stdout.write("Device has been suddenly disconnected!\n")
+                print("Device has been suddenly disconnected!")
                 return False
             else:
-                _stdout.write("Unexpected error!\n")
-                _stdout.write(app_name + " could not be uninstalled!")
-                _stdout.write("Installation cannot continue. You can ignore this")
-                _stdout.write("error with '--force' option alongside --install")
-                _stdout.write("\n")
+                print("Unexpected error!")
+                print(app_name, "could not be uninstalled!")
+                print("Installation cannot continue.", "You can ignore",
+                      "this error with '--force' option alongside --install")
 
                 if ignore_uninstall_err:
-                    _stdout.write("\n")
-                    _stdout.write("Error ignored.")
-                    _stdout.write("Installer will attempt to replace the app.")
-                    _stdout.write("\n")
+                    print("Error ignored.")
+                    print("Installer will attempt to replace the app.")
                 else:
                     return False
 
-        _stdout.write("Successfully uninstalled" + app_name + "\n")
+        print("Successfully uninstalled", app_name, "\n")
 
     device.adb_command("install", "-r", "-i", "com.android.vending",
-                       apk_file, _stdout=_stdout)
+                       apk_file)
 
     postinstall_log = device.shell_command("pm", "list", "packages",
                                            return_output=True)
@@ -710,16 +698,17 @@ def install_apk(device, apk_file, app_name, ignore_uninstall_err=False,
             return True
 
     if device.status != "device":
-        _stdout.write(device.info["Product"]["Model"] + "- Device has been suddenly disconnected!")
+        print(device.info["Product"]["Model"],
+              "- Device has been suddenly disconnected!")
     else:
-        _stdout.write("Installed app was not found by package manager")
-        _stdout.write(app_name + "could not be installed!")
-        _stdout.write("Please make sure that your device meets app's criteria")
-    _stdout.write("\n")
+        print("Installed app was not found by package manager")
+        print(app_name, "could not be installed!")
+        print("Please make sure that your device meets app's criteria")
+
     return False
 
 
-def push_obb(device, obb_file, app_name, _stdout=sys.stdout):
+def push_obb(device, obb_file, app_name):
     """Push <obb_file> to /mnt/sdcard/Android/obb/<your.app.name> on <Device>.
 
     Clears contents of the obb folder and recreates it if necessary. File is
@@ -742,9 +731,9 @@ def push_obb(device, obb_file, app_name, _stdout=sys.stdout):
     obb_target = "/mnt/sdcard/Android/obb/" + app_name + "/" + obb_name
 
     #pushing obb in two steps to circumvent write protection
-    device.adb_command("push", obb_file, "/mnt/sdcard/" + obb_name, _stdout=_stdout)
+    device.adb_command("push", obb_file, "/mnt/sdcard/" + obb_name)
     device.shell_command("mv", "\"/mnt/sdcard/" + obb_name + "\"",
-                         "\"" + obb_target + "\"", _stdout=_stdout)
+                         "\"" + obb_target + "\"")
 
     push_log = device.shell_command("ls", "\"" + obb_target + "\"",
                                     return_output=True, as_list=False)
@@ -753,14 +742,14 @@ def push_obb(device, obb_file, app_name, _stdout=sys.stdout):
         return True
 
     if device.status != "device":
-        _stdout.write("Device has been suddenly disconnected!")
+        print("Device has been suddenly disconnected!")
     else:
-        _stdout.write("Pushed obb file could not be found in destination folder.")
-    _stdout.write("\n")
+        print("Pushed obb file could not be found in destination folder.")
+
     return False
 
 
-def record(device, output=None, _stdout=sys.stdout):
+def record(device, output=None):
     """Start recording device's screen.
     Recording can be stopped by either reaching the time limit, or pressing
     ctrl+c. After the recording has stopped, the helper confirms that the
@@ -772,11 +761,10 @@ def record(device, output=None, _stdout=sys.stdout):
         # just to be safe
         android_ver = device.info["OS"]["Android Version"]
         api_level = device.info["OS"]["Android API Level"]
-        _stdout.write("This device's shell does not have the 'screenrecord' command. ")
-        _stdout.write("Screenrecord command is available on all devices with Android ")
-        _stdout.write("4.4 or higher (API level 19 or higher). Your device has ")
-        _stdout.write("Android {} (API level {})".format(android_ver, api_level))
-        _stdout.write("\n")
+        print("This device's shell does not have the 'screenrecord' command.",
+              "Screenrecord command is available on all devices with Android",
+              "4.4 or higher (API level 19 or higher)",
+              "your device has Android {} (API level {})".format(android_ver, api_level))
 
 
     if not output:
@@ -790,24 +778,22 @@ def record(device, output=None, _stdout=sys.stdout):
     filename = device.info["Product"]["Model"] + "_" + filename
     output = str(Path(Path(output).resolve(), filename))
 
-    _stdout.write("Helper will record your device's screen (audio is not captured).")
-    _stdout.write("The recording will stop after pressing 'ctrl+c', or if 3 minutes")
-    _stdout.write("have elapsed. Recording will be then saved to '" + output + "'.")
-    _stdout.write("\n")
-
+    print("Helper will record your device's screen (audio is not captured).",
+          "The recording will stop after pressing 'ctrl+c', or if 3 minutes",
+          "have elapsed. Recording will be then saved to '{}'".format(output))
     try:
         input("Press enter whenever you are ready to record.\n")
     except KeyboardInterrupt:
-        _stdout.write("\nRecording canceled bu user.\n")
+        print("\nRecording canceled bu user.")
         sys.exit()
 
 
     try:
         device.shell_command("screenrecord", "--verbose", remote_recording,
-                             return_output=False, _stdout=_stdout)
-        _stdout.write("\nRecording stopped by device.\n")
+                             return_output=False)
+        print("\nRecording stopped by device.")
     except KeyboardInterrupt:
-        _stdout.write("\nRecording stopped bu user.\n")
+        print("\nRecording stopped bu user.")
 
     # we're waiting for the clip to be fully saved to device's storage
     # there must be a better way of doing this...
@@ -818,14 +804,13 @@ def record(device, output=None, _stdout=sys.stdout):
 
     if recording_log != remote_recording:
         if device.status != "device":
-            _stdout.write("Device has been suddenly disconnected!")
+            print("Device has been suddenly disconnected!")
         else:
-            _stdout.write("Unexpected error! The file could not be found on device!")
-        _stdout.write("\n")
+            print("Unexpected error! The file could not be found on device!")
 
         return False
 
-    device.adb_command("pull", remote_recording, output, return_output=False, _stdout=_stdout)
+    device.adb_command("pull", remote_recording, output, return_output=False)
 
     if Path(output).is_file():
         return output
@@ -833,8 +818,8 @@ def record(device, output=None, _stdout=sys.stdout):
     return False
 
 
-def pull_traces(device, output=None, _stdout=sys.stdout):
-    """Copy contents of the 'traces' file into the specified folder.
+def pull_traces(device, output=None):
+    """Copy contents of the 'traces' into file in the specified folder.
     """
 
     if output is None:
@@ -863,7 +848,7 @@ def pull_traces(device, output=None, _stdout=sys.stdout):
     return str((output / anr_filename).resolve())
 
 
-def parse_cleaner_config(config=CLEANER_CONFIG, _stdout=sys.stdout):
+def parse_cleaner_config(config=CLEANER_CONFIG):
     """Function for parsing cleaner config files. Returns tuple containing a
     parsed config (dict) and bad config (list). The former can be passed to
     clean().
@@ -928,8 +913,7 @@ def parse_cleaner_config(config=CLEANER_CONFIG, _stdout=sys.stdout):
     return (parsed_config, bad_config)
 
 
-def clean(device, config=CLEANER_CONFIG, parsed_config=None, force=False,
-          _stdout=sys.stdout):
+def clean(device, config=CLEANER_CONFIG, parsed_config=None, force=False):
     """
     """
     # TODO: Test each cleaning action for success / failure
@@ -941,23 +925,21 @@ def clean(device, config=CLEANER_CONFIG, parsed_config=None, force=False,
         parsed_config, bad_config = parse_cleaner_config(config=config)
 
     if bad_config:
-        _stdout.write("Errors encountered in the config file ")
-        _stdout.write("(" + config + ")")
-        _stdout.write("\n")
+        print("Errors encountered in the config file")
+        print("(", config, ")", sep="")
         indent = 4
         for line, reason in bad_config:
-            _stdout.write(indent*" " + "Line " + line + " - " + reason)
-            _stdout.write("\n")
+            print(indent*" ", "Line", line, "-", reason)
 
-        _stdout.write("Aborting cleaning!\n")
+        print("Aborting cleaning!")
         return False
 
     if not parsed_config:
-        _stdout.write("Empty config! Cannot clean!\n")
+        print("Empty config! Cannot clean!")
         return False
 
     if not force:
-        _stdout.write("The following actions will be performed:\n")
+        print("The following actions will be performed:")
         indent = 2
         for key, action in [("remove", "remove"),
                             ("remove_recursive", "remove"),
@@ -967,22 +949,24 @@ def clean(device, config=CLEANER_CONFIG, parsed_config=None, force=False,
                 continue
 
             for item in parsed_config[key]:
-                _stdout.write(action + " : " + item + "\n")
+                print(action, ":", item)
 
         if "replace" in parsed_config:
-            _stdout.write("\n")
+            print()
             for pair in parsed_config["replace"]:
-                _stdout.write("The file: " + pair[0] + "\n")
-                _stdout.write(indent * " " + "will be replaced with:" + "\n")
-                _stdout.write(indent * 2 * " " + pair[1] + "\n")
+                print("The file:", pair[0])
+                print(indent * " ", end="")
+                print("will be replaced with:")
+                print(indent * 2 * " ", end="")
+                print(pair[1])
 
-        _stdout.write("\n")
-        _stdout.write("Is this ok?\n")
+        print()
+        print("Is this ok?")
 
         while True:
             usr_choice = input("Y/N : ").strip().upper()
             if usr_choice == "N":
-                _stdout.write("User canceled cleaning\n")
+                print("User canceled cleaning")
                 return False
             elif usr_choice == "Y":
                 break
@@ -997,7 +981,7 @@ def clean(device, config=CLEANER_CONFIG, parsed_config=None, force=False,
                 if remote[-1] not in ["'", "\""]:
                     remote += "\""
 
-                device.adb_command(*CLEANER_OPTIONS[option][0], remote, _stdout=_stdout)
-                device.adb_command(*CLEANER_OPTIONS[option][1], item[1], item[0], _stdout=_stdout)
+                device.adb_command(*CLEANER_OPTIONS[option][0], remote)
+                device.adb_command(*CLEANER_OPTIONS[option][1], item[1], item[0])
             else:
-                device.adb_command(*CLEANER_OPTIONS[option], item, _stdout=_stdout)
+                device.adb_command(*CLEANER_OPTIONS[option], item)
