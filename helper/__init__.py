@@ -107,7 +107,6 @@ Path(ADB).parent.mkdir(exist_ok=True)
 Path(AAPT).parent.mkdir(exist_ok=True)
 
 if Path(CONFIG).is_file():
-    print("YEAH ITS THERE")
     load_config(CONFIG)
 
 if sys.platform == "win32":
