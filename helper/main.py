@@ -34,11 +34,11 @@ from helper import OrderedDict
 
 ABI_TO_ARCH = _helper.ABI_TO_ARCH
 CLEANER_OPTIONS = _helper.CLEANER_OPTIONS
-DEVICES = {}
+CLEANER_CONFIG = _helper.CLEANER_CONFIG
 COMPRESSION_TYPES = _helper.COMPRESSION_TYPES
 ADB = _helper.ADB
 AAPT = _helper.AAPT
-CLEANER_CONFIG = _helper.CLEANER_CONFIG
+DEVICES = {}
 
 
 def adb_execute(*args, return_output=False, check_server=True, as_list=True):
@@ -362,6 +362,9 @@ class Device:
             if len(props) != 2:
                 continue
 
+            if not props[1].strip()[1:-1]:
+                continue
+
             prop_dict[props[0].strip()] = props[1].strip()[1:-1]
 
 
@@ -421,8 +424,8 @@ class Device:
             if prop_name in prop_dict:
                 abi_list.append(prop_dict[prop_name])
 
-        abis = ", ".join(abi_list)
-        abis = set(abis.split(", "))
+        abis = ",".join(abi_list)
+        abis = set(abis.split(","))
         abis = ", ".join(abis)
 
         self.info["CPU"]["Available ABIs"] = abis
@@ -757,7 +760,7 @@ def record(device, output=None):
               "Screenrecord command is available on all devices with Android",
               "4.4 or higher (API level 19 or higher)",
               "your device has Android {} (API level {})".format(android_ver, api_level))
-
+        sys.exit()
 
     if not output:
         output = "./"
