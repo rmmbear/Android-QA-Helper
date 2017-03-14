@@ -24,7 +24,6 @@ Current functionality includes:
 
 import re
 import subprocess
-import xml.etree.ElementTree as ET
 from time import strftime, sleep
 import helper as _helper
 from helper import sys
@@ -190,8 +189,6 @@ def pick_device():
 
 
 class Device:
-    """Container for
-    """
 
     def __init__(self, serial, status=None):
 
@@ -246,24 +243,19 @@ class Device:
             self.status = status
 
 
-    def adb_command(self, *args, return_output=False, check_server=True,
-                    as_list=True):
-        """
-        """
-
-        return adb_execute("-s", self.serial, *args,
-                           return_output=return_output, as_list=as_list,
-                           check_server=check_server)
-
-
-    def shell_command(self, *args, return_output=False, check_server=True,
-                      as_list=True):
-        """
+    def adb_command(self, *args, **kwargs):
+        """Same as adb_execute(*args), but specific to the given device.
         """
 
-        return adb_execute("-s", self.serial, "shell", *args,
-                           return_output=return_output, as_list=as_list,
-                           check_server=check_server)
+        return adb_execute("-s", self.serial, *args, **kwargs)
+
+
+    def shell_command(self, *args, **kwargs):
+        """Same as adb_execute(["shell", *args]), but specific to the given
+        device.
+        """
+
+        return adb_execute("-s", self.serial, "shell", *args, **kwargs)
 
 
     @property
@@ -287,8 +279,6 @@ class Device:
 
     @status.setter
     def status(self, status):
-        """
-        """
 
         self._status = status
         self._device_init()
@@ -532,10 +522,6 @@ class Device:
         self.info["GPU"]["Compression Types"] = ", ".join(compressions)
 
 
-    def dump_xml(self):
-        pass
-
-
     def print_full_info(self):
         """
         """
@@ -608,8 +594,8 @@ def install(device, items):
         for app in app_list:
             app_name = get_app_name(app)
 
-            print("\nBEGINNING INSTALLATION:", app_name)
-            print("Your device may ask you for confirmation!\n")
+            print("BEGINNING INSTALLATION:", app_name)
+            print("Your device may ask you to confirm this!\n")
 
             if not install_apk(device, app, app_name):
                 print("FAILED TO INSTALL:", app_name)
@@ -617,6 +603,8 @@ def install(device, items):
 
             else:
                 print("SUCCESFULLY INSTALLED:", app_name)
+
+            print()
 
         print("Installed", len(app_list) - len(app_failure), "out of",
               len(app_list), "provided apks.")
@@ -632,12 +620,15 @@ def install(device, items):
         app = app_list[0]
         app_name = get_app_name(app)
 
+        print("BEGINNING INSTALLATION:", app_name)
+        print("Your device may ask you to confirm this!\n")
+
         if not install_apk(device, app, app_name):
             print("FAILED TO INSTALL:", app_name)
             return False
 
-        print("\nSUCCESSFULLY COPIED AND INSTALLED THE APK FILE\n")
-
+        print("\nSUCCESSFULLY COPIED AND INSTALLED THE APK FILE")
+        print()
         print("BEGINNING COPYING OBB FILE FOR:", app_name)
 
         prepare_obb_dir(device, app_name)
@@ -647,7 +638,7 @@ def install(device, items):
                 print("Failed to copy", obb_file)
                 return False
 
-        print("SUCCESSFULLY COPIED OBB FILE TO ITS DESTINATION.\n")
+        print("SUCCESSFULLY COPIED ALL FILES TO THEIR DESTINATIONS.\n")
         print("Installation complete!")
 
 
@@ -721,7 +712,6 @@ def push_obb(device, obb_file, app_name):
     -- attempts to adb push it directly into obb folder may fail on some
     devices.
     """
-    obb_folder = "/mnt/sdcard/Android/obb"
     obb_name = str(Path(obb_file).name)
     obb_target = "/mnt/sdcard/Android/obb/" + app_name + "/" + obb_name
 
@@ -879,10 +869,13 @@ def parse_cleaner_config(config=CLEANER_CONFIG):
 
         if key == "replace":
             items = []
-            for item in value.split(","):
+            for item in value.split(",", maxsplit=1):
                 items.append(item.strip())
 
-            parsed_config[key].append(items)
+            if not Path(items[1]).is_file():
+                bad_config.append(count, "Local file does not exist")
+            else:
+                parsed_config[key].append(items)
         else:
             if key == "uninstall":
                 if not Path(value).is_file():
@@ -966,6 +959,7 @@ def clean(device, config=CLEANER_CONFIG, parsed_config=None, force=False):
             elif usr_choice == "Y":
                 break
 
+    # TODO
     for option, value in parsed_config.items():
         for item in value:
             if option == "replace":
@@ -976,7 +970,25 @@ def clean(device, config=CLEANER_CONFIG, parsed_config=None, force=False):
                 if remote[-1] not in ["'", "\""]:
                     remote += "\""
 
-                device.adb_command(*CLEANER_OPTIONS[option][0], remote)
+                print("Removing", remote, "...", end="")
+                result = device.adb_command(*CLEANER_OPTIONS[option][0], remote,
+                                   return_output=True, as_list=False)
+                if result.endswith("No such file or directory"):
+                    print("No such files found")
+                elif not result:
+                    print("Done!")
+                else:
+                    print("Unexpected error:", result)
+
+                print("Placing", item[1], "in its place ...")
                 device.adb_command(*CLEANER_OPTIONS[option][1], item[1], item[0])
             else:
-                device.adb_command(*CLEANER_OPTIONS[option], item)
+                print("Removing", item, "...", end="")
+                result = device.adb_command(*CLEANER_OPTIONS[option], item,
+                                   return_output=True, as_list=False).strip()
+                if result.endswith("No such file or directory"):
+                    print("No such files found")
+                elif not result:
+                    print("Done!")
+                else:
+                    print("Unexpected error:", result)
