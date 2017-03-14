@@ -119,8 +119,9 @@ if not Path(ADB).is_file():
 
     if not ADB:
         print("Helper could not find ADB, which is required for this program.",
-              "Close this windoww and place the binary in",
-              str(Path(BASE + "/../adb").resolve()), "or enter its path below")
+              "Close this window, place the binary in",
+              str(Path(BASE + "/../adb").resolve()), "and delete helper config",
+              "(located at:", CONFIG, ") or enter its path below")
         user_path = input(": ")
         if len(user_path) > 1:
             if user_path[0] in ["'", '"']:
@@ -140,9 +141,10 @@ if not Path(AAPT).is_file():
     AAPT = shutil.which("aapt")
 
     if not AAPT:
-        print("Helper could not find ADB, which is required for this program.",
-              "Close this windoww and place the binary in",
-              str(Path(BASE + "/../aapt").resolve()), "or enter its path below")
+        print("Helper could not find AAPT, which is required for this program.",
+              "Close this window, place the binary in",
+              str(Path(BASE + "/../aapt").resolve()), "and delete helper config",
+              "(located at:", CONFIG, ") or enter its path below")
         user_path = input(": ").strip()
         if len(user_path) > 1:
             if user_path[0] in ["'", '"']:
