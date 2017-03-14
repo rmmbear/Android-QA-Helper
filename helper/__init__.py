@@ -45,6 +45,8 @@ CLEANER_OPTIONS = {"remove"           :(["shell", "rm", "--"]),
                                         ["push"])
                   }
 
+HELPER_CONFIG_VARS = ["ADB", "AAPT"]
+
 def get_script_dir():
     """
     """
@@ -71,11 +73,42 @@ def load_compression_types():
             COMPRESSION_TYPES[comp_id] = comp_name
 
 
+def load_config(config):
+    with open(config, mode="r") as config_file:
+        for line in config_file.readlines():
+            line = line.strip().split("=", maxsplit=1)
+
+            if len(line) != 2:
+                continue
+
+            name = line[0].strip()
+            value = line[1].strip()
+
+            if name not in HELPER_CONFIG_VARS:
+                continue
+
+            globals()[name] = value
+
+
+def save_config(config):
+    with open(config, mode="w", encoding="utf-8") as config_file:
+        for name in HELPER_CONFIG_VARS:
+            value = globals()[name]
+
+            config_file.write("".join([name, "=", str(value), "\n"]))
+
+
+EDITED_CONFIG = False
 BASE = get_script_dir()
+CONFIG = str(Path(BASE + "/../helper_config").resolve())
 ADB = str(Path(BASE + "/../adb/adb").resolve())
 AAPT = str(Path(BASE + "/../aapt/aapt").resolve())
 Path(ADB).parent.mkdir(exist_ok=True)
 Path(AAPT).parent.mkdir(exist_ok=True)
+
+if Path(CONFIG).is_file():
+    print("YEAH ITS THERE")
+    load_config(CONFIG)
 
 if sys.platform == "win32":
     AAPT += ".exe"
@@ -86,42 +119,49 @@ if not Path(ADB).is_file():
 
     if not ADB:
         print("Helper could not find ADB, which is required for this program.",
-              "Place the binary in", str(Path(BASE + "/../adb").resolve()),
-              "or enter its path below")
+              "Close this windoww and place the binary in",
+              str(Path(BASE + "/../adb").resolve()), "or enter its path below")
         user_path = input(": ")
-        if user_path[0] in ["'", '"']:
-            user_path = user_path[1::]
+        if len(user_path) > 1:
+            if user_path[0] in ["'", '"']:
+                user_path = user_path[1::]
 
-        if user_path[-1] in ["'", '"']:
-            user_path = user_path[:-1]
+            if user_path[-1] in ["'", '"']:
+                user_path = user_path[:-1]
 
         if not Path(user_path).is_file():
             print("Provided path is not a file!")
             sys.exit()
 
         ADB = str(Path(user_path).resolve())
+        EDITED_CONFIG = True
 
 if not Path(AAPT).is_file():
     AAPT = shutil.which("aapt")
 
     if not AAPT:
-        print("Helper could not find AAPT, which is required for this program.",
-              "Place the binary in", str(Path(BASE + "/../aapt").resolve()),
-              "or enter its path below")
+        print("Helper could not find ADB, which is required for this program.",
+              "Close this windoww and place the binary in",
+              str(Path(BASE + "/../aapt").resolve()), "or enter its path below")
         user_path = input(": ").strip()
-        if user_path[0] in ["'", '"']:
-            user_path = user_path[1::]
+        if len(user_path) > 1:
+            if user_path[0] in ["'", '"']:
+                user_path = user_path[1::]
 
-        if user_path[-1] in ["'", '"']:
-            user_path = user_path[:-1]
+            if user_path[-1] in ["'", '"']:
+                user_path = user_path[:-1]
 
         if not Path(user_path).is_file():
             print("Provided path is not a file!")
             sys.exit()
 
         AAPT = str(Path(user_path).resolve())
+        EDITED_CONFIG = True
 
 CLEANER_CONFIG = BASE + "/../cleaner_config"
 COMPRESSION_DEFINITIONS = BASE + "/../compression_identifiers"
 COMPRESSION_TYPES = {}
 load_compression_types()
+
+if EDITED_CONFIG:
+    save_config(CONFIG)
