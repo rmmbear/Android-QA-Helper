@@ -230,9 +230,9 @@ class TestDeviceInit:
                 getprop_file.write("]\n")
 
         device = DummyDevice(tmp)
-        #for config_file in tmp.iterdir():
-        #    config_file.unlink()
-        #tmp.rmdir()
+        for config_file in tmp.iterdir():
+            config_file.unlink()
+        tmp.rmdir()
 
         assert device.initialized
         assert device.available_commands
