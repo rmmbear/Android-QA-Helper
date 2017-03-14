@@ -74,7 +74,7 @@ def load_compression_types():
 
 
 def load_config(config):
-    with open(config, mode="r") as config_file:
+    with open(config, mode="r", encoding="utf-8") as config_file:
         for line in config_file.readlines():
             line = line.strip().split("=", maxsplit=1)
 
@@ -101,17 +101,20 @@ def save_config(config):
 EDITED_CONFIG = False
 BASE = get_script_dir()
 CONFIG = str(Path(BASE + "/../helper_config").resolve())
-ADB = str(Path(BASE + "/../adb/adb").resolve())
-AAPT = str(Path(BASE + "/../aapt/aapt").resolve())
+ADB = str(Path(BASE + "/../adb/adb"))
+AAPT = str(Path(BASE + "/../aapt/aapt"))
 Path(ADB).parent.mkdir(exist_ok=True)
 Path(AAPT).parent.mkdir(exist_ok=True)
 
-if Path(CONFIG).is_file():
-    load_config(CONFIG)
+ADB = str(Path(ADB).resolve())
+AAPT = str(Path(AAPT).resolve())
 
 if sys.platform == "win32":
     AAPT += ".exe"
     ADB += ".exe"
+
+if Path(CONFIG).is_file():
+    load_config(CONFIG)
 
 if not Path(ADB).is_file():
     ADB = shutil.which("adb")
