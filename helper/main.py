@@ -67,6 +67,13 @@ def adb_execute(*args, return_output=False, check_server=True, as_list=True):
               "' but could not find it.", sep="")
         sys.exit("Please make sure the ADB binary is in the specified path.")
 
+    except PermissionError:
+        print("Helper could not launch ADB. Please make sure the following",
+              "path is correct and points to an actual ADB binary:", ADB,
+              "To fix this issue you may need to edit or delete the helper",
+              "config file, located at:", _helper.CONFIG)
+        sys.exit()
+
 
 def aapt_execute(*args, return_output=False, as_list=True):
     """Execute an AAPT command, and return -- or don't -- its result.
@@ -88,6 +95,12 @@ def aapt_execute(*args, return_output=False, as_list=True):
         print("Helper expected AAPT to be located in '", AAPT,
               "' but could not find it.", sep="")
         sys.exit("Please make sure the AAPT binary is in the specified path.")
+    except PermissionError:
+        print("Helper could not launch AAPT. Please make sure the following",
+              "path is correct and points to an actual AAPT binary:", AAPT,
+              "To fix this issue you may need to edit or delete the helper",
+              "config file, located at:", _helper.CONFIG)
+        sys.exit()
 
 
 def _get_devices():
