@@ -22,7 +22,7 @@ from pathlib import Path
 from collections import OrderedDict
 
 VERSION = "0.10"
-VERSION_DATE = "05-03-2017"
+VERSION_DATE = "14-03-2017"
 GITHUB_SOURCE = "https://github.com/rmmbear/Android-QA-Helper"
 VERSION_STRING = " ".join(["Android QA Helper ver", VERSION, ":",
                            VERSION_DATE, ": Copyright (c) 2017 rmmbear"]
@@ -72,42 +72,54 @@ def load_compression_types():
 
 
 BASE = get_script_dir()
-DEFAULT_ADB = BASE + "/../adb/adb"
-DEFAULT_AAPT = BASE + "/../aapt/aapt"
+ADB = str(Path(BASE + "/../adb/adb").resolve())
+AAPT = str(Path(BASE + "/../aapt/aapt").resolve())
+Path(ADB).parent.mkdir(exist_ok=True)
+Path(AAPT).parent.mkdir(exist_ok=True)
 
 if sys.platform == "win32":
-    DEFAULT_AAPT += ".exe"
-    DEFAULT_ADB += ".exe"
+    AAPT += ".exe"
+    ADB += ".exe"
 
-ADB = shutil.which("adb")
-if not ADB:
-    if Path(DEFAULT_ADB).is_file():
-        ADB = DEFAULT_ADB
-    else:
-        print("Helper could not find ADB, which is required for this program.")
-        print("Please enter the path pointing to ADB binary and press enter")
-        print(DEFAULT_ADB)
-        user_adb = input(": ").strip()
-        if not Path(user_adb).is_file():
+if not Path(ADB).is_file():
+    ADB = shutil.which("adb")
+
+    if not ADB:
+        print("Helper could not find ADB, which is required for this program.",
+              "Place the binary in", str(Path(BASE + "/../adb").resolve()),
+              "or enter its path below")
+        user_path = input(": ")
+        if user_path[0] in ["'", '"']:
+            user_path = user_path[1::]
+
+        if user_path[-1] in ["'", '"']:
+            user_path = user_path[:-1]
+
+        if not Path(user_path).is_file():
             print("Provided path is not a file!")
             sys.exit()
 
-        ADB = str(Path(user_adb).resolve())
+        ADB = str(Path(user_path).resolve())
 
-AAPT = shutil.which("aapt")
-if not AAPT:
-    if Path(DEFAULT_AAPT).is_file():
-        AAPT = DEFAULT_AAPT
-    else:
-        print("Helper could not find AAPT, which is required for this program.")
-        print("Please enter the path pointing to AAPT binary and press enter")
-        print(DEFAULT_AAPT)
-        user_aapt = input(": ").strip()
-        if not Path(user_aapt).is_file():
+if not Path(AAPT).is_file():
+    AAPT = shutil.which("aapt")
+
+    if not AAPT:
+        print("Helper could not find AAPT, which is required for this program.",
+              "Place the binary in", str(Path(BASE + "/../aapt").resolve()),
+              "or enter its path below")
+        user_path = input(": ").strip()
+        if user_path[0] in ["'", '"']:
+            user_path = user_path[1::]
+
+        if user_path[-1] in ["'", '"']:
+            user_path = user_path[:-1]
+
+        if not Path(user_path).is_file():
             print("Provided path is not a file!")
             sys.exit()
 
-        AAPT = str(Path(user_aapt).resolve())
+        AAPT = str(Path(user_path).resolve())
 
 CLEANER_CONFIG = BASE + "/../cleaner_config"
 COMPRESSION_DEFINITIONS = BASE + "/../compression_identifiers"
