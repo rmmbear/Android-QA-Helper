@@ -1,8 +1,8 @@
 # Android-QA-Helper
-Current release is v0.10-alpha (05-03-2017). Go here for changelog and windows binary package: https://github.com/rmmbear/Android-QA-Helper/releases/tag/0.10-alpha
+For changelog and Windows binaries see releases page: https://github.com/rmmbear/Android-QA-Helper/releases/
 
 # Requirements:
-- Python 3.6
+- Python 3.6 (if not using binary package)
 - ADB (can be found in platform-tools from Android SDK)
 - AAPT (can be found in build-tools from Android SDK)
 - py.test for tests
