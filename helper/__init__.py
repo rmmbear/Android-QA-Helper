@@ -38,10 +38,10 @@ ABI_TO_ARCH = {"armeabi"    :"32bit (ARM)",
                "mips64"     :"64bit (Mips64)",
               }
 
-CLEANER_OPTIONS = {"remove"           :(["shell", "rm", "--"]),
-                   "remove_recursive" :(["shell", "rm", "-r", "--"]),
+CLEANER_OPTIONS = {"remove"           :(["shell", "rm"]),
+                   "remove_recursive" :(["shell", "rm", "-r"]),
                    "uninstall"        :(["uninstall"]),
-                   "replace"          :(["shell", "rm", "-f", "--"],
+                   "replace"          :(["shell", "rm"],
                                         ["push"])
                   }
 
