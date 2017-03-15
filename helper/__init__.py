@@ -162,8 +162,16 @@ if not Path(AAPT).is_file():
         AAPT = str(Path(user_path).resolve())
         EDITED_CONFIG = True
 
-CLEANER_CONFIG = BASE + "/../cleaner_config"
-COMPRESSION_DEFINITIONS = BASE + "/../compression_identifiers"
+CLEANER_CONFIG = str(Path(BASE + "/../cleaner_config").resolve())
+if not Path(CLEANER_CONFIG).is_file():
+    with open(CLEANER_CONFIG, mode="w", encoding="utf-8") as empty_file:
+        pass
+
+COMPRESSION_DEFINITIONS = str(Path(BASE + "/../compression_identifiers").resolve())
+if not Path(COMPRESSION_DEFINITIONS).is_file():
+    with open(COMPRESSION_DEFINITIONS, mode="w", encoding="utf-8") as empty_file:
+        pass
+
 COMPRESSION_TYPES = {}
 load_compression_types()
 
