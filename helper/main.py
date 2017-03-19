@@ -22,6 +22,7 @@ Current functionality includes:
     - Cleaning device's storage with customizable cleaning config
 """
 
+
 import re
 import subprocess
 from time import strftime, sleep
@@ -33,7 +34,6 @@ from helper import OrderedDict
 DEVICES = {}
 
 ABI_TO_ARCH = _helper.ABI_TO_ARCH
-CLEANER_OPTIONS = _helper.CLEANER_OPTIONS
 CLEANER_CONFIG = _helper.CLEANER_CONFIG
 COMPRESSION_TYPES = _helper.COMPRESSION_TYPES
 ADB = _helper.ADB
@@ -44,10 +44,9 @@ def adb_execute(*args, return_output=False, check_server=True, as_list=True,
                 _stdout=sys.stdout):
     """Execute an ADB command, and return -- or don't -- its result.
 
-    If check_server is true, function will first make sure that an ADB
-    server is available before executing the command.
+    If check_server is true, function will first make sure that an ADB server
+    is available before executing the command.
     """
-
     try:
         if check_server:
             subprocess.run([ADB, "start-server"], stdout=subprocess.PIPE)
@@ -90,9 +89,7 @@ def adb_execute(*args, return_output=False, check_server=True, as_list=True,
 
 
 def aapt_execute(*args, return_output=False, as_list=True, _stdout=sys.stdout):
-    """Execute an AAPT command, and return -- or don't -- its result.
-    """
-
+    """Execute an AAPT command, and return -- or don't -- its result."""
     try:
         if return_output:
             cmd_out = subprocess.run((AAPT,) + args, stdout=subprocess.PIPE,
@@ -149,10 +146,9 @@ def _get_devices():
 
 
 def get_devices(_stdout=sys.stdout):
-    """Returns a list of currently connected devices, as announced by
-    ADB.
+    """Return a list of currently connected devices, as announced by ADB.
 
-    Also updates the internal 'DEVICES' tracker with newly connected
+    Also update the internal 'DEVICES' tracker with newly connected
     devices. The function will update status of devices, as announced by
     ADB. Objects for devices that were disconnected, will remain in the
     last known status until reconnected and this function is called, or
@@ -192,8 +188,8 @@ def get_devices(_stdout=sys.stdout):
 
 
 def pick_device(_stdout=sys.stdout):
-    """Asks the user to pick which device they want to use. If there are no
-    devices to choose from it will return the sole connected device or None.
+    """Ask the user to pick which device they want to use. If there are no
+    devices to choose from, it will return the sole connected device or None.
     """
 
     device_list = get_devices()
@@ -235,6 +231,7 @@ class Device:
 
         self.anr_trace_path = None
         self.available_commands = None
+        self.ext_storage = None
         self.info = OrderedDict()
 
         info = [
@@ -302,7 +299,6 @@ class Device:
         """Device's current state, as announced by adb.
         Returns offline if device was not found by adb.
         """
-
         for device_specs in _get_devices():
             if self.serial not in device_specs:
                 continue
@@ -324,12 +320,11 @@ class Device:
 
 
     def _device_init(self):
-        """Gather all the information.
-        """
-
+        """Gather all the information."""
         if self._status == "device" and not self.initialized:
             self.available_commands = []
-            for command in self.shell_command("ls", "/system/bin", return_output=True):
+            for command in self.shell_command("ls", "/system/bin",
+                                              return_output=True):
                 command = command.strip()
                 if command:
                     self.available_commands.append(command)
@@ -337,6 +332,7 @@ class Device:
             self._get_surfaceflinger_info()
             self._get_prop_info()
             self._get_cpu_info()
+            self._get_shell_env()
 
             ram = self.shell_command("cat", "/proc/meminfo",
                                      return_output=True)
@@ -373,13 +369,9 @@ class Device:
 
             self.initialized = True
 
-        return self.initialized
-
 
     def _get_prop_info(self):
-        """Extract all manner of different info from Android's property list.
-        """
-
+        """Extract all manner of different info from Android's property list."""
         prop_dump = self.shell_command("getprop", return_output=True)
         prop_dict = {}
 
@@ -461,9 +453,7 @@ class Device:
 
 
     def _get_cpu_info(self):
-        """Extract info about CPU and its chipset.
-        """
-
+        """Extract info about CPU and its chipset."""
         freq_file = "/sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_max_freq"
         max_freq = self.shell_command("cat", freq_file, return_output=True,
                                       as_list=False).strip()
@@ -508,9 +498,7 @@ class Device:
 
 
     def _get_surfaceflinger_info(self):
-        """Extract information from "SufraceFlinger" service dump.
-        """
-
+        """Extract information from "SufraceFlinger" service dump."""
         dump = self.shell_command("dumpsys", "SurfaceFlinger",
                                   return_output=True, as_list=False)
         gpu_model = None
@@ -561,10 +549,23 @@ class Device:
         self.info["GPU"]["Compression Types"] = ", ".join(compressions)
 
 
-    def print_full_info(self, _stdout=sys.stdout):
-        """
-        """
+    def _get_shell_env(self):
+        """Extract information from Android's shell environment"""
+        #TODO: Extract information from Android shell
+        #shell_env = self.shell_command("printenv", return_output=True,
+        #                               as_list=False)
+        primary_storage_paths = ["/mnt/sdcard", # this is a safe bet (in my experience)
+                                 "/storage/emulated", # older androids don't have this one
+                                 "/storage/emulated/0",
+                                 "/storage/sdcard0",
+                                 "/mnt/emmc" # are you a time traveler?
+                                ]
 
+        self.ext_storage = primary_storage_paths[0]
+
+
+    def print_full_info(self, _stdout=sys.stdout):
+        """Print all information contained in device.info onto the screen."""
         indent = 4
 
         for info_category in self.info:
@@ -580,10 +581,9 @@ class Device:
 
     def print_basic_info(self, _stdout=sys.stdout):
         """Print basic device information to console.
-        prints: manufacturer, model, OS version and available texture
+        Prints: manufacturer, model, OS version and available texture
         compression types.
         """
-
         _stdout.write(self.info["Product"]["Manufacturer"] + " - ")
         _stdout.write(self.info["Product"]["Model"] + " - ")
         _stdout.write(self.info["OS"]["Android Version"])
@@ -593,10 +593,9 @@ class Device:
 
 
 def get_app_name(apk_file):
-    """Extracts app name of the provided apk, from its manifest file.
-    Returns name if it is found, an empty string otherwise.
+    """Extract app name of the provided apk, from its manifest file.
+    Return name if it is found, an empty string otherwise.
     """
-
     app_dump = aapt_execute("dump", "badging", apk_file, return_output=True,
                             as_list=False)
     app_name = re.search("(?<=name=')[^']*", app_dump)
@@ -608,11 +607,10 @@ def get_app_name(apk_file):
 
 
 def install(device, items, _stdout=sys.stdout):
-    """Installs apps.
+    """Install apps.
     Accepts either a list of apk files, or list with one apk and as many obb
     files as you like.
     """
-
     app_list = []
     obb_list = []
 
@@ -685,38 +683,19 @@ def install(device, items, _stdout=sys.stdout):
         _stdout.write("Installation complete!\n")
 
 
-def install_apk(device, apk_file, app_name, ignore_uninstall_err=False,
-                _stdout=sys.stdout):
-    """
-    """
-
+def install_apk(device, apk_file, app_name, _stdout=sys.stdout):
+    """Install an app on specified device."""
     preinstall_log = device.shell_command("pm", "list", "packages",
                                           return_output=True, as_list=False)
 
     if app_name in preinstall_log:
         _stdout.write("Different version of the app already installed, deleting...")
         _stdout.write("\n")
-        uninstall_log = device.adb_command("uninstall", app_name,
-                                           return_output=True)
+        result = _clean_uninstall(device, target=app_name, app_name=True,
+                                  check_packages=False)
 
-        if uninstall_log[-1] != "Success":
-            if device.status != "device":
-                _stdout.write("Device has been suddenly disconnected!\n")
-                return False
-            else:
-                _stdout.write("Unexpected error!\n")
-                _stdout.write(app_name + " could not be uninstalled!")
-                _stdout.write("Installation cannot continue. You can ignore this")
-                _stdout.write("error with '--force' option alongside --install")
-                _stdout.write("\n")
-
-                if ignore_uninstall_err:
-                    _stdout.write("\n")
-                    _stdout.write("Error ignored.")
-                    _stdout.write("Installer will attempt to replace the app.")
-                    _stdout.write("\n")
-                else:
-                    return False
+        if not result:
+            return False
 
         _stdout.write("Successfully uninstalled" + app_name + "\n")
 
@@ -741,16 +720,10 @@ def install_apk(device, apk_file, app_name, ignore_uninstall_err=False,
 
 
 def prepare_obb_dir(device, app_name):
-    """Push <obb_file> to /mnt/sdcard/Android/obb/<your.app.name> on <Device>.
-
-    Clears contents of the obb folder and recreates it if necessary. File is
-    then copied to internal storage (/mnt/sdcard/), and from there to the obb
-    folder. This is done in two steps because of write protection of sorts --
-    attempts to adb push it directly into obb folder may fail on some devices.
-    """
+    """Prepare the obb directory for installation."""
     # pipe the stdout to suppress unnecessary errors
-    obb_folder = "/mnt/sdcard/Android/obb"
-    device.shell_command("rm", "-fr", obb_folder + "/" + app_name,
+    obb_folder = device.ext_storage + "/Android/obb"
+    device.shell_command("rm", "-r", obb_folder + "/" + app_name,
                          return_output=True)
     device.shell_command("mkdir", obb_folder + "/" + app_name,
                          return_output=True)
@@ -759,18 +732,17 @@ def prepare_obb_dir(device, app_name):
 def push_obb(device, obb_file, app_name, _stdout=sys.stdout):
     """Push <obb_file> to /mnt/sdcard/Android/obb/<your.app.name> on <Device>.
 
-    File is copied to internal storage (/mnt/sdcard/), and from there to the
-    obb folder. This is done in two steps because of write protection of sorts
-    -- attempts to adb push it directly into obb folder may fail on some
-    devices.
+    File is copied to primary storage, and from there to the obb folder. This
+    is done in two steps because of write protection of sorts -- attempts to
+    'adb push' it directly into obb folder may fail on some devices.
     """
     obb_name = str(Path(obb_file).name)
-    obb_target = "/mnt/sdcard/Android/obb/" + app_name + "/" + obb_name
+    obb_target = device.ext_storage + "/Android/obb/" + app_name + "/" + obb_name
 
     #pushing obb in two steps to circumvent write protection
-    device.adb_command("push", obb_file, "/mnt/sdcard/" + obb_name, _stdout=_stdout)
-    device.shell_command("mv", "\"/mnt/sdcard/" + obb_name + "\"",
-                         "\"" + obb_target + "\"", _stdout=_stdout)
+    device.adb_command("push", obb_file, device.ext_storage + "/" + obb_name)
+    device.shell_command("mv", '"' + device.ext_storage + "/" + obb_name + '"',
+                         '"' + obb_target + '"')
 
     push_log = device.shell_command("ls", "\"" + obb_target + "\"",
                                     return_output=True, as_list=False)
@@ -812,7 +784,7 @@ def record(device, output=None, _stdout=sys.stdout):
     Path(output).mkdir(exist_ok=True)
 
     filename = "screenrecord_" + strftime("%Y.%m.%d_%H.%M.%S") + ".mp4"
-    remote_recording = "/mnt/sdcard/" + filename
+    remote_recording = device.ext_storage + "/" + filename
 
     filename = device.info["Product"]["Model"] + "_" + filename
     output = str(Path(Path(output).resolve(), filename))
@@ -825,7 +797,7 @@ def record(device, output=None, _stdout=sys.stdout):
     try:
         input("Press enter whenever you are ready to record.\n")
     except KeyboardInterrupt:
-        _stdout.write("\nRecording canceled bu user.\n")
+        _stdout.write("\nRecording canceled!\n")
         sys.exit()
 
 
@@ -834,7 +806,8 @@ def record(device, output=None, _stdout=sys.stdout):
                              return_output=False, _stdout=_stdout)
         _stdout.write("\nRecording stopped by device.\n")
     except KeyboardInterrupt:
-        _stdout.write("\nRecording stopped bu user.\n")
+        _stdout.write("\nRecording stopped.\n")
+
 
     # we're waiting for the clip to be fully saved to device's storage
     # there must be a better way of doing this...
@@ -861,9 +834,7 @@ def record(device, output=None, _stdout=sys.stdout):
 
 
 def pull_traces(device, output=None, _stdout=sys.stdout):
-    """Copy contents of the 'traces' file into the specified folder.
-    """
-
+    """Copy contents of the 'traces' into file in the specified folder."""
     if output is None:
         output = Path()
     else:
@@ -875,38 +846,150 @@ def pull_traces(device, output=None, _stdout=sys.stdout):
                             strftime("%Y.%m.%d_%H.%M.%S"), ".txt"])
 
     device.shell_command("cat", device.anr_trace_path, ">",
-                         "/mnt/sdcard/traces.txt")
+                         device.ext_storage + "/traces.txt")
 
-    cat_log = device.shell_command("ls", "/mnt/sdcard/traces.txt",
-                                         return_output=True, as_list=False)
+    cat_log = device.shell_command("ls", device.ext_storage + "/traces.txt",
+                                   return_output=True, as_list=False)
 
-    if cat_log != "/mnt/sdcard/traces.txt":
+    if cat_log != device.ext_storage + "/traces.txt":
         if device.status != "device":
-            _stdout.write("Device has been suddenly disconnected!")
+            _stdout.write("Device has been suddenly disconnected!\n")
         else:
-            _stdout.write("Unexpected error! The file could not be found on device!")
+            _stdout.write("Unexpected error! The file could not be found on device!\n")
 
         return False
 
-    device.adb_command("pull", "/mnt/sdcard/traces.txt", str(output / anr_filename))
+    device.adb_command("pull", device.ext_storage + "/traces.txt",
+                       str(output / anr_filename))
 
     if (output / anr_filename).is_file():
         return str((output / anr_filename).resolve())
 
     if device.status != "device":
-        _stdout.write("Device has been suddenly disconnected!")
+        _stdout.write("Device has been suddenly disconnected\n!")
     else:
-        _stdout.write("Unexpected error! The file could not copied!")
+        _stdout.write("Unexpected error! The file could not copied!\n")
 
     return False
 
 
-def parse_cleaner_config(config=CLEANER_CONFIG, _stdout=sys.stdout):
-    """Function for parsing cleaner config files. Returns tuple containing a
-    parsed config (dict) and bad config (list). The former can be passed to
-    clean().
+def _clean_uninstall(device, target, app_name=False, check_packages=True):
+    """Uninstall an app from specified device. Target can be an app name or a
+    path to apk file -- by default it will check if target is a file, and if so
+    it will attempt to extract app name from it. To disable that, set "app_name"
+    to True.
     """
+    if Path(target).is_file() and not app_name:
+        target = get_app_name(target)
 
+    print("> Uninstalling", target, end="... ")
+    if check_packages:
+        preinstall_log = device.shell_command("pm", "list", "packages",
+                                              return_output=True, as_list=False)
+
+        if target not in preinstall_log:
+            print("App was not found")
+            return False
+
+    uninstall_log = device.adb_command("uninstall", target, return_output=True)
+
+    if uninstall_log[-1] != "Success":
+        if device.status != "device":
+            print("Device has been suddenly disconnected!")
+            return False
+        else:
+            print("Unexpected error!")
+            print(target, "could not be uninstalled!")
+            return False
+
+    print("Done!")
+    return True
+
+
+def _clean_remove(device, target, recursive=False):
+    """Remove a file from device."""
+    command = "rm"
+    if recursive:
+        command += " -r"
+
+    if " " in target:
+        target = '"{}"'.format(target)
+
+    print("> Removing", target, end="... ")
+
+    result = device.shell_command(command, target, return_output=True,
+                                  as_list=False).strip()
+
+    if not result:
+        if device.status != "device":
+            print("Device has been suddenly disconnected!")
+            return False
+
+        print("Done!")
+        return True
+    elif result.lower().endswith("no such file or directory"):
+        print("File not found")
+        return False
+    elif result.lower().endswith("permission denied"):
+        print("Permission denied")
+        return -1
+    else:
+        print("Unexpected error, got:")
+        print(result)
+        return -2
+
+
+def _clean_replace(device, remote, local):
+    """Replace file on device (remote) with the a local one."""
+    result = _clean_remove(device, remote)
+    if int(result) < 0:
+        print("Cannot replace", remote, "due to unexpected error")
+        return False
+
+    print("> Placing", local, "in its place")
+    device.adb_command("push", local, remote)
+
+    _remote = remote
+    if " " in _remote:
+        _remote = '"{}"'.format(remote)
+
+    push_log = device.shell_command("ls", _remote, return_output=True,
+                                    as_list=False)
+
+    if push_log != remote:
+        if device.status != "device":
+            print("Device has been suddenly disconnected!")
+        else:
+            print("Unexpected error! The file could not be found on device!")
+
+        return False
+
+    print("Done!")
+    return True
+
+
+### CLEANER OPTIONS SPECIFICATION
+#1 - name of the function in cleaner_config file
+#2 - name of the internal function
+#3 - number of required user args
+#4 - additional args required by internal function
+# Note: Device object is required for all functions as the first argument
+
+                  #1                   #2                 #3  #4
+CLEANER_OPTIONS = {"remove"           :(_clean_remove,     1, [False]),
+                   "remove_recursive" :(_clean_remove,     1, [True]),
+                   "replace"          :(_clean_replace,    2, []),
+                   "uninstall"        :(_clean_uninstall,  1, [])
+                  }
+
+
+def parse_cleaner_config(config=CLEANER_CONFIG, _stdout=sys.stdout):
+    """Parse the provided cleaner_config file. If no file is provided, parse
+    the default config file.
+
+    Return tuple containing parsed config (dict) and bad config (list). The
+    former can be passed toclean().
+    """
     parsed_config = {}
     bad_config = []
 
@@ -935,47 +1018,27 @@ def parse_cleaner_config(config=CLEANER_CONFIG, _stdout=sys.stdout):
         if key not in parsed_config:
             parsed_config[key] = []
 
-        if key == "replace":
-            items = []
-            for item in value.split(",", maxsplit=1):
-                items.append(item.strip())
-
-            if not Path(items[1]).is_file():
-                bad_config.append(count, "Local file does not exist")
-            else:
-                parsed_config[key].append(items)
-        else:
-            if key == "uninstall":
-                if not Path(value).is_file():
-                    parsed_config[key].append(value)
-                    continue
-
-                parsed_config[key].append(get_app_name(value))
+        items = []
+        for item in value.split(";"):
+            item = item.strip()
+            if not item:
                 continue
 
-            if " " not in value:
-                parsed_config[key].append(value)
-                continue
+            items.append(item)
 
-            if value[0] not in ["'", "\""]:
-                value = "\"" + value
+        if CLEANER_OPTIONS[key][1] != len(items):
+            bad_config.append((count, "Expected {} arguments, but got {}".format(CLEANER_OPTIONS[key][1], len(items))))
+            continue
 
-            if value[-1] not in ["'", "\""]:
-                value += "\""
-
-            parsed_config[key].append(value)
-
+        parsed_config[key].append(items)
 
     return (parsed_config, bad_config)
 
 
 def clean(device, config=CLEANER_CONFIG, parsed_config=None, force=False,
           _stdout=sys.stdout):
-    """
-    """
-    # TODO: Test each cleaning action for success / failure
+    """Clean the specified device, as"""
     # TODO: Count the number of removed files / apps
-
     bad_config = []
 
     if not parsed_config:
@@ -986,6 +1049,7 @@ def clean(device, config=CLEANER_CONFIG, parsed_config=None, force=False,
         _stdout.write("(" + config + ")")
         _stdout.write("\n")
         indent = 4
+
         for line, reason in bad_config:
             _stdout.write(indent*" " + "Line " + line + " - " + reason)
             _stdout.write("\n")
@@ -997,6 +1061,8 @@ def clean(device, config=CLEANER_CONFIG, parsed_config=None, force=False,
         _stdout.write("Empty config! Cannot clean!\n")
         return False
 
+
+    # Ask user to confirm cleaning
     if not force:
         _stdout.write("The following actions will be performed:\n")
         indent = 2
@@ -1023,42 +1089,12 @@ def clean(device, config=CLEANER_CONFIG, parsed_config=None, force=False,
         while True:
             usr_choice = input("Y/N : ").strip().upper()
             if usr_choice == "N":
-                _stdout.write("User canceled cleaning\n")
+                _stdout.write("Cleaning canceled!\n")
                 return False
             elif usr_choice == "Y":
                 break
 
-    # TODO: simplify this mess
-    for option, value in parsed_config.items():
-        for item in value:
-            if option == "replace":
-                remote = ""
-                if item[0][0] not in ["'", "\""]:
-                    remote = "\"" + item[0]
-
-                if remote[-1] not in ["'", "\""]:
-                    remote += "\""
-
-                _stdout.write("Removing " + str(remote) + " ... ")
-                result = device.adb_command(*CLEANER_OPTIONS[option][0], remote,
-                                            return_output=True, as_list=False)
-                if result.endswith("No such file or directory"):
-                    _stdout.write("No such files found\n")
-                elif not result:
-                    _stdout.write("Done!\n")
-                else:
-                    _stdout.write("Unexpected error: " + result + "\n")
-
-                _stdout.write("Placing" + str(item[1]) + " in its place ...")
-                device.adb_command(*CLEANER_OPTIONS[option][1], item[1], item[0],
-                                   _stdout=_stdout)
-            else:
-                _stdout.write("Removing " + item + " ... ")
-                result = device.adb_command(*CLEANER_OPTIONS[option], item,
-                                            return_output=True, as_list=False)
-                if result.strip().endswith("No such file or directory"):
-                    _stdout.write("No such files found")
-                elif not result:
-                    _stdout.write("Done!")
-                else:
-                    _stdout.write("Unexpected error: " + result)
+    for option, items in parsed_config.items():
+        for value in items:
+            CLEANER_OPTIONS[option][0].__call__(device, *value,
+                                                *CLEANER_OPTIONS[option][2])
