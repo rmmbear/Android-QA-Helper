@@ -21,8 +21,8 @@ import shutil
 from pathlib import Path
 from collections import OrderedDict
 
-VERSION = "0.11"
-VERSION_DATE = "14-03-2017"
+VERSION = "0.12"
+VERSION_DATE = "19-03-2017"
 GITHUB_SOURCE = "https://github.com/rmmbear/Android-QA-Helper"
 VERSION_STRING = " ".join(["Android QA Helper ver", VERSION, ":",
                            VERSION_DATE, ": Copyright (c) 2017 rmmbear"]
@@ -37,13 +37,6 @@ ABI_TO_ARCH = {"armeabi"    :"32bit (ARM)",
                "mips"       :"32bit (Mips)",
                "mips64"     :"64bit (Mips64)",
               }
-
-CLEANER_OPTIONS = {"remove"           :(["shell", "rm"]),
-                   "remove_recursive" :(["shell", "rm", "-r"]),
-                   "uninstall"        :(["uninstall"]),
-                   "replace"          :(["shell", "rm"],
-                                        ["push"])
-                  }
 
 HELPER_CONFIG_VARS = ["ADB", "AAPT"]
 
