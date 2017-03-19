@@ -830,20 +830,31 @@ def pull_traces(device, output=None):
     anr_filename = "".join([device.info["Product"]["Model"], "_anr_",
                             strftime("%Y.%m.%d_%H.%M.%S"), ".txt"])
 
-    traces = device.shell_command("cat", "/data/anr/traces.txt",
-                                  return_output=True, as_list=False)
+    device.shell_command("cat", device.anr_trace_path, ">",
+                         "/mnt/sdcard/traces.txt")
 
-    # TODO: check if what is saved is actually full traces file
-    # device might have been suddenly disconnected during cat-ing
-    # which will result in only partial log
+    cat_log = device.shell_command("ls", "/mnt/sdcard/traces.txt",
+                                         return_output=True, as_list=False)
 
-    # maybe 'mv /data/anr/traces/ /mnt/sdcard/tmp_traces' and use adb pull?
-    # may be a bit messy...
+    if cat_log != "/mnt/sdcard/traces.txt":
+        if device.status != "device":
+            print("Device has been suddenly disconnected!")
+        else:
+            print("Unexpected error! The file could not be found on device!")
 
-    with (output / anr_filename).open(mode="w", encoding="utf-8") as anr_file:
-        anr_file.write(traces)
+        return False
 
-    return str((output / anr_filename).resolve())
+    device.adb_command("pull", "/mnt/sdcard/traces.txt", str(output / anr_filename))
+
+    if (output / anr_filename).is_file():
+        return str((output / anr_filename).resolve())
+
+    if device.status != "device":
+        print("Device has been suddenly disconnected!")
+    else:
+        print("Unexpected error! The file could not copied!")
+
+    return False
 
 
 def parse_cleaner_config(config=CLEANER_CONFIG):
@@ -962,7 +973,7 @@ def clean(device, config=CLEANER_CONFIG, parsed_config=None, force=False):
                 print(pair[1])
 
         print()
-        print("Is this ok?")
+        print("Continue?")
 
         while True:
             usr_choice = input("Y/N : ").strip().upper()
@@ -972,7 +983,7 @@ def clean(device, config=CLEANER_CONFIG, parsed_config=None, force=False):
             elif usr_choice == "Y":
                 break
 
-    # TODO
+    # TODO: simplify this mess
     for option, value in parsed_config.items():
         for item in value:
             if option == "replace":
@@ -998,8 +1009,8 @@ def clean(device, config=CLEANER_CONFIG, parsed_config=None, force=False):
             else:
                 print("Removing", item, "...", end="")
                 result = device.adb_command(*CLEANER_OPTIONS[option], item,
-                                   return_output=True, as_list=False).strip()
-                if result.endswith("No such file or directory"):
+                                            return_output=True, as_list=False)
+                if result.strip().endswith("No such file or directory"):
                     print("No such files found")
                 elif not result:
                     print("Done!")
