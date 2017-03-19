@@ -11,7 +11,8 @@
 # 'replace'         - Replace specified remote file with a local file.
 #                     If the remote file does not exist, the local will
 #                     still be placed in the remote path. Must provide
-#                     two -- no more, no less -- comma delimited files.
+#                     two -- no more, no less -- semicolon delimited
+#                     files.
 #
 #
 # Example usage:
@@ -22,9 +23,9 @@
 # uninstall : com.android.browser         - Remove a package by its name
 # uninstall : /home/user/Desktop/some.apk - Remove a package by its apk
 #
-#                                | comma as delimiter
+#                                | semicolon as delimiter
 #                                v
-# replace : /mnt/sdcard/somefile , /home/user/Desktop/someotherfile
+# replace : /mnt/sdcard/somefile ; /home/user/Desktop/someotherfile
 #            ^                      ^
 #            | remote file          | local file
 #

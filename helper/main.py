@@ -32,7 +32,6 @@ from helper import OrderedDict
 
 
 ABI_TO_ARCH = _helper.ABI_TO_ARCH
-CLEANER_OPTIONS = _helper.CLEANER_OPTIONS
 CLEANER_CONFIG = _helper.CLEANER_CONFIG
 COMPRESSION_TYPES = _helper.COMPRESSION_TYPES
 ADB = _helper.ADB
@@ -664,24 +663,11 @@ def install_apk(device, apk_file, app_name, ignore_uninstall_err=False):
 
     if app_name in preinstall_log:
         print("Different version of the app already installed, deleting...")
-        uninstall_log = device.adb_command("uninstall", app_name,
-                                           return_output=True)
+        result = _clean_uninstall(device, target=app_name, app_name=True,
+                                  check_packages=False)
 
-        if uninstall_log[-1] != "Success":
-            if device.status != "device":
-                print("Device has been suddenly disconnected!")
-                return False
-            else:
-                print("Unexpected error!")
-                print(app_name, "could not be uninstalled!")
-                print("Installation cannot continue.", "You can ignore",
-                      "this error with '--force' option alongside --install")
-
-                if ignore_uninstall_err:
-                    print("Error ignored.")
-                    print("Installer will attempt to replace the app.")
-                else:
-                    return False
+        if not result:
+            return False
 
         print("Successfully uninstalled", app_name, "\n")
 
@@ -782,7 +768,7 @@ def record(device, output=None):
     try:
         input("Press enter whenever you are ready to record.\n")
     except KeyboardInterrupt:
-        print("\nRecording canceled bu user.")
+        print("\nRecording canceled!")
         sys.exit()
 
 
@@ -791,7 +777,7 @@ def record(device, output=None):
                              return_output=False)
         print("\nRecording stopped by device.")
     except KeyboardInterrupt:
-        print("\nRecording stopped bu user.")
+        print("\nRecording stopped.")
 
     # we're waiting for the clip to be fully saved to device's storage
     # there must be a better way of doing this...
@@ -834,7 +820,7 @@ def pull_traces(device, output=None):
                          "/mnt/sdcard/traces.txt")
 
     cat_log = device.shell_command("ls", "/mnt/sdcard/traces.txt",
-                                         return_output=True, as_list=False)
+                                   return_output=True, as_list=False)
 
     if cat_log != "/mnt/sdcard/traces.txt":
         if device.status != "device":
@@ -855,6 +841,110 @@ def pull_traces(device, output=None):
         print("Unexpected error! The file could not copied!")
 
     return False
+
+
+def _clean_uninstall(device, target, app_name=False, check_packages=True):
+    if Path(target).is_file() and not app_name:
+        target = get_app_name(target)
+
+    print("> Uninstalling", target, end="... ")
+    if check_packages:
+        preinstall_log = device.shell_command("pm", "list", "packages",
+                                              return_output=True, as_list=False)
+
+        if target not in preinstall_log:
+            print("App was not found")
+            return False
+
+    uninstall_log = device.adb_command("uninstall", target, return_output=True)
+
+    if uninstall_log[-1] != "Success":
+        if device.status != "device":
+            print("Device has been suddenly disconnected!")
+            return False
+        else:
+            print("Unexpected error!")
+            print(target, "could not be uninstalled!")
+            return False
+
+    print("Done!")
+    return True
+
+
+def _clean_remove(device, target, recursive=False):
+    command = "rm"
+    if recursive:
+        command += " -r"
+
+    if " " in target:
+        target = '"{}"'.format(target)
+
+    print("> Removing", target, end="... ")
+
+    result = device.shell_command(command, target, return_output=True,
+                                  as_list=False).strip()
+
+    if not result:
+        if device.status != "device":
+            print("Device has been suddenly disconnected!")
+            return False
+
+        print("Done!")
+        return True
+    elif result.lower().endswith("no such file or directory"):
+        print("File not found")
+        return False
+    elif result.lower().endswith("permission denied"):
+        print("Permission denied")
+        return -1
+    else:
+        print("Unexpected error, got:")
+        print(result)
+        return -2
+
+
+def _clean_replace(device, remote, local):
+
+    result = _clean_remove(device, remote)
+    if int(result) < 0:
+        print("Cannot replace", remote, "due to unexpected error")
+        return False
+
+    print("> Placing", local, "in its place")
+    device.adb_command("push", local, remote)
+
+    _remote = remote
+    if " " in _remote:
+        _remote = '"{}"'.format(remote)
+
+    push_log = device.shell_command("ls", _remote, return_output=True,
+                                    as_list=False)
+
+    if push_log != remote:
+        if device.status != "device":
+            print("Device has been suddenly disconnected!")
+        else:
+            print("Unexpected error! The file could not be found on device!")
+
+        return False
+
+    print("Done!")
+    return True
+
+
+### CLEANER OPTIONS SPECIFICATION
+#1 - name of the function in cleaner_config file
+#2 - name of the internal function
+#3 - number of required user args
+#4 - additional args required by internal function
+# Note: Device object is required for all functions as the first argument
+
+                  #1                   #2                 #3  #4
+CLEANER_OPTIONS = {"remove"           :(_clean_remove,     1, [False]),
+                   "remove_recursive" :(_clean_remove,     1, [True]),
+                   "replace"          :(_clean_replace,    2, []),
+                   "uninstall"        :(_clean_uninstall,  1, [])
+                  }
 
 
 def parse_cleaner_config(config=CLEANER_CONFIG):
@@ -891,36 +981,19 @@ def parse_cleaner_config(config=CLEANER_CONFIG):
         if key not in parsed_config:
             parsed_config[key] = []
 
-        if key == "replace":
-            items = []
-            for item in value.split(",", maxsplit=1):
-                items.append(item.strip())
-
-            if not Path(items[1]).is_file():
-                bad_config.append(count, "Local file does not exist")
-            else:
-                parsed_config[key].append(items)
-        else:
-            if key == "uninstall":
-                if not Path(value).is_file():
-                    parsed_config[key].append(value)
-                    continue
-
-                parsed_config[key].append(get_app_name(value))
+        items = []
+        for item in value.split(";"):
+            item = item.strip()
+            if not item:
                 continue
 
-            if " " not in value:
-                parsed_config[key].append(value)
-                continue
+            items.append(item)
 
-            if value[0] not in ["'", "\""]:
-                value = "\"" + value
+        if CLEANER_OPTIONS[key][1] != len(items):
+            bad_config.append((count, "Expected {} arguments, but got {}".format(CLEANER_OPTIONS[key][1], len(items))))
+            continue
 
-            if value[-1] not in ["'", "\""]:
-                value += "\""
-
-            parsed_config[key].append(value)
-
+        parsed_config[key].append(items)
 
     return (parsed_config, bad_config)
 
@@ -928,7 +1001,6 @@ def parse_cleaner_config(config=CLEANER_CONFIG):
 def clean(device, config=CLEANER_CONFIG, parsed_config=None, force=False):
     """
     """
-    # TODO: Test each cleaning action for success / failure
     # TODO: Count the number of removed files / apps
 
     bad_config = []
@@ -940,6 +1012,7 @@ def clean(device, config=CLEANER_CONFIG, parsed_config=None, force=False):
         print("Errors encountered in the config file")
         print("(", config, ")", sep="")
         indent = 4
+
         for line, reason in bad_config:
             print(indent*" ", "Line", line, "-", reason)
 
@@ -950,6 +1023,8 @@ def clean(device, config=CLEANER_CONFIG, parsed_config=None, force=False):
         print("Empty config! Cannot clean!")
         return False
 
+
+    # Ask user to confirm cleaning
     if not force:
         print("The following actions will be performed:")
         indent = 2
@@ -961,7 +1036,7 @@ def clean(device, config=CLEANER_CONFIG, parsed_config=None, force=False):
                 continue
 
             for item in parsed_config[key]:
-                print(action, ":", item)
+                print(action, ":", *item)
 
         if "replace" in parsed_config:
             print()
@@ -978,41 +1053,13 @@ def clean(device, config=CLEANER_CONFIG, parsed_config=None, force=False):
         while True:
             usr_choice = input("Y/N : ").strip().upper()
             if usr_choice == "N":
-                print("User canceled cleaning")
+                print("Cleaning canceled!")
                 return False
             elif usr_choice == "Y":
                 break
 
-    # TODO: simplify this mess
-    for option, value in parsed_config.items():
-        for item in value:
-            if option == "replace":
-                remote = ""
-                if item[0][0] not in ["'", "\""]:
-                    remote = "\"" + item[0]
 
-                if remote[-1] not in ["'", "\""]:
-                    remote += "\""
-
-                print("Removing", remote, "...", end="")
-                result = device.adb_command(*CLEANER_OPTIONS[option][0], remote,
-                                   return_output=True, as_list=False)
-                if result.endswith("No such file or directory"):
-                    print("No such files found")
-                elif not result:
-                    print("Done!")
-                else:
-                    print("Unexpected error:", result)
-
-                print("Placing", item[1], "in its place ...")
-                device.adb_command(*CLEANER_OPTIONS[option][1], item[1], item[0])
-            else:
-                print("Removing", item, "...", end="")
-                result = device.adb_command(*CLEANER_OPTIONS[option], item,
-                                            return_output=True, as_list=False)
-                if result.strip().endswith("No such file or directory"):
-                    print("No such files found")
-                elif not result:
-                    print("Done!")
-                else:
-                    print("Unexpected error:", result)
+    for option, items in parsed_config.items():
+        for value in items:
+            CLEANER_OPTIONS[option][0].__call__(device, *value,
+                                                *CLEANER_OPTIONS[option][2])
