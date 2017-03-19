@@ -22,6 +22,7 @@ Current functionality includes:
     - Cleaning device's storage with customizable cleaning config
 """
 
+
 import re
 import subprocess
 from time import strftime, sleep
@@ -208,6 +209,7 @@ class Device:
 
         self.anr_trace_path = None
         self.available_commands = None
+        self.ext_storage = None
         self.info = OrderedDict()
 
         info = [
@@ -302,7 +304,8 @@ class Device:
 
         if self._status == "device" and not self.initialized:
             self.available_commands = []
-            for command in self.shell_command("ls", "/system/bin", return_output=True):
+            for command in self.shell_command("ls", "/system/bin",
+                                              return_output=True):
                 command = command.strip()
                 if command:
                     self.available_commands.append(command)
@@ -310,6 +313,7 @@ class Device:
             self._get_surfaceflinger_info()
             self._get_prop_info()
             self._get_cpu_info()
+            self._get_shell_env()
 
             ram = self.shell_command("cat", "/proc/meminfo",
                                      return_output=True)
@@ -345,8 +349,6 @@ class Device:
                         self.info["Display"]["Resolution"] = density.group().strip()
 
             self.initialized = True
-
-        return self.initialized
 
 
     def _get_prop_info(self):
@@ -534,6 +536,20 @@ class Device:
         self.info["GPU"]["Compression Types"] = ", ".join(compressions)
 
 
+    def _get_shell_env(self):
+
+        #shell_env = self.shell_command("printenv", return_output=True,
+        #                               as_list=False)
+        primary_storage_paths = ["/mnt/sdcard", # this is a safe bet (in my experience)
+                                 "/storage/emulated", # older androids don't have this one
+                                 "/storage/emulated/0",
+                                 "/storage/sdcard0",
+                                 "/mnt/emmc" # are you a time traveler?
+                                ]
+
+        self.ext_storage = primary_storage_paths[0]
+
+
     def print_full_info(self):
         """
         """
@@ -654,7 +670,7 @@ def install(device, items):
         print("Installation complete!")
 
 
-def install_apk(device, apk_file, app_name, ignore_uninstall_err=False):
+def install_apk(device, apk_file, app_name):
     """
     """
 
@@ -696,7 +712,7 @@ def prepare_obb_dir(device, app_name):
     """Prepares the obb directory for installation.
     """
     # pipe the stdout to suppress unnecessary errors
-    obb_folder = "/mnt/sdcard/Android/obb"
+    obb_folder =  device.ext_storage + "/Android/obb"
     device.shell_command("rm", "-fr", obb_folder + "/" + app_name,
                          return_output=True)
     device.shell_command("mkdir", obb_folder + "/" + app_name,
@@ -706,18 +722,17 @@ def prepare_obb_dir(device, app_name):
 def push_obb(device, obb_file, app_name):
     """Push <obb_file> to /mnt/sdcard/Android/obb/<your.app.name> on <Device>.
 
-    File is copied to internal storage (/mnt/sdcard/), and from there to the
-    obb folder. This is done in two steps because of write protection of sorts
-    -- attempts to adb push it directly into obb folder may fail on some
-    devices.
+    File is copied to primary storage, and from there to the obb folder. This
+    is done in two steps because of write protection of sorts -- attempts to
+    'adb push' it directly into obb folder may fail on some devices.
     """
     obb_name = str(Path(obb_file).name)
-    obb_target = "/mnt/sdcard/Android/obb/" + app_name + "/" + obb_name
+    obb_target = device.ext_storage + "/Android/obb/" + app_name + "/" + obb_name
 
     #pushing obb in two steps to circumvent write protection
-    device.adb_command("push", obb_file, "/mnt/sdcard/" + obb_name)
-    device.shell_command("mv", "\"/mnt/sdcard/" + obb_name + "\"",
-                         "\"" + obb_target + "\"")
+    device.adb_command("push", obb_file, device.ext_storage + "/" + obb_name)
+    device.shell_command("mv", '"' + device.ext_storage + "/" + obb_name + '"',
+                         '"' + obb_target + '"')
 
     push_log = device.shell_command("ls", "\"" + obb_target + "\"",
                                     return_output=True, as_list=False)
@@ -757,7 +772,7 @@ def record(device, output=None):
     Path(output).mkdir(exist_ok=True)
 
     filename = "screenrecord_" + strftime("%Y.%m.%d_%H.%M.%S") + ".mp4"
-    remote_recording = "/mnt/sdcard/" + filename
+    remote_recording = device.ext_storage + "/" + filename
 
     filename = device.info["Product"]["Model"] + "_" + filename
     output = str(Path(Path(output).resolve(), filename))
@@ -817,12 +832,12 @@ def pull_traces(device, output=None):
                             strftime("%Y.%m.%d_%H.%M.%S"), ".txt"])
 
     device.shell_command("cat", device.anr_trace_path, ">",
-                         "/mnt/sdcard/traces.txt")
+                         device.ext_storage + "/traces.txt")
 
-    cat_log = device.shell_command("ls", "/mnt/sdcard/traces.txt",
+    cat_log = device.shell_command("ls", device.ext_storage + "/traces.txt",
                                    return_output=True, as_list=False)
 
-    if cat_log != "/mnt/sdcard/traces.txt":
+    if cat_log != device.ext_storage + "/traces.txt":
         if device.status != "device":
             print("Device has been suddenly disconnected!")
         else:
@@ -830,7 +845,8 @@ def pull_traces(device, output=None):
 
         return False
 
-    device.adb_command("pull", "/mnt/sdcard/traces.txt", str(output / anr_filename))
+    device.adb_command("pull", device.ext_storage + "/traces.txt",
+                       str(output / anr_filename))
 
     if (output / anr_filename).is_file():
         return str((output / anr_filename).resolve())
