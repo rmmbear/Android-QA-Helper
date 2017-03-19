@@ -25,13 +25,13 @@ PARSER_GROUP.add_argument("-r", "--record", nargs="?", const=".", default=None,
                           dest="record", help=HELP_STR, metavar="destination")
 HELP_STR = """Pull the dalvik vm stack traces / anr log file to specified
 location. If a location is not specified, the file will be copied to wherever
-helper is located."""
+helper was called from."""
 PARSER_GROUP.add_argument("-t", "--pull_traces", nargs="?", const=".",
                           default=None, dest="pull_traces", help=HELP_STR,
                           metavar="destination")
-HELP_STR = """Clean your device, as specified in cleaner_config file. You can
-tell helper to delete files or directories, uninstall apps and replace files on
-device with ones from your drive. See the contents of '{}' for info on how to
+HELP_STR = """Clean your device using instructions in cleaner_config file. You
+can tell helper to delete files or directories, uninstall apps and replace files
+on device with ones from your drive. See the contents of '{}' for info on how to
 add items to the list.""".format(_helper.CLEANER_CONFIG)
 PARSER_GROUP.add_argument("-c", "--clean", nargs="?", const=_helper.CLEANER_CONFIG,
                           default=None, dest="clean", help=HELP_STR,
@@ -68,7 +68,7 @@ def main():
         sys.exit()
 
     if args.bugreport:
-        from helper.tests.test_pytest import dump_devices, DEVICE_CONFIG
+        from helper.tests.test_pytest import dump_devices
 
         dump_devices(args.bugreport)
         sys.exit()
