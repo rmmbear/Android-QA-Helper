@@ -21,7 +21,7 @@ import shutil
 from pathlib import Path
 from collections import OrderedDict
 
-VERSION = "0.11"
+VERSION = "0.12"
 VERSION_DATE = "19-03-2017"
 GITHUB_SOURCE = "https://github.com/rmmbear/Android-QA-Helper"
 VERSION_STRING = " ".join(["Android QA Helper ver", VERSION, ":",
