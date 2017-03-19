@@ -43,10 +43,9 @@ DEVICES = {}
 def adb_execute(*args, return_output=False, check_server=True, as_list=True):
     """Execute an ADB command, and return -- or don't -- its result.
 
-    If check_server is true, function will first make sure that an ADB
-    server is available before executing the command.
+    If check_server is true, function will first make sure that an ADB server
+    is available before executing the command.
     """
-
     try:
         if check_server:
             subprocess.run([ADB, "start-server"], stdout=subprocess.PIPE)
@@ -76,9 +75,7 @@ def adb_execute(*args, return_output=False, check_server=True, as_list=True):
 
 
 def aapt_execute(*args, return_output=False, as_list=True):
-    """Execute an AAPT command, and return -- or don't -- its result.
-    """
-
+    """Execute an AAPT command, and return -- or don't -- its result."""
     try:
         if return_output:
             cmd_out = subprocess.run((AAPT,) + args, stdout=subprocess.PIPE,
@@ -123,10 +120,10 @@ def _get_devices():
 
 
 def get_devices():
-    """Returns a list of currently connected devices, as announced by
+    """Return a list of currently connected devices, as announced by
     ADB.
 
-    Also updates the internal 'DEVICES' tracker with newly connected
+    Also update the internal 'DEVICES' tracker with newly connected
     devices. The function will update status of devices, as announced by
     ADB. Objects for devices that were disconnected, will remain in the
     last known status until reconnected and this function is called, or
@@ -166,8 +163,8 @@ def get_devices():
 
 
 def pick_device():
-    """Asks the user to pick which device they want to use. If there are no
-    devices to choose from it will return the sole connected device or None.
+    """Ask the user to pick which device they want to use. If there are no
+    devices to choose from, it will return the sole connected device or None.
     """
 
     device_list = get_devices()
@@ -277,7 +274,6 @@ class Device:
         """Device's current state, as announced by adb.
         Returns offline if device was not found by adb.
         """
-
         for device_specs in _get_devices():
             if self.serial not in device_specs:
                 continue
@@ -299,9 +295,7 @@ class Device:
 
 
     def _device_init(self):
-        """Gather all the information.
-        """
-
+        """Gather all the information."""
         if self._status == "device" and not self.initialized:
             self.available_commands = []
             for command in self.shell_command("ls", "/system/bin",
@@ -352,9 +346,7 @@ class Device:
 
 
     def _get_prop_info(self):
-        """Extract all manner of different info from Android's property list.
-        """
-
+        """Extract all manner of different info from Android's property list."""
         prop_dump = self.shell_command("getprop", return_output=True)
         prop_dict = {}
 
@@ -436,9 +428,7 @@ class Device:
 
 
     def _get_cpu_info(self):
-        """Extract info about CPU and its chipset.
-        """
-
+        """Extract info about CPU and its chipset."""
         freq_file = "/sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_max_freq"
         max_freq = self.shell_command("cat", freq_file, return_output=True,
                                       as_list=False).strip()
@@ -483,9 +473,7 @@ class Device:
 
 
     def _get_surfaceflinger_info(self):
-        """Extract information from "SufraceFlinger" service dump.
-        """
-
+        """Extract information from "SufraceFlinger" service dump."""
         dump = self.shell_command("dumpsys", "SurfaceFlinger",
                                   return_output=True, as_list=False)
         gpu_model = None
@@ -537,7 +525,8 @@ class Device:
 
 
     def _get_shell_env(self):
-
+        """Extract information from Android's shell environment"""
+        #TODO: Extract information from Android shell
         #shell_env = self.shell_command("printenv", return_output=True,
         #                               as_list=False)
         primary_storage_paths = ["/mnt/sdcard", # this is a safe bet (in my experience)
@@ -551,9 +540,7 @@ class Device:
 
 
     def print_full_info(self):
-        """
-        """
-
+        """Print all information contained in device.info onto the screen."""
         indent = 4
 
         for info_category in self.info:
@@ -567,10 +554,9 @@ class Device:
 
     def print_basic_info(self):
         """Print basic device information to console.
-        prints: manufacturer, model, OS version and available texture
+        Prints: manufacturer, model, OS version and available texture
         compression types.
         """
-
         print(self.info["Product"]["Manufacturer"], end=" - ")
         print(self.info["Product"]["Model"], end=" - ")
         print(self.info["OS"]["Android Version"])
@@ -578,10 +564,9 @@ class Device:
 
 
 def get_app_name(apk_file):
-    """Extracts app name of the provided apk, from its manifest file.
-    Returns name if it is found, an empty string otherwise.
+    """Extract app name of the provided apk, from its manifest file.
+    Return name if it is found, an empty string otherwise.
     """
-
     app_dump = aapt_execute("dump", "badging", apk_file, return_output=True,
                             as_list=False)
     app_name = re.search("(?<=name=')[^']*", app_dump)
@@ -593,11 +578,10 @@ def get_app_name(apk_file):
 
 
 def install(device, items):
-    """Installs apps.
+    """Install apps.
     Accepts either a list of apk files, or list with one apk and as many obb
     files as you like.
     """
-
     app_list = []
     obb_list = []
 
@@ -671,9 +655,7 @@ def install(device, items):
 
 
 def install_apk(device, apk_file, app_name):
-    """
-    """
-
+    """Install an app on specified device."""
     preinstall_log = device.shell_command("pm", "list", "packages",
                                           return_output=True, as_list=False)
 
@@ -709,11 +691,11 @@ def install_apk(device, apk_file, app_name):
 
 
 def prepare_obb_dir(device, app_name):
-    """Prepares the obb directory for installation.
+    """Prepare the obb directory for installation.
     """
     # pipe the stdout to suppress unnecessary errors
     obb_folder =  device.ext_storage + "/Android/obb"
-    device.shell_command("rm", "-fr", obb_folder + "/" + app_name,
+    device.shell_command("rm", "-r", obb_folder + "/" + app_name,
                          return_output=True)
     device.shell_command("mkdir", obb_folder + "/" + app_name,
                          return_output=True)
@@ -818,9 +800,7 @@ def record(device, output=None):
 
 
 def pull_traces(device, output=None):
-    """Copy contents of the 'traces' into file in the specified folder.
-    """
-
+    """Copy contents of the 'traces' into file in the specified folder."""
     if output is None:
         output = Path()
     else:
@@ -860,6 +840,11 @@ def pull_traces(device, output=None):
 
 
 def _clean_uninstall(device, target, app_name=False, check_packages=True):
+    """Uninstall an app from specified device. Target can be an app name or a
+    path to apk file -- by default it will check if target is a file, and if so
+    it will attempt to extract app name from it. To disable that, set "app_name"
+    to True.
+    """
     if Path(target).is_file() and not app_name:
         target = get_app_name(target)
 
@@ -888,6 +873,7 @@ def _clean_uninstall(device, target, app_name=False, check_packages=True):
 
 
 def _clean_remove(device, target, recursive=False):
+    """Remove a file from device."""
     command = "rm"
     if recursive:
         command += " -r"
@@ -920,7 +906,7 @@ def _clean_remove(device, target, recursive=False):
 
 
 def _clean_replace(device, remote, local):
-
+    """Replace file on device (remote) with the a local one."""
     result = _clean_remove(device, remote)
     if int(result) < 0:
         print("Cannot replace", remote, "due to unexpected error")
@@ -964,11 +950,12 @@ CLEANER_OPTIONS = {"remove"           :(_clean_remove,     1, [False]),
 
 
 def parse_cleaner_config(config=CLEANER_CONFIG):
-    """Function for parsing cleaner config files. Returns tuple containing a
-    parsed config (dict) and bad config (list). The former can be passed to
-    clean().
-    """
+    """Parse the provided cleaner_config file. If no file is provided, parse
+    the default config file.
 
+    Return tuple containing parsed config (dict) and bad config (list). The
+    former can be passed toclean().
+    """
     parsed_config = {}
     bad_config = []
 
@@ -1015,10 +1002,9 @@ def parse_cleaner_config(config=CLEANER_CONFIG):
 
 
 def clean(device, config=CLEANER_CONFIG, parsed_config=None, force=False):
-    """
+    """Clean the specified device, as
     """
     # TODO: Count the number of removed files / apps
-
     bad_config = []
 
     if not parsed_config:
