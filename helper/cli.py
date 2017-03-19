@@ -57,7 +57,8 @@ def main():
 
     if args == PARSER_NO_ARGS:
         # no arguments passed, display help
-        PARSER.parse_args(["-h"])
+        from helper.GUI import helper_gui
+        helper_gui.main()
         sys.exit()
 
 
