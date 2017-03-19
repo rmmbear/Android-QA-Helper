@@ -38,13 +38,6 @@ ABI_TO_ARCH = {"armeabi"    :"32bit (ARM)",
                "mips64"     :"64bit (Mips64)",
               }
 
-CLEANER_OPTIONS = {"remove"           :(["shell", "rm"]),
-                   "remove_recursive" :(["shell", "rm", "-r"]),
-                   "uninstall"        :(["uninstall"]),
-                   "replace"          :(["shell", "rm"],
-                                        ["push"])
-                  }
-
 HELPER_CONFIG_VARS = ["ADB", "AAPT"]
 
 def get_script_dir():
