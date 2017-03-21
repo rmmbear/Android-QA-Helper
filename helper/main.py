@@ -388,7 +388,6 @@ class Device:
 
             prop_dict[props[0].strip()] = props[1].strip()[1:-1]
 
-
         info = {"Product":{"Model"            :"[ro.product.model]",
                            "Name"             :"[ro.product.name]",
                            "Manufacturer"     :"[ro.product.manufacturer]",
@@ -411,7 +410,6 @@ class Device:
         self.anr_trace_path = None
         board = None
         main_abi = None
-
 
         if "[dalvik.vm.stack-trace-file]" in prop_dict:
             self.anr_trace_path = prop_dict["[dalvik.vm.stack-trace-file]"]
@@ -460,7 +458,6 @@ class Device:
 
         cpuinfo = self.shell_command("cat", "/proc/cpuinfo",
                                      return_output=True, as_list=False)
-
 
         processor = re.search("(?<=^model name)[^\n]*", cpuinfo, re.MULTILINE)
         if not processor:
@@ -531,7 +528,6 @@ class Device:
 
         self.info["GPU"]["Model"] = gpu_model
         self.info["GPU"]["GL Version"] = gl_version
-
         self.info["Display"]["Refresh-rate"] = refresh_rate
         self.info["Display"]["V-Sync"] = vsync
         self.info["Display"]["Soft V-Sync"] = vsync_soft
@@ -655,7 +651,6 @@ def install(device, items, _stdout=sys.stdout):
             for app_path, app_name in app_failure:
                 _stdout.write(indent*" " + Path(app_path).name + " : " + app_name)
                 _stdout.write("\n")
-
     else:
         app = app_list[0]
         app_name = get_app_name(app)
@@ -799,7 +794,6 @@ def record(device, output=None, _stdout=sys.stdout):
     except KeyboardInterrupt:
         _stdout.write("\nRecording canceled!\n")
         sys.exit()
-
 
     try:
         device.shell_command("screenrecord", "--verbose", remote_recording,
@@ -991,7 +985,7 @@ def parse_cleaner_config(config=CLEANER_CONFIG, _stdout=sys.stdout):
     former can be passed toclean().
     """
     parsed_config = {}
-    bad_config = []
+    bad_config = ""
 
     for count, line in enumerate(open(config, mode="r").readlines()):
         if line.startswith("#") or not line.strip():
@@ -1001,18 +995,18 @@ def parse_cleaner_config(config=CLEANER_CONFIG, _stdout=sys.stdout):
 
         pair = line.split(":", maxsplit=1)
         if len(pair) != 2:
-            bad_config.append((count, "No value"))
+            bad_config += "Line " + str(count) + " - " + "No value\n"
             continue
 
         key = pair[0].strip()
         value = pair[1].strip()
 
         if key not in CLEANER_OPTIONS:
-            bad_config.append((count, "Unknown command"))
+            bad_config += "Line " + str(count) + " - " + "Unknown command\n"
             continue
 
         if not value:
-            bad_config.append((count, "No value"))
+            bad_config  += "Line " + str(count) + " - " + "No value\n"
             continue
 
         if key not in parsed_config:
@@ -1027,7 +1021,11 @@ def parse_cleaner_config(config=CLEANER_CONFIG, _stdout=sys.stdout):
             items.append(item)
 
         if CLEANER_OPTIONS[key][1] != len(items):
-            bad_config.append((count, "Expected {} arguments, but got {}".format(CLEANER_OPTIONS[key][1], len(items))))
+            expected = str(CLEANER_OPTIONS[key][1])
+            got = str(len(items))
+            bad_config += "Line " + str(count) +": "
+            bad_config += "Expected " + expected + " arguments "
+            bad_config += "but got " + got + "\n"
             continue
 
         parsed_config[key].append(items)
@@ -1039,28 +1037,21 @@ def clean(device, config=CLEANER_CONFIG, parsed_config=None, force=False,
           _stdout=sys.stdout):
     """Clean the specified device, as"""
     # TODO: Count the number of removed files / apps
-    bad_config = []
+    bad_config = ""
 
     if not parsed_config:
         parsed_config, bad_config = parse_cleaner_config(config=config)
 
     if bad_config:
         _stdout.write("Errors encountered in the config file ")
-        _stdout.write("(" + config + ")")
-        _stdout.write("\n")
-        indent = 4
-
-        for line, reason in bad_config:
-            _stdout.write(indent*" " + "Line " + line + " - " + reason)
-            _stdout.write("\n")
-
+        _stdout.write("(" + config + "):\n")
+        _stdout.write(bad_config)
         _stdout.write("Aborting cleaning!\n")
         return False
 
     if not parsed_config:
         _stdout.write("Empty config! Cannot clean!\n")
         return False
-
 
     # Ask user to confirm cleaning
     if not force:
@@ -1074,7 +1065,7 @@ def clean(device, config=CLEANER_CONFIG, parsed_config=None, force=False,
                 continue
 
             for item in parsed_config[key]:
-                _stdout.write(action + " : " + item + "\n")
+                _stdout.write(str(action) + " : " + str(item) + "\n")
 
         if "replace" in parsed_config:
             _stdout.write("\n")
