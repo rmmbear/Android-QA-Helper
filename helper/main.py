@@ -539,17 +539,35 @@ class Device:
         self.ext_storage = primary_storage_paths[0]
 
 
-    def print_full_info(self):
-        """Print all information contained in device.info onto the screen."""
-        indent = 4
+    def get_full_info_string(self, indent=4):
+        """Return a formatted string containing all device information"""
+
+        info_string = []
 
         for info_category in self.info:
-            print(info_category, ":", sep="")
+                info_string.append(info_category + ": ")
 
-            for info_name, prop in self.info[info_category].items():
-                if prop is None:
-                    prop = "Unknown"
-                print(indent*" ", info_name, ": ", prop, sep="")
+                for info_name, prop in self.info[info_category].items():
+                    if prop is None:
+                        prop = "Unknown"
+                    info_string.append(indent*" " + info_name + ": " + prop)
+
+        return "\n".join(info_string)
+
+
+    def print_full_info(self):
+        """Print all information contained in device.info onto the screen."""
+        print(self.get_full_info_string())
+
+
+    def get_basic_info_string(self):
+        """Return a string containing basic device info"""
+        line1 = self.info["Product"]["Manufacturer"]
+        line1 += " - " + self.info["Product"]["Model"]
+        line1 += " - " + self.info["OS"]["Android Version"]
+        line2 = "Compression Types: " +  self.info["GPU"]["Compression Types"]
+
+        return "\n".join([line1, line2])
 
 
     def print_basic_info(self):
@@ -557,10 +575,7 @@ class Device:
         Prints: manufacturer, model, OS version and available texture
         compression types.
         """
-        print(self.info["Product"]["Manufacturer"], end=" - ")
-        print(self.info["Product"]["Model"], end=" - ")
-        print(self.info["OS"]["Android Version"])
-        print("Compression Types: ", self.info["GPU"]["Compression Types"])
+        print(self.get_basic_info_string())
 
 
 def get_app_name(apk_file):
