@@ -560,19 +560,35 @@ class Device:
         self.ext_storage = primary_storage_paths[0]
 
 
-    def print_full_info(self, _stdout=sys.stdout):
-        """Print all information contained in device.info onto the screen."""
-        indent = 4
+    def get_full_info_string(self, indent=4):
+        """Return a formatted string containing all device information"""
+
+        info_string = []
 
         for info_category in self.info:
-            _stdout.write(info_category + ":")
-            _stdout.write("\n")
+            info_string.append(info_category + ": ")
 
             for info_name, prop in self.info[info_category].items():
                 if prop is None:
                     prop = "Unknown"
-                _stdout.write(indent*" " + info_name + ": " + prop)
-                _stdout.write("\n")
+                info_string.append(indent*" " + info_name + ": " + prop)
+
+        return "\n".join(info_string)
+
+
+    def print_full_info(self, _stdout=sys.stdout):
+        """Print all information contained in device.info onto the screen."""
+        _stdout.write(self.get_full_info_string())
+
+
+    def get_basic_info_string(self):
+        """Return a string containing basic device info"""
+        line1 = self.info["Product"]["Manufacturer"]
+        line1 += " - " + self.info["Product"]["Model"]
+        line1 += " - " + self.info["OS"]["Android Version"]
+        line2 = "Compression Types: " +  self.info["GPU"]["Compression Types"]
+
+        return "\n".join([line1, line2])
 
 
     def print_basic_info(self, _stdout=sys.stdout):
@@ -580,12 +596,7 @@ class Device:
         Prints: manufacturer, model, OS version and available texture
         compression types.
         """
-        _stdout.write(self.info["Product"]["Manufacturer"] + " - ")
-        _stdout.write(self.info["Product"]["Model"] + " - ")
-        _stdout.write(self.info["OS"]["Android Version"])
-        _stdout.write("\n")
-        _stdout.write("Compression Types: " + self.info["GPU"]["Compression Types"])
-        _stdout.write("\n")
+        _stdout.write(self.get_basic_info_string())
 
 
 def get_app_name(apk_file):
@@ -1006,7 +1017,7 @@ def parse_cleaner_config(config=CLEANER_CONFIG, _stdout=sys.stdout):
             continue
 
         if not value:
-            bad_config  += "Line " + str(count) + " - " + "No value\n"
+            bad_config += "Line " + str(count) + " - " + "No value\n"
             continue
 
         if key not in parsed_config:
