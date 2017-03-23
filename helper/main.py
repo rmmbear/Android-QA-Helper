@@ -132,29 +132,32 @@ def get_devices():
     device_list = []
 
     for device_serial, device_status in _get_devices():
+        if device_status != "device":
+            # device suddenly disconnected or usb debugging not authorized
+
+            unreachable = "{} - {} - Could not be reached! Got status '{}'."
+
+            if device_serial in DEVICES:
+                device = DEVICES[device_serial]
+                if device.initialized:
+                    print(unreachable.format(device.info["Product"]["Manufacturer"],
+                                             device.info["Product"]["Model"],
+                                             device_status))
+                    continue
+
+            print(unreachable.format(device_serial, "UNKNOWN DEVICE",
+                                         device_status))
+            continue
+
         if device_serial not in DEVICES:
+            print("Device with serial '", device_serial, "' connected", sep="")
             device = Device(device_serial, device_status)
             DEVICES[device_serial] = device
         else:
             DEVICES[device_serial].status = device_status
             device = DEVICES[device_serial]
 
-
-        if device_status != "device":
-            # device was suddenly disconnected or user did not authorize
-            # usb debugging
-
-            unreachable = "{} - {} - Could not be reached! Got status '{}'."
-
-            if device.initialized:
-                print(unreachable.format(device.info["Product"]["Manufacturer"],
-                                         device.info["Product"]["Model"],
-                                         device_status))
-            else:
-                print(unreachable.format(device_serial, "UNKNOWN DEVICE",
-                                         device_status))
-        else:
-            device_list.append(device)
+        device_list.append(device)
 
     if not device_list:
         print("ERROR: No devices found! Check USB connection and try again.")
@@ -545,12 +548,12 @@ class Device:
         info_string = []
 
         for info_category in self.info:
-                info_string.append(info_category + ": ")
+            info_string.append(info_category + ": ")
 
-                for info_name, prop in self.info[info_category].items():
-                    if prop is None:
-                        prop = "Unknown"
-                    info_string.append(indent*" " + info_name + ": " + prop)
+            for info_name, prop in self.info[info_category].items():
+                if prop is None:
+                    prop = "Unknown"
+                info_string.append(indent*" " + info_name + ": " + prop)
 
         return "\n".join(info_string)
 
