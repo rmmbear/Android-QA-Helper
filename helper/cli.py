@@ -1,6 +1,7 @@
 import sys
 from argparse import ArgumentParser, SUPPRESS
-import helper as _helper
+
+import helper as helper_
 
 
 PARSER = ArgumentParser(prog="helper", usage="%(prog)s [-d <serial>] [options]")
@@ -32,8 +33,8 @@ PARSER_GROUP.add_argument("-t", "--pull_traces", nargs="?", const=".",
 HELP_STR = """Clean your device using instructions in cleaner_config file. You
 can tell helper to delete files or directories, uninstall apps and replace files
 on device with ones from your drive. See the contents of '{}' for info on how to
-add items to the list.""".format(_helper.CLEANER_CONFIG)
-PARSER_GROUP.add_argument("-c", "--clean", nargs="?", const=_helper.CLEANER_CONFIG,
+add items to the list.""".format(helper_.CLEANER_CONFIG)
+PARSER_GROUP.add_argument("-c", "--clean", nargs="?", const=helper_.CLEANER_CONFIG,
                           default=None, dest="clean", help=HELP_STR,
                           metavar="config")
 HELP_STR = """Show info for all connected devices. If --device was specified,
@@ -63,8 +64,8 @@ def main():
 
 
     if args.version:
-        print(_helper.VERSION_STRING)
-        print(_helper.SOURCE_STRING)
+        print(helper_.VERSION_STRING)
+        print(helper_.SOURCE_STRING)
         print()
         sys.exit()
 
@@ -75,36 +76,36 @@ def main():
         sys.exit()
 
 
-    import helper.main as _main
+    import helper.main as main_
 
     if args.device:
-        _main.get_devices()
+        main_.get_devices()
 
-        if not args.device in _main.get_devices():
+        if not args.device in main_.get_devices():
             print("Device with serial number", args.device,
                   "was not found by Helper!")
             print("Check your usb connection and make sure",
                   "you're entering a valid serial number.\n")
             sys.exit()
 
-        chosen_device = _main.DEVICES[args.device]
+        chosen_device = main_.DEVICES[args.device]
     elif not args.info:
-        chosen_device = _main.pick_device()
+        chosen_device = main_.pick_device()
         if not chosen_device:
             sys.exit()
 
     if args.install:
-        _main.install(chosen_device, args.install)
+        main_.install(chosen_device, *args.install)
 
     if args.pull_traces:
-        destination = _main.pull_traces(chosen_device, args.pull_traces)
+        destination = main_.pull_traces(chosen_device, args.pull_traces)
         if destination:
             print("Traces file was saved to:", destination, sep="\n")
         else:
             print("Unexpected error -- could not save traces to drive")
 
     if args.record:
-        destination = _main.record(chosen_device, args.record)
+        destination = main_.record(chosen_device, args.record)
         if destination:
             print("Recording was saved to:", destination, sep="\n")
         else:
@@ -115,17 +116,17 @@ def main():
         if chosen_device:
             device_list = [chosen_device]
         else:
-            device_list.extend(_main.get_devices())
+            device_list.extend(main_.get_devices())
 
         for device in device_list:
-            _main.clean(device, args.clean)
+            main_.clean(device, args.clean)
 
     if args.info:
         device_list = []
         if chosen_device:
             device_list = [chosen_device]
         else:
-            device_list.extend(_main.get_devices())
+            device_list.extend(main_.get_devices())
 
         for device in device_list:
             device.print_full_info()

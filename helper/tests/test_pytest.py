@@ -1,7 +1,8 @@
+import shutil
+from pathlib import Path
+from collections import OrderedDict
+
 import helper as _helper
-from helper import shutil
-from helper import Path
-from helper import OrderedDict
 from helper import main as _main
 
 
