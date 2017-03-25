@@ -9,21 +9,21 @@ import sys
 import queue
 import threading
 from time import sleep
-from PyQt5 import QtGui, QtWidgets
-from PyQt5.QtCore import QObject, pyqtSignal
 
-import helper as _helper
-import helper.main as _main
+from PyQt5 import QtWidgets, QtCore
+
+import helper as helper_
+import helper.main as main_
 import helper.GUI.qdarkstyle as qtdark
-from helper.GUI.main_window import Ui_MainWindow as main_win
-from helper.GUI.device_tab import Ui_Form as device_tab
+from helper.GUI.main_window import Ui_MainWindow as MainWindow_
+from helper.GUI.device_tab import Ui_Form as DeviceTab_
 
 
-class StdoutContainer(QObject):
-    updated = pyqtSignal()
+class StdoutContainer(QtCore.QObject):
+    updated = QtCore.pyqtSignal()
 
     def __init__(self, container=None):
-        QObject.__init__(self)
+        QtCore.QObject.__init__(self)
 
         if not container:
             container = queue.Queue()
@@ -40,33 +40,55 @@ class StdoutContainer(QObject):
 
 
 class DeviceTab(QtWidgets.QFrame):
-    recording_started = pyqtSignal()
-    recording_stopped = pyqtSignal()
-    traces_pulled = pyqtSignal()
-    cleaning_ready = pyqtSignal(dict)
-    cleaning_started = pyqtSignal()
-    cleaning_stopped = pyqtSignal()
+    recording_started = QtCore.pyqtSignal()
+    recording_ended = QtCore.pyqtSignal()
+    traces_pulled = QtCore.pyqtSignal()
+    cleaning_ready = QtCore.pyqtSignal(dict)
+    cleaning_started = QtCore.pyqtSignal()
+    cleaning_ended = QtCore.pyqtSignal()
 
     def __init__(self, device):
         super(QtWidgets.QFrame, self).__init__()
-        self.ui = device_tab()
+        self.ui = DeviceTab_()
         self.ui.setupUi(self)
+
+        self.setAcceptDrops(True)
 
         self.device = device
         self.stdout_container = StdoutContainer()
-
-        # set word wrap to "anywhere"
-        self.ui.device_console.setWordWrapMode(3)
-
-        self.ui.traces_button.clicked.connect(self.pull_traces)
-        self.ui.clean_button.clicked.connect(self.clean)
         self.stdout_container.updated.connect(self.write_to_console)
 
+        self.ui.device_console.setWordWrapMode(3) # set word wrap to "anywhere"
+        self.ui.traces_button.clicked.connect(self.pull_traces)
+
+        # Installing
+        self.ui.install_button.clicked.connect(self.install)
+
+        # Cleaning
+        self.ui.clean_button.clicked.connect(self.clean)
         self.cleaning_ready.connect(self._clean_confirm)
-        self.cleaning_stopped.connect(lambda: self.ui.clean_button.setEnabled(True))
-        self.traces_pulled.connect(lambda: self.ui.traces_button.setEnabled(True))
+        self.cleaning_ended.connect(
+            lambda: self.ui.clean_button.setEnabled(True))
+        self.traces_pulled.connect(
+            lambda: self.ui.traces_button.setEnabled(True))
 
         self.write_device_info()
+
+    def dragEnterEvent(self, drop):
+        mimedata = drop.mimeData()
+
+        if mimedata.hasUrls():
+            drop.accept()
+        else:
+            drop.ignore()
+
+
+    def dropEvent(self, drop):
+        mimedata = drop.mimeData()
+        paths = [x.toLocalFile() for x in mimedata.urls()]
+        self.stdout_container.write("Installation triggered through drag&drop")
+        self.install(*paths)
+
 
     def write_device_info(self):
         text = self.device.get_full_info_string()
@@ -74,17 +96,27 @@ class DeviceTab(QtWidgets.QFrame):
         self.ui.device_info.append(text)
 
 
+    def _install(self, *args):
+        print("aaaaaaA")
+        print(*args)
+        main_.install(self.device, *args, stdout_=self.stdout_container)
+
+    def install(self, *args):
+        threading.Thread(target=self._install,
+                         args=(args)).start()
+
+
     def _pull_traces(self):
-        result = _main.pull_traces(self.device)
+        result = main_.pull_traces(self.device)
         if result:
-            text = "Traces saved to" + _main.pull_traces(self.device)
+            text = "Traces saved to" + main_.pull_traces(self.device)
         else:
             text = "Traces could not be saved"
-
 
         self.stdout_container.write(text)
         sleep(1) # let's not pull those logs too often :V
         self.traces_pulled.emit()
+
 
     def pull_traces(self):
         print("Pulling traces")
@@ -93,7 +125,7 @@ class DeviceTab(QtWidgets.QFrame):
 
 
     def _clean_prepare(self):
-        config = _main.parse_cleaner_config(_stdout=self.stdout_container)
+        config = main_.parse_cleaner_config()
         parsed_config = config[0]
         bad_config = config[1]
         del config
@@ -102,11 +134,11 @@ class DeviceTab(QtWidgets.QFrame):
             self.stdout_container.write("Bad config encountered:")
             self.stdout_container.write(bad_config)
             self.stdout_container.write("Cleaning aborted!")
-            self.cleaning_stopped.emit()
+            self.cleaning_ended.emit()
         elif not parsed_config:
             print("Config empty")
             self.stdout_container.write("Cannot clean - config is empty")
-            self.cleaning_stopped.emit()
+            self.cleaning_ended.emit()
         else:
             print("config parsed ok")
             self.cleaning_ready.emit(parsed_config)
@@ -114,7 +146,7 @@ class DeviceTab(QtWidgets.QFrame):
 
     def _clean_confirm(self, parsed_config):
         print("confirming cleaning")
-        self.cleaning_stopped.emit()
+        self.cleaning_ended.emit()
 
 
     def _clean_proper(self, parsed_config):
@@ -128,6 +160,11 @@ class DeviceTab(QtWidgets.QFrame):
         # Show a popup for picking the config
         # continue based on the user choice
 
+    def remove_last_line(self):
+        self.ui.device_console.moveCursor(11)
+        self.ui.device_console.moveCursor(4, 1)
+        self.ui.device_console.textCursor().removeSelectedText()
+        self.ui.device_console.moveCursor(11)
 
     def write_to_console(self):
         text = self.stdout_container.read().rstrip("\n")
@@ -138,33 +175,53 @@ class DeviceTab(QtWidgets.QFrame):
 
 
 class MainWin(QtWidgets.QMainWindow):
-    new_device_detected = pyqtSignal(_main.Device)
+    new_device_found = QtCore.pyqtSignal(main_.Device)
+    device_connected = QtCore.pyqtSignal(main_.Device)
+    device_disconnected = QtCore.pyqtSignal(main_.Device)
+
 
     def __init__(self):
         super(QtWidgets.QMainWindow, self).__init__()
 
-        self.GUI_devices = {}
-        self.ui = main_win()
+        self.gui_devices = {}
+        self.ui = MainWindow_()
         self.ui.setupUi(self)
         self.stdout_container = StdoutContainer()
-
         self.stdout_container.updated.connect(self.write_to_console)
 
+        self.setAcceptDrops(True)
+        # setup device discovery
+        self.device_timer = QtCore.QTimer()
+        self.device_timer.setSingleShot(False)
+        self.device_timer.setInterval(1500)
+        self.device_timer.timeout.connect(self.scan_devices)
+        self.device_timer.start()
         self.ui.refresh_device_status.clicked.connect(self.scan_devices)
-        self.new_device_detected.connect(self.add_device_tab)
+        self.ui.refresh_device_status.clicked.connect(self.device_timer.start)
+        self.new_device_found.connect(self.add_new_device)
+        self.device_connected.connect(self.show_device_tab)
+        self.device_disconnected.connect(self.hide_device_tab)
+
+        self.scan_devices()
 
 
     def _scan_devices(self):
-        print("Scanning for devices")
         self.ui.refresh_device_status.setEnabled(False)
-        connected_devices = _main.get_devices(_stdout=self.stdout_container)
-        for device in connected_devices:
-            if not device in self.GUI_devices:
-                print(self.GUI_devices)
-                self.new_device_detected.emit(device)
+        connected_devices = main_.get_devices(stdout_=self.stdout_container)
 
-            else:
-                self.GUI_devices[device].setEnabled(True)
+        for device in self.gui_devices:
+            tab = self.gui_devices[device]["tab"]
+
+            if device in connected_devices:
+                if self.ui.device_container.indexOf(tab) < 0:
+                    print("what")
+                    self.device_connected.emit(device)
+                connected_devices.remove(device)
+            elif self.ui.device_container.indexOf(tab) >= 0:
+                self.device_disconnected.emit(device)
+
+        for device in connected_devices:
+            self.new_device_found.emit(device)
 
         self.ui.refresh_device_status.setEnabled(True)
 
@@ -173,27 +230,55 @@ class MainWin(QtWidgets.QMainWindow):
         threading.Thread(target=self._scan_devices).start()
 
 
-    def add_device_tab(self, device):
-        print("New device found, adding new tab")
-
+    def add_new_device(self, device):
         tab_name = device.info["Product"]["Model"] + " -- "
         tab_name += device.info["Product"]["Manufacturer"]
+        self.stdout_container.write(" ".join(["Initializing connection with",
+                                              tab_name]))
+        print(tab_name, "found, adding new tab")
+
         new_tab = DeviceTab(device)
+        self.gui_devices[device] = {"tab":new_tab, "name":tab_name}
+        self.device_connected.emit(device)
 
-        print("Device:", tab_name)
 
-        self.ui.device_container.addTab(new_tab, tab_name)
-        self.ui.device_container.setCurrentWidget(new_tab)
+    def hide_device_tab(self, device):
+        device_tab = self.gui_devices[device]["tab"]
+        tab_name = self.gui_devices[device]["name"]
+        self.stdout_container.write(" ".join(["Lost connection with",
+                                              tab_name]))
+        print(tab_name, "disconnected, hiding its tab")
 
-        self.GUI_devices[device] = new_tab
+        device_tab_index = self.ui.device_container.indexOf(device_tab)
+        if device_tab_index >= 0:
+            self.ui.device_container.removeTab(device_tab_index)
+        if self.ui.device_container.count() == 0:
+            self.ui.device_container.addTab(self.ui.empty_tab, "No devices")
+
+
+    def show_device_tab(self, device):
+        device_tab = self.gui_devices[device]["tab"]
+        tab_name = self.gui_devices[device]["name"]
+        self.stdout_container.write(" ".join(["Successfully connected with",
+                                              tab_name]))
+        print(tab_name, "connected, showing its tab")
+
+        self.ui.device_container.addTab(device_tab, tab_name)
+        self.ui.device_container.setCurrentWidget(device_tab)
+
         empty_tab_index = self.ui.device_container.indexOf(self.ui.empty_tab)
         if empty_tab_index >= 0:
             self.ui.device_container.removeTab(empty_tab_index)
 
 
     def write_to_console(self):
+        blacklist = [
+            'ERROR: No devices found! Check USB connection and try again.'
+            ]
         text = self.stdout_container.read().rstrip("\n")
-        print([text])
+        if text in blacklist:
+            return False
+        print("Main window console log:", [text])
         self.ui.status_console.append(text)
         self.ui.status_console.moveCursor(11) # move to the end of document
 
@@ -206,4 +291,3 @@ def main():
 
     window.show()
     sys.exit(app.exec_())
-
