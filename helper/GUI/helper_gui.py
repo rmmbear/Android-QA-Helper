@@ -51,14 +51,14 @@ class DeviceTab(QtWidgets.QFrame):
         super(QtWidgets.QFrame, self).__init__()
         self.ui = DeviceTab_()
         self.ui.setupUi(self)
-
         self.setAcceptDrops(True)
-
         self.device = device
+
+        self.last_console_line = ""
         self.stdout_container = StdoutContainer()
         self.stdout_container.updated.connect(self.write_to_console)
-
         self.ui.device_console.setWordWrapMode(3) # set word wrap to "anywhere"
+
         self.ui.traces_button.clicked.connect(self.pull_traces)
 
         # Installing
@@ -73,6 +73,8 @@ class DeviceTab(QtWidgets.QFrame):
             lambda: self.ui.traces_button.setEnabled(True))
 
         self.write_device_info()
+
+        # TODO: Figure out recording functionality
 
     def dragEnterEvent(self, drop):
         mimedata = drop.mimeData()
@@ -157,7 +159,7 @@ class DeviceTab(QtWidgets.QFrame):
         self.ui.clean_button.setEnabled(False)
         threading.Thread(target=self._clean_prepare).start()
 
-        # Show a popup for picking the config
+        # TODO: Show a popup for picking the config
         # continue based on the user choice
 
     def remove_last_line(self):
@@ -168,7 +170,12 @@ class DeviceTab(QtWidgets.QFrame):
 
     def write_to_console(self):
         text = self.stdout_container.read().rstrip("\n")
-        print([text])
+        # spam prevention
+        if text == self.last_console_line:
+            return False
+
+        self.last_console_line = text
+        print("Device tab console log:", [text])
         self.ui.device_console.append(text)
         self.ui.device_console.moveCursor(11) # move to the end of document
         self.ui.device_display.setCurrentIndex(1) # switch to console
@@ -188,8 +195,9 @@ class MainWin(QtWidgets.QMainWindow):
         self.ui.setupUi(self)
         self.stdout_container = StdoutContainer()
         self.stdout_container.updated.connect(self.write_to_console)
+        self.ui.status_console.setWordWrapMode(3) # set word wrap to "anywhere"
+        self.last_console_line = ""
 
-        self.setAcceptDrops(True)
         # setup device discovery
         self.device_timer = QtCore.QTimer()
         self.device_timer.setSingleShot(False)
@@ -214,7 +222,6 @@ class MainWin(QtWidgets.QMainWindow):
 
             if device in connected_devices:
                 if self.ui.device_container.indexOf(tab) < 0:
-                    print("what")
                     self.device_connected.emit(device)
                 connected_devices.remove(device)
             elif self.ui.device_container.indexOf(tab) >= 0:
@@ -227,6 +234,7 @@ class MainWin(QtWidgets.QMainWindow):
 
 
     def scan_devices(self):
+        # TODO: send feedback when scanning manually
         threading.Thread(target=self._scan_devices).start()
 
 
@@ -276,8 +284,14 @@ class MainWin(QtWidgets.QMainWindow):
             'ERROR: No devices found! Check USB connection and try again.'
             ]
         text = self.stdout_container.read().rstrip("\n")
+
+        # spam prevention
         if text in blacklist:
             return False
+        if text == self.last_console_line:
+            return False
+
+        self.last_console_line = text
         print("Main window console log:", [text])
         self.ui.status_console.append(text)
         self.ui.status_console.moveCursor(11) # move to the end of document
