@@ -4,15 +4,14 @@ a major way. This might get interesting. Consider yourself warned.
 
 Here be dragons
 """
-
+import re
 import sys
 import queue
 import threading
-from time import sleep
+from time import sleep, strftime
 
 from PyQt5 import QtWidgets, QtCore
 
-import helper as helper_
 import helper.main as main_
 import helper.GUI.qdarkstyle as qtdark
 from helper.GUI.main_window import Ui_MainWindow as MainWindow_
@@ -41,11 +40,13 @@ class StdoutContainer(QtCore.QObject):
 
 class DeviceTab(QtWidgets.QFrame):
     recording_started = QtCore.pyqtSignal()
+    recording_stopped = QtCore.pyqtSignal()
     recording_ended = QtCore.pyqtSignal()
     traces_pulled = QtCore.pyqtSignal()
     cleaning_ready = QtCore.pyqtSignal(dict)
     cleaning_started = QtCore.pyqtSignal()
     cleaning_ended = QtCore.pyqtSignal()
+    connection_reset = QtCore.pyqtSignal()
 
     def __init__(self, device):
         super(QtWidgets.QFrame, self).__init__()
@@ -53,12 +54,20 @@ class DeviceTab(QtWidgets.QFrame):
         self.ui.setupUi(self)
         self.setAcceptDrops(True)
         self.device = device
+        self.recording_job = None
 
         self.last_console_line = ""
         self.stdout_container = StdoutContainer()
         self.stdout_container.updated.connect(self.write_to_console)
         self.ui.device_console.setWordWrapMode(3) # set word wrap to "anywhere"
 
+        # recording
+        self.ui.record_button.clicked.connect(self.record)
+        self.ui.record_button.clicked.connect(
+            lambda: self.ui.record_button.setEnabled(False))
+        self.recording_stopped.connect(self._copy_recording)
+
+        # traces
         self.ui.traces_button.clicked.connect(self.pull_traces)
 
         # Installing
@@ -67,19 +76,18 @@ class DeviceTab(QtWidgets.QFrame):
         # Cleaning
         self.ui.clean_button.clicked.connect(self.clean)
         self.cleaning_ready.connect(self._clean_confirm)
-        self.cleaning_ended.connect(
-            lambda: self.ui.clean_button.setEnabled(True))
-        self.traces_pulled.connect(
-            lambda: self.ui.traces_button.setEnabled(True))
+        self.cleaning_ended.connect(self.enable_buttons)
+        self.traces_pulled.connect(self.enable_buttons)
 
         self.write_device_info()
 
         # TODO: Figure out recording functionality
 
+
     def dragEnterEvent(self, drop):
         mimedata = drop.mimeData()
 
-        if mimedata.hasUrls():
+        if mimedata.hasUrls() and self.ui.install_button.isEnabled():
             drop.accept()
         else:
             drop.ignore()
@@ -98,12 +106,86 @@ class DeviceTab(QtWidgets.QFrame):
         self.ui.device_info.append(text)
 
 
+    def enable_buttons(self):
+        self.ui.install_button.setEnabled(True)
+        self.ui.record_button.setEnabled(True)
+        self.ui.traces_button.setEnabled(True)
+        self.ui.clean_button.setEnabled(True)
+
+
+    def disable_buttons(self):
+        self.ui.install_button.setEnabled(False)
+        self.ui.record_button.setEnabled(False)
+        self.ui.traces_button.setEnabled(False)
+        self.ui.clean_button.setEnabled(False)
+
+
+    def _record(self, lock):
+        recording_name = self.recording_job[1]
+        record_ = threading.Thread(target=main_._record_start,
+            args=(self.device, recording_name),
+            kwargs={"stdout_":self.stdout_container}, daemon=True)
+        record_.start()
+        self.ui.record_button.setEnabled(True)
+        while not lock.acquire(False):
+            if not record_.is_alive():
+                # make sure the file is saved ()
+                sleep(1)
+                self.stdout_container.write("Stopped recording")
+                self.recording_stopped.emit()
+                return False
+            sleep(1)
+
+        self.device.adb_command("reconnect")
+        self.connection_reset.emit()
+        self.stdout_container.write("Stopped recording")
+        self.recording_stopped.emit()
+
+
+    def _copy_recording_(self):
+        sleep(1)
+        filename = self.recording_job[1]
+        remote_recording = self.device.ext_storage + "/" + filename
+        copied = main_._record_copy(self.device, remote_recording, "./",
+                                    stdout_=self.stdout_container)
+        if not copied:
+            self.stdout_container.write("Could not copy recorded clip!")
+        else:
+            self.stdout_container.write("Clip copied to:\n" + copied)
+
+        self.ui.record_button.clicked.disconnect(self.recording_job[2])
+        self.ui.record_button.clicked.connect(self.record)
+        self.recording_job = None
+        self.recording_ended.emit()
+        self.enable_buttons()
+
+
+    def _copy_recording(self):
+        threading.Thread(target=self._copy_recording_).start()
+
+
+    def record(self):
+        self.disable_buttons()
+        self.stdout_container.write("Started recording")
+        recording_lock = threading.Lock()
+        filename = "screenrecord_" + strftime("%Y.%m.%d_%H.%M.%S") + ".mp4"
+        self.recording_job = (
+            threading.Thread(target=self._record, args=(recording_lock,)),
+            filename, lambda: recording_lock.release())
+        self.ui.record_button.clicked.disconnect(self.record)
+        self.ui.record_button.clicked.connect(self.recording_job[2])
+        recording_lock.acquire()
+        self.recording_job[0].start()
+
+
     def _install(self, *args):
-        print("aaaaaaA")
-        print(*args)
+        print("Started install with following args:", *args)
         main_.install(self.device, *args, stdout_=self.stdout_container)
+        self.enable_buttons()
+
 
     def install(self, *args):
+        self.disable_buttons()
         threading.Thread(target=self._install,
                          args=(args)).start()
 
@@ -121,6 +203,7 @@ class DeviceTab(QtWidgets.QFrame):
 
 
     def pull_traces(self):
+        self.disable_buttons()
         print("Pulling traces")
         self.ui.traces_button.setEnabled(False)
         threading.Thread(target=self._pull_traces).start()
@@ -156,7 +239,7 @@ class DeviceTab(QtWidgets.QFrame):
 
 
     def clean(self):
-        self.ui.clean_button.setEnabled(False)
+        self.disable_buttons()
         threading.Thread(target=self._clean_prepare).start()
 
         # TODO: Show a popup for picking the config
@@ -164,12 +247,17 @@ class DeviceTab(QtWidgets.QFrame):
 
     def remove_last_line(self):
         self.ui.device_console.moveCursor(11)
-        self.ui.device_console.moveCursor(4, 1)
+        self.ui.device_console.moveCursor(4, 1) # move to start of current block
+        self.ui.device_console.moveCursor(7, 1) # move to end of last block
         self.ui.device_console.textCursor().removeSelectedText()
         self.ui.device_console.moveCursor(11)
 
     def write_to_console(self):
         text = self.stdout_container.read().rstrip("\n")
+        status = re.search("^\[...%\]", text)
+        if status:
+            if not text.startswith("[  0%]"):
+                self.remove_last_line()
         # spam prevention
         if text == self.last_console_line:
             return False
@@ -247,6 +335,7 @@ class MainWin(QtWidgets.QMainWindow):
 
         new_tab = DeviceTab(device)
         self.gui_devices[device] = {"tab":new_tab, "name":tab_name}
+        new_tab.connection_reset.connect(self.device_timer.start)
         self.device_connected.emit(device)
 
 
