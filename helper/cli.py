@@ -45,6 +45,8 @@ HELP_STR = "Show version information."
 PARSER_GROUP.add_argument("-v", "--version", action="store_true",
                           dest="version", help=HELP_STR)
 # Hidden options
+PARSER_GROUP.add_argument("--gui", action="store_true", dest="gui",
+                          help=SUPPRESS)
 PARSER_GROUP.add_argument("--bugreport", nargs="?", const=".", default=None,
                           dest="bugreport", help=SUPPRESS)
 
@@ -57,9 +59,8 @@ def main():
     chosen_device = None
 
     if args == PARSER_NO_ARGS:
-        # no arguments passed, display gui
-        from helper.GUI import helper_gui
-        helper_gui.main()
+        # no arguments passed, display help
+        PARSER.parse_args(["-h"])
         sys.exit()
 
 
@@ -75,6 +76,10 @@ def main():
         dump_devices(args.bugreport)
         sys.exit()
 
+    if args.gui:
+        from helper.GUI import helper_gui
+        helper_gui.main()
+        sys.exit()
 
     import helper.main as main_
 
