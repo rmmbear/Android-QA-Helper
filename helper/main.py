@@ -76,17 +76,16 @@ def adb_execute(*args, return_output=False, check_server=True, as_list=True,
             subprocess.run((ADB,) + args)
 
     except FileNotFoundError:
-        stdout_.write("Helper expected ADB to be located in '")
-        stdout_.write(ADB)
-        stdout_.write("' but could not find it.")
-        stdout_.write("\n")
+        stdout_.write("".join(["Helper expected ADB to be located in '", ADB,
+                               "' but could not find it.\n"]))
         sys.exit("Please make sure the ADB binary is in the specified path.")
-
     except (PermissionError, OSError):
-        print("Helper could not launch ADB. Please make sure the following",
-              "path is correct and points to an actual ADB binary:", ADB,
-              "To fix this issue you may need to edit or delete the helper",
-              "config file, located at:", helper_.CONFIG)
+        stdout_.write(" ".join(["Helper could not launch ADB. Please make",
+                                "sure the following path is correct and",
+                                "points to an actual ADB binary:", ADB,
+                                "To fix this issue you may need to edit or",
+                                "delete the helper config file, located at:",
+                                helper_.CONFIG]))
         sys.exit()
 
 
@@ -177,7 +176,7 @@ def get_devices(stdout_=sys.stdout):
             continue
 
         if device_serial not in DEVICES:
-            stdout_.write("Device with serial '" + device_serial + "' connected")
+            stdout_.write("Device with serial '" + device_serial + "' connected\n")
             device = Device(device_serial, device_status)
             DEVICES[device_serial] = device
         else:
@@ -684,7 +683,7 @@ def install(device, *items, stdout_=sys.stdout):
         stdout_.write("\n")
         stdout_.write("BEGINNING COPYING OBB FILE FOR: " + app_name + "\n")
 
-        prepare_obb_dir(device, app_name, stdout_=stdout_)
+        prepare_obb_dir(device, app_name)
         for obb_file in obb_list:
             if not push_obb(device, obb_file, app_name):
                 stdout_.write("OBB COPYING FAILED\n")
@@ -750,7 +749,8 @@ def push_obb(device, obb_file, app_name, stdout_=sys.stdout):
     'adb push' it directly into obb folder may fail on some devices.
     """
     obb_name = str(Path(obb_file).name)
-    obb_target = device.ext_storage + "/Android/obb/" + app_name + "/" + obb_name
+    obb_target = "".join([device.ext_storage, "/Android/obb/", app_name, "/",
+                          obb_name])
 
     #pushing obb in two steps to circumvent write protection
     device.adb_command("push", obb_file, device.ext_storage + "/" + obb_name)
@@ -771,13 +771,54 @@ def push_obb(device, obb_file, app_name, stdout_=sys.stdout):
     return False
 
 
-def record(device, output=None, stdout_=sys.stdout):
+def _record_start(device, name=None, stdout_=sys.stdout):
+    filename = "screenrecord_" + strftime("%Y.%m.%d_%H.%M.%S") + ".mp4"
+    if name:
+        filename = name
+    remote_recording = device.ext_storage + "/" + filename
+
+    try:
+        device.shell_command("screenrecord", "--verbose", remote_recording,
+                             return_output=False, stdout_=stdout_)
+        stdout_.write("\nRecording stopped by device.\n")
+    except KeyboardInterrupt:
+        stdout_.write("\nRecording stopped.\n")
+    # we're waiting for the clip to be fully saved to device's storage
+    # there must be a better way of doing this...
+    sleep(1)
+    return remote_recording
+
+
+def _record_copy(device, remote_recording, output, stdout_=sys.stdout):
+    recording_log = device.shell_command("ls", remote_recording,
+                                         return_output=True, as_list=False)
+    if recording_log != remote_recording:
+        if device.status != "device":
+            stdout_.write("Device has been suddenly disconnected!")
+        else:
+            stdout_.write("Unexpected error! The file could not be found on device!")
+        stdout_.write("\n")
+
+        return False
+
+    filename = Path(remote_recording).name
+    filename = device.info["Product"]["Model"] + "_" + filename
+    output = str(Path(Path(output).resolve(), filename))
+
+    device.adb_command("pull", remote_recording, output, return_output=False,
+                       stdout_=stdout_)
+    if Path(output).is_file():
+        return output
+
+    return False
+
+
+def record(device, output=None, force=False, stdout_=sys.stdout):
     """Start recording device's screen.
     Recording can be stopped by either reaching the time limit, or pressing
     ctrl+c. After the recording has stopped, the helper confirms that the
     recording has been saved to device's storage and copies it to drive.
     """
-
     if not "screenrecord" in device.available_commands:
         # it is dependent on Android version, but let's look for command instead
         # just to be safe
@@ -791,58 +832,30 @@ def record(device, output=None, stdout_=sys.stdout):
         stdout_.write("\n")
         sys.exit()
 
-    if not output:
-        output = "./"
-
-    Path(output).mkdir(exist_ok=True)
-
-    filename = "screenrecord_" + strftime("%Y.%m.%d_%H.%M.%S") + ".mp4"
-    remote_recording = device.ext_storage + "/" + filename
-
-    filename = device.info["Product"]["Model"] + "_" + filename
-    output = str(Path(Path(output).resolve(), filename))
-
-    stdout_.write("Helper will record your device's screen (audio is not captured).")
-    stdout_.write("The recording will stop after pressing 'ctrl+c', or if 3 minutes")
-    stdout_.write("have elapsed. Recording will be then saved to '" + output + "'.")
-    stdout_.write("\n")
-
-    try:
-        input("Press enter whenever you are ready to record.\n")
-    except KeyboardInterrupt:
-        stdout_.write("\nRecording canceled!\n")
-        sys.exit()
-
-    try:
-        device.shell_command("screenrecord", "--verbose", remote_recording,
-                             return_output=False, stdout_=stdout_)
-        stdout_.write("\nRecording stopped by device.\n")
-    except KeyboardInterrupt:
-        stdout_.write("\nRecording stopped.\n")
-
-
-    # we're waiting for the clip to be fully saved to device's storage
-    # there must be a better way of doing this...
-    sleep(1)
-
-    recording_log = device.shell_command("ls", remote_recording,
-                                         return_output=True, as_list=False)
-
-    if recording_log != remote_recording:
-        if device.status != "device":
-            stdout_.write("Device has been suddenly disconnected!")
-        else:
-            stdout_.write("Unexpected error! The file could not be found on device!")
+    if not force:
+        stdout_.write("Helper will record your device's screen (audio is not captured).")
+        stdout_.write("The recording will stop after pressing 'ctrl+c', or if 3 minutes")
+        stdout_.write("have elapsed. Recording will be then saved to '" + output + "'.")
         stdout_.write("\n")
 
+
+        try:
+            input("Press enter whenever you are ready to record.\n")
+        except KeyboardInterrupt:
+            stdout_.write("\nRecording canceled!\n")
+            sys.exit()
+
+    remote_recording = _record_start(device, stdout_=stdout_)
+    if not remote_recording:
+        stdout_.write("Unexpected error! Could not record")
         return False
 
-    device.adb_command("pull", remote_recording, output, return_output=False, stdout_=stdout_)
+    copied = _record_copy(device, remote_recording, output, stdout_)
+    if not copied:
+        stdout_.write("Could not copy recorded clip!")
+        return False
 
-    if Path(output).is_file():
-        return output
-
-    return False
+    return copied
 
 
 def pull_traces(device, output=None, stdout_=sys.stdout):
