@@ -122,7 +122,7 @@ class DeviceTab(QtWidgets.QFrame):
 
     def _record(self, lock):
         recording_name = self.recording_job[1]
-        record_ = threading.Thread(target=main_._record_start,
+        record_ = threading.Thread(target=main_.record_start,
             args=(self.device, recording_name),
             kwargs={"stdout_":self.stdout_container}, daemon=True)
         record_.start()
@@ -146,7 +146,7 @@ class DeviceTab(QtWidgets.QFrame):
         sleep(1)
         filename = self.recording_job[1]
         remote_recording = self.device.ext_storage + "/" + filename
-        copied = main_._record_copy(self.device, remote_recording, "./",
+        copied = main_.record_copy(self.device, remote_recording, "./",
                                     stdout_=self.stdout_container)
         if not copied:
             self.stdout_container.write("Could not copy recorded clip!")
