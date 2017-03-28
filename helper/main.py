@@ -842,6 +842,11 @@ def record(device, output=None, force=False, stdout_=sys.stdout):
     else:
         output = str(Path(output).resolve())
 
+    if not Path(output).exists():
+        stdout_.write(" ".join(["The provided path does not point to an",
+                                "existing directory:", output, "\n"]))
+        sys.exit()
+
     if not force:
         stdout_.write(
             " ".join(["Helper will record your device's screen (audio is not",
