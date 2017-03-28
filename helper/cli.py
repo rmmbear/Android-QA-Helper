@@ -72,7 +72,6 @@ def main():
 
     if args.bugreport:
         from helper.tests.test_pytest import dump_devices
-
         dump_devices(args.bugreport)
         sys.exit()
 
@@ -85,16 +84,12 @@ def main():
 
     if args.device:
         main_.get_devices()
-
-        if not args.device in main_.get_devices():
-            print("Device with serial number", args.device,
+        if not args.device[0].strip() in main_.DEVICES:
+            print("Device with serial number", args.device[0].strip(),
                   "was not found by Helper!")
-            print("Check your usb connection and make sure",
-                  "you're entering a valid serial number.\n")
             sys.exit()
-
-        chosen_device = main_.DEVICES[args.device]
-    elif not args.info:
+        chosen_device = main_.DEVICES[args.device[0].strip()]
+    elif not (args.info or args.clean):
         chosen_device = main_.pick_device()
         if not chosen_device:
             sys.exit()
@@ -106,15 +101,11 @@ def main():
         destination = main_.pull_traces(chosen_device, args.pull_traces)
         if destination:
             print("Traces file was saved to:", destination, sep="\n")
-        else:
-            print("Unexpected error -- could not save traces to drive")
 
     if args.record:
         destination = main_.record(chosen_device, args.record)
         if destination:
             print("Recording was saved to:", destination, sep="\n")
-        else:
-            print("Unexpected error -- could not save recording to drive")
 
     if args.clean:
         device_list = []
