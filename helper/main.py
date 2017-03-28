@@ -802,7 +802,6 @@ def record_copy(device, remote_recording, output, stdout_=sys.stdout):
         else:
             stdout_.write(
                 "Unexpected error! The file could not be found on device!\n")
-        stdout_.write("\n")
         return False
 
     filename = Path(remote_recording).name
@@ -843,16 +842,16 @@ def record(device, output=None, force=False, stdout_=sys.stdout):
         output = str(Path(output).resolve())
 
     if not Path(output).exists():
-        stdout_.write(" ".join(["The provided path does not point to an",
-                                "existing directory:", output, "\n"]))
+        stdout_.write("".join(["The provided path does not point to an ",
+                               "existing directory:\n", output, "\n"]))
         sys.exit()
 
     if not force:
         stdout_.write(
-            " ".join(["Helper will record your device's screen (audio is not",
-                      "captured). The recording will stop after pressing",
-                      "'ctrl+c', or if 3 minutes have elapsed. Recording will",
-                      "be then saved to:", output, "\n"]))
+            "".join(["Helper will record your device's screen (audio is not ",
+                     "captured). The recording will stop after pressing ",
+                     "'ctrl+c', or if 3 minutes have elapsed. Recording will ",
+                     "be then saved to:\n", output, "\n"]))
         try:
             input("Press enter whenever you are ready to record.\n")
         except KeyboardInterrupt:
@@ -875,21 +874,23 @@ def record(device, output=None, force=False, stdout_=sys.stdout):
 def pull_traces(device, output=None, stdout_=sys.stdout):
     """Copy the 'traces' file to the specified folder."""
     if output is None:
-        output = Path()
+        output = Path().resolve()
     else:
-        output = Path(output)
+        output = Path(output).resolve()
 
-    output.mkdir(exist_ok=True)
+    if not Path(output).exists():
+        stdout_.write(" ".join(["Cannot pull traces, the provided path does",
+                                "not point to an existing directory:\n",
+                                str(output), "\n"]))
+        return False
 
     anr_filename = "".join([device.info["Product"]["Model"], "_anr_",
                             strftime("%Y.%m.%d_%H.%M.%S"), ".txt"])
-
     device.shell_command("cat", device.anr_trace_path, ">",
                          device.ext_storage + "/traces.txt")
 
     cat_log = device.shell_command("ls", device.ext_storage + "/traces.txt",
                                    return_output=True, as_list=False)
-
     if cat_log != device.ext_storage + "/traces.txt":
         if device.status != "device":
             stdout_.write("Device has been suddenly disconnected!\n")
