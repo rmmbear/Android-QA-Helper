@@ -74,7 +74,7 @@ def main(args=None):
         return
 
     if args.bugreport:
-        from helper.tests.test_pytest import dump_devices
+        from helper.tests import dump_devices
         dump_devices(args.bugreport)
         return
 
