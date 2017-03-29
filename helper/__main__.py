@@ -1,3 +1,8 @@
+import sys
 from helper.cli import main
 
-main()
+try:
+    main()
+except KeyboardInterrupt:
+    sys.exit("")
+
