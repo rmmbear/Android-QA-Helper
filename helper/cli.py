@@ -1,7 +1,9 @@
 import sys
+from pathlib import Path
 from argparse import ArgumentParser, SUPPRESS
 
 import helper as helper_
+import helper.main as main_
 
 
 PARSER = ArgumentParser(prog="helper", usage="%(prog)s [-d <serial>] [options]")
@@ -53,61 +55,59 @@ PARSER_GROUP.add_argument("--bugreport", nargs="?", const=".", default=None,
 
 PARSER_NO_ARGS = PARSER.parse_args([])
 
-def main():
-    args = PARSER.parse_args()
 
+def main(args=None):
+    if args is None:
+        args = PARSER.parse_args()
+    else:
+        args = PARSER.parse_args(args)
     chosen_device = None
 
     if args == PARSER_NO_ARGS:
         # no arguments passed, display help
         PARSER.parse_args(["-h"])
-        sys.exit()
-
+        return
 
     if args.version:
         print(helper_.VERSION_STRING)
         print(helper_.SOURCE_STRING)
-        print()
-        sys.exit()
+        return
 
     if args.bugreport:
         from helper.tests.test_pytest import dump_devices
         dump_devices(args.bugreport)
-        sys.exit()
+        return
 
     if args.gui:
         from helper.GUI import helper_gui
         helper_gui.main()
-        sys.exit()
-
-    import helper.main as main_
 
     if args.device:
         main_.get_devices()
         if not args.device[0].strip() in main_.DEVICES:
             print("Device with serial number", args.device[0].strip(),
                   "was not found by Helper!")
-            sys.exit()
+            return
         chosen_device = main_.DEVICES[args.device[0].strip()]
-    elif not (args.info or args.clean):
+    #
+    elif not args.info or not args.clean:
         chosen_device = main_.pick_device()
         if not chosen_device:
-            sys.exit()
+            return
 
     if args.install:
+        for filepath in args.install:
+            if not Path(filepath).is_file():
+                print("Provided path does not point to an existing file:",
+                      str(Path(filepath).resolve()), sep="\n")
+                return
         main_.install(chosen_device, *args.install)
 
-    if args.pull_traces:
-        destination = main_.pull_traces(chosen_device, args.pull_traces)
-        if destination:
-            print("Traces file was saved to:", destination, sep="\n")
-
-    if args.record:
-        destination = main_.record(chosen_device, args.record)
-        if destination:
-            print("Recording was saved to:", destination, sep="\n")
-
     if args.clean:
+        if not Path(args.clean).is_file():
+            print("Provided path does not point to an existing config file:",
+                  str(Path(args.clean).resolve()), sep="\n")
+            return
         device_list = []
         if chosen_device:
             device_list = [chosen_device]
@@ -116,6 +116,24 @@ def main():
 
         for device in device_list:
             main_.clean(device, args.clean)
+
+    if args.pull_traces:
+        if not Path(args.pull_traces).is_dir():
+            print("Provided path does not point to an existing directory!\n",
+                  str(Path(args.pull_traces).resolve()), sep="")
+            return
+        destination = main_.pull_traces(chosen_device, args.pull_traces)
+        if destination:
+            print("Traces file was saved to:", destination, sep="\n")
+
+    if args.record:
+        if not Path(args.record).is_dir():
+            print("Provided path does not point to an existing directory!\n",
+                  str(Path(args.record).resolve()), sep="")
+            return
+        destination = main_.record(chosen_device, args.record)
+        if destination:
+            print("Recorded clip was saved to:", destination, sep="\n")
 
     if args.info:
         device_list = []
