@@ -786,9 +786,9 @@ def record_start(device, name=None, stdout_=sys.stdout):
     try:
         device.shell_command("screenrecord", "--verbose", remote_recording,
                              return_output=False, stdout_=stdout_)
-        stdout_.write("\nRecording stopped.\n")
     except KeyboardInterrupt:
-        stdout_.write("\nRecording stopped.\n")
+        pass
+    stdout_.write("\nRecording stopped.\n")
     # we're waiting for the clip to be fully saved to device's storage
     # there must be a better way of doing this...
     sleep(1)
