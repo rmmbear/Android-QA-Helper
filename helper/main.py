@@ -64,8 +64,8 @@ def adb_execute(*args, return_output=False, check_server=True, as_list=True,
 
         if stdout_ != sys.__stdout__:
             cmd_out = subprocess.Popen(
-                (ADB,) + args, stdout=subprocess.PIPE, universal_newlines=True,
-                encoding="utf-8")
+                (ADB,) + args, stdout=subprocess.PIPE, encoding="utf-8",
+                stderr=subprocess.STDOUT, universal_newlines=True)
 
             last_line = ''
             for line in cmd_out.stdout:
@@ -93,19 +93,19 @@ def aapt_execute(*args, return_output=False, as_list=True, stdout_=sys.stdout):
     """Execute an AAPT command, and return -- or don't -- its result."""
     try:
         if return_output:
-            cmd_out = subprocess.run((AAPT,) + args, stdout=subprocess.PIPE,
-                                     universal_newlines=True, encoding="utf-8"
-                                    ).stdout.strip()
+            cmd_out = subprocess.run(
+                (AAPT,) + args, stdout=subprocess.PIPE, encoding="utf-8",
+                stderr=subprocess.STDOUT, universal_newlines=True).stdout
 
             if as_list:
-                return cmd_out.splitlines()
+                return cmd_out.strip().splitlines()
 
-            return cmd_out
+            return cmd_out.strip()
 
         if stdout_ != sys.__stdout__:
             cmd_out = subprocess.Popen(
                 (AAPT,) + args, stdout=subprocess.PIPE, encoding="utf-8",
-                universal_newlines=True)
+                stderr=subprocess.STDOUT, universal_newlines=True)
 
             last_line = ''
             for line in cmd_out.stdout:
@@ -646,49 +646,50 @@ def install(device, *items, stdout_=sys.stdout):
         app_failure = []
         for app in app_list:
             app_name = get_app_name(app)
+            if not app_name:
+                stdout_.write("UNKNOWN APP NAME\n")
+                stdout_.write(
+                    " ".join(["Could not extract app name from the provided",
+                              "apk file:\n"]))
+                stdout_.write(app + "\n")
+                stdout_.write("It may not be a valid apk archive.\n")
+                app_name = "UNKNOWN APP NAME"
 
-            stdout_.write(" ".join(["\nBEGINNING INSTALLATION:", app_name,
-                                    "\n"]))
+            stdout_.write(" ".join(["\nINSTALLING:", app_name, "\n"]))
             stdout_.write("Your device may ask you to confirm this!\n")
 
             if not install_apk(device, app, app_name, stdout_=stdout_):
                 stdout_.write(" ".join(["FAILED TO INSTALL:", app_name, "\n"]))
                 app_failure.append((app_name, app))
-            else:
-                stdout_.write(
-                    " ".join(["SUCCESFULLY INSTALLED:", app_name, "\n"]))
-        stdout_.write(" ".join(["Installed ",
+
+        stdout_.write(" ".join(["\nInstalled ",
                                 str(len(app_list) - len(app_failure)),
                                 "out of", str(len(app_list)),
                                 "provided apks.\n"]))
         if app_failure:
-            indent = 4
             stdout_.write("The following apks could not be installed:\n")
             for app_path, app_name in app_failure:
-                stdout_.write("".join([indent*" ", app_name, "\n"]))
+                stdout_.write("".join([app_name, "\n"]))
     else:
         app = app_list[0]
         app_name = get_app_name(app)
 
-        stdout_.write(" ".join(["BEGINNING INSTALLATION:", app_name, "\n"]))
+        stdout_.write(" ".join(["INSTALLING:", app_name, "\n"]))
         stdout_.write("Your device may ask you to confirm this!\n")
 
         if not install_apk(device, app, app_name, stdout_=stdout_):
             stdout_.write(" ".join(["FAILED TO INSTALL:", app_name, "\n"]))
             return False
 
-        stdout_.write("\nSUCCESSFULLY COPIED AND INSTALLED THE APK FILE\n")
-        stdout_.write("\n")
         stdout_.write(
-            " ".join(["BEGINNING COPYING OBB FILE FOR:", app_name, "\n"]))
+            " ".join(["\nCOPYING OBB FILES FOR:", app_name, "\n"]))
         prepare_obb_dir(device, app_name)
         for obb_file in obb_list:
             if not push_obb(device, obb_file, app_name):
-                stdout_.write("OBB COPYING FAILED\n")
+                stdout_.write("\nOBB COPYING FAILED\n")
                 stdout_.write("Failed to copy " + obb_file + "\n")
                 return False
-        stdout_.write("SUCCESSFULLY COPIED ALL FILES TO THEIR DESTINATIONS.\n")
-        stdout_.write("Installation complete!\n")
+        stdout_.write("\nSuccesfully installed {}!\n".format(app_name))
 
 
 def install_apk(device, apk_file, app_name, stdout_=sys.stdout):
@@ -704,10 +705,13 @@ def install_apk(device, apk_file, app_name, stdout_=sys.stdout):
         if not result:
             return False
 
-        stdout_.write(" ".join(["Successfully uninstalled", app_name, "\n"]))
+        stdout_.write("\n")
 
     device.adb_command("install", "-r", "-i", "com.android.vending",
                        apk_file, stdout_=stdout_)
+    if app_name == "UNKNOWN APP NAME" or not app_name:
+        stdout_.write("No app name -- cannot verify installation outcome\n")
+        return -1
     postinstall_log = device.shell_command("pm", "list", "packages",
                                            return_output=True)
     for log_line in postinstall_log:
@@ -716,10 +720,10 @@ def install_apk(device, apk_file, app_name, stdout_=sys.stdout):
 
     if device.status != "device":
         stdout_.write(" ".join([device.info["Product"]["Model"], "- Device",
-                                "has been suddenly disconnected!\n"]))
+                               "has been suddenly disconnected!\n"]))
     else:
         stdout_.write("Installed app was not found by package manager\n")
-        stdout_.write(app_name + "could not be installed!\n")
+        stdout_.write(app_name + " could not be installed!\n")
         stdout_.write(
             "Please make sure that your device meets app's criteria\n")
     stdout_.write("\n")
@@ -834,17 +838,12 @@ def record(device, output=None, force=False, stdout_=sys.stdout):
                       "4.4 or higher (API level 19 or higher). Your device",
                       "has Android", android_ver, "API level", api_level,
                       "\n"]))
-        sys.exit()
+        return False
 
     if not output:
         output = str(Path().resolve())
     else:
         output = str(Path(output).resolve())
-
-    if not Path(output).exists():
-        stdout_.write("".join(["The provided path does not point to an ",
-                               "existing directory:\n", output, "\n"]))
-        sys.exit()
 
     if not force:
         stdout_.write(
@@ -856,7 +855,7 @@ def record(device, output=None, force=False, stdout_=sys.stdout):
             input("Press enter whenever you are ready to record.\n")
         except KeyboardInterrupt:
             stdout_.write("\nRecording canceled!\n")
-            sys.exit()
+            return False
 
     remote_recording = record_start(device, stdout_=stdout_)
     if not remote_recording:
@@ -877,12 +876,6 @@ def pull_traces(device, output=None, stdout_=sys.stdout):
         output = Path().resolve()
     else:
         output = Path(output).resolve()
-
-    if not Path(output).exists():
-        stdout_.write(" ".join(["Cannot pull traces, the provided path does",
-                                "not point to an existing directory:\n",
-                                str(output), "\n"]))
-        return False
 
     anr_filename = "".join([device.info["Product"]["Model"], "_anr_",
                             strftime("%Y.%m.%d_%H.%M.%S"), ".txt"])
@@ -1073,13 +1066,16 @@ def parse_cleaner_config(config=CLEANER_CONFIG):
     return (parsed_config, bad_config)
 
 
-def clean(device, config=CLEANER_CONFIG, parsed_config=None, force=False,
+def clean(device, config=None, parsed_config=None, force=False,
           stdout_=sys.stdout):
     """Clean the specified device using instructions contained in
     cleaner_config file.
     """
     # TODO: Count the number of removed files / apps
     bad_config = ""
+
+    if config is None:
+        config = CLEANER_CONFIG
 
     if not parsed_config:
         parsed_config, bad_config = parse_cleaner_config(config=config)
