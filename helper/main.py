@@ -586,22 +586,28 @@ class Device:
         stdout_.write(self.get_full_info_string() + "\n")
 
 
-    def get_basic_info_string(self):
-        """Return a string containing basic device info"""
-        line1 = self.info["Product"]["Manufacturer"]
-        line1 += " - " + self.info["Product"]["Model"]
-        line1 += " - " + self.info["OS"]["Android Version"]
-        line2 = "Compression Types: " +  self.info["GPU"]["Compression Types"]
-
-        return "\n".join([line1, line2])
-
-
     def print_basic_info(self, stdout_=sys.stdout):
         """Print basic device information to console.
         Prints: manufacturer, model, OS version and available texture
         compression types.
         """
-        stdout_.write(self.get_basic_info_string() + "\n")
+        model = self.info["Product"]["Model"]
+        if model is None:
+            model = "Unknown model"
+        manufacturer = self.info["Product"]["Manufacturer"]
+        if manufacturer is None:
+            manufacturer = "Unknown manufacturer"
+        os_ver = self.info["OS"]["Android Version"]
+        if os_ver is None:
+            os_ver = "Unknown OS version"
+
+        line1 = " - ".join([manufacturer, model, os_ver]) + "\n"
+        line2 = ("Compression Types: "
+                 + str(self.info["GPU"]["Compression Types"])
+                 + "\n")
+
+        stdout_.write(line1)
+        stdout_.write(line2)
 
 
 def get_app_name(apk_file):
@@ -720,7 +726,7 @@ def install_apk(device, apk_file, app_name, stdout_=sys.stdout):
 
     if device.status != "device":
         stdout_.write(" ".join([device.info["Product"]["Model"], "- Device",
-                               "has been suddenly disconnected!\n"]))
+                                "has been suddenly disconnected!\n"]))
     else:
         stdout_.write("Installed app was not found by package manager\n")
         stdout_.write(app_name + " could not be installed!\n")
@@ -734,6 +740,7 @@ def prepare_obb_dir(device, app_name):
     """Prepare the obb directory for installation."""
     # pipe the stdout to suppress unnecessary errors
     obb_folder = device.ext_storage + "/Android/obb"
+    device.shell_command("mkdir", obb_folder, return_output=True)
     device.shell_command(
         "rm", "-r", obb_folder + "/" + app_name, return_output=True)
     device.shell_command(
