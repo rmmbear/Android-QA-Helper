@@ -327,8 +327,15 @@ class MainWin(QtWidgets.QMainWindow):
 
 
     def add_new_device(self, device):
-        tab_name = device.info["Product"]["Model"] + " -- "
-        tab_name += device.info["Product"]["Manufacturer"]
+        model = device.info["Product"]["Model"]
+        if model is None:
+            model = "Unknown model"
+        manufacturer = device.info["Product"]["Manufacturer"]
+        if manufacturer is None:
+            manufacturer = "Unknown manufacturer"
+
+        tab_name = model + " -- "
+        tab_name += manufacturer
         self.stdout_container.write(" ".join(["Initializing connection with",
                                               tab_name]))
         print(tab_name, "found, adding new tab")
