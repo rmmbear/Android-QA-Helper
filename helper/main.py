@@ -128,20 +128,31 @@ def aapt_execute(*args, return_output=False, as_list=True, stdout_=sys.stdout):
         sys.exit()
 
 
-def _get_devices():
+def _get_devices(stdout_=sys.stdout):
     """Return a list of tuples with serial number and status, for all
     connected devices.
     """
     device_list = []
 
     device_specs = adb_execute("devices", return_output=True)
-    device_specs = device_specs
+    # Check for unexpected output
+    # if such is detected, print it and return an empty list
+    print(device_specs)
+    if device_specs:
+        first_line = device_specs.pop(0)
+        if first_line != "List of devices attached":
+            stdout_.write(first_line + "\n")
+            if device_specs:
+                stdout_.write("\n".join(device_specs))
+                return []
 
-    # Skip the first line, which is always "list of devices attached"
-    # if nothing breaks, that is
-    for device_line in device_specs[1:]:
-        device_serial, device_status = device_line.split()
-
+    for device_line in device_specs:
+        device = device_line.split()
+        if len(device) != 2:
+            stdout_.write(device_line)
+            continue
+        device_serial = device[0]
+        device_status = device[1]
         device_list.append((device_serial.strip(), device_status.strip()))
 
     return device_list
@@ -159,7 +170,7 @@ def get_devices(stdout_=sys.stdout):
     """
     device_list = []
 
-    for device_serial, device_status in _get_devices():
+    for device_serial, device_status in _get_devices(stdout_):
         if device_status != "device":
             # device suddenly disconnected or usb debugging not authorized
 
@@ -179,7 +190,7 @@ def get_devices(stdout_=sys.stdout):
             continue
 
         if device_serial not in DEVICES:
-            stdout_.write("".join(["Device with serial '", device_serial,
+            stdout_.write("".join(["Device with serial id '", device_serial,
                                    "' connected\n"]))
             device = Device(device_serial, device_status)
             DEVICES[device_serial] = device
