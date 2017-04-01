@@ -122,8 +122,8 @@ class DeviceTab(QtWidgets.QFrame):
 
     def _record(self, lock):
         recording_name = self.recording_job[1]
-        record_ = threading.Thread(target=main_.record_start,
-            args=(self.device, recording_name),
+        record_ = threading.Thread(
+            target=main_.record_start, args=(self.device, recording_name),
             kwargs={"stdout_":self.stdout_container}, daemon=True)
         record_.start()
         self.ui.record_button.setEnabled(True)
@@ -147,7 +147,7 @@ class DeviceTab(QtWidgets.QFrame):
         filename = self.recording_job[1]
         remote_recording = self.device.ext_storage + "/" + filename
         copied = main_.record_copy(self.device, remote_recording, "./",
-                                    stdout_=self.stdout_container)
+                                   stdout_=self.stdout_container)
         if not copied:
             self.stdout_container.write("Could not copy recorded clip!")
         else:
@@ -393,6 +393,7 @@ class MainWin(QtWidgets.QMainWindow):
             return False
 
         self.last_console_line = text
+        text = "".join(["[", strftime("%H:%M:%S"), "] ", text])
         print("Main window console log:", [text])
         self.ui.status_console.append(text)
         self.ui.status_console.moveCursor(11) # move to the end of document
