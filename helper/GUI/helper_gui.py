@@ -179,12 +179,20 @@ class DeviceTab(QtWidgets.QFrame):
 
 
     def _install(self, *args):
+        print("got this for install:", args)
+        if not args:
+            self.stdout_container.write(
+                "Cannot install, no files were provided")
+            self.enable_buttons()
+            return
         print("Started install with following args:", *args)
         main_.install(self.device, *args, stdout_=self.stdout_container)
         self.enable_buttons()
 
 
-    def install(self, *args):
+    def install(self):
+        # TODO: display a picker, pass picked files to _install
+        args = ""
         self.disable_buttons()
         threading.Thread(target=self._install,
                          args=(args)).start()
