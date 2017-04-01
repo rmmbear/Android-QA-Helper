@@ -264,7 +264,7 @@ class DeviceTab(QtWidgets.QFrame):
         text = self.stdout_container.read().rstrip()
         status = re.search("^\[...%\]", text)
         if status:
-            if not text.startswith("[  0%]"):
+            if re.search("^\[...%\]", self.last_console_line):
                 self.remove_last_line()
         # spam prevention
         if text == self.last_console_line:
