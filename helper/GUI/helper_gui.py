@@ -253,7 +253,7 @@ class DeviceTab(QtWidgets.QFrame):
         self.ui.device_console.moveCursor(11)
 
     def write_to_console(self):
-        text = self.stdout_container.read().rstrip("\n")
+        text = self.stdout_container.read().rstrip()
         status = re.search("^\[...%\]", text)
         if status:
             if not text.startswith("[  0%]"):
@@ -379,7 +379,7 @@ class MainWin(QtWidgets.QMainWindow):
         blacklist = [
             'ERROR: No devices found! Check USB connection and try again.'
             ]
-        text = self.stdout_container.read().rstrip("\n")
+        text = self.stdout_container.read().rstrip()
 
         # spam prevention
         if text in blacklist:
