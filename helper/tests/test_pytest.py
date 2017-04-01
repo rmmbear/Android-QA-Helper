@@ -65,7 +65,7 @@ class TestDeviceInit:
     def test_empty(self):
         """Test device initialization without any actual input.
         """
-        device = DummyDevice(tests_.get_nonexistent_path)
+        device = DummyDevice(tests_.get_nonexistent_path())
 
         assert device.initialized
         assert not device.available_commands
