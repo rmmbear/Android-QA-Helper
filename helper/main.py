@@ -137,7 +137,6 @@ def _get_devices(stdout_=sys.stdout):
     device_specs = adb_execute("devices", return_output=True)
     # Check for unexpected output
     # if such is detected, print it and return an empty list
-    print(device_specs)
     if device_specs:
         first_line = device_specs.pop(0)
         if first_line != "List of devices attached":
@@ -664,20 +663,21 @@ def install(device, *items, stdout_=sys.stdout):
         for app in app_list:
             app_name = get_app_name(app)
             if not app_name:
-                stdout_.write("UNKNOWN APP NAME\n")
+                app_name = "UNKNOWN APP NAME (" + Path(app).name +")"
+                stdout_.write("\nUNKNOWN APP NAME\n")
                 stdout_.write(
                     " ".join(["Could not extract app name from the provided",
                               "apk file:\n"]))
                 stdout_.write(app + "\n")
                 stdout_.write("It may not be a valid apk archive.\n")
-                app_name = "UNKNOWN APP NAME"
+
 
             stdout_.write(" ".join(["\nINSTALLING:", app_name, "\n"]))
             stdout_.write("Your device may ask you to confirm this!\n")
 
             if not install_apk(device, app, app_name, stdout_=stdout_):
                 stdout_.write(" ".join(["FAILED TO INSTALL:", app_name, "\n"]))
-                app_failure.append((app_name, app))
+                app_failure.append(app_name)
 
         stdout_.write(" ".join(["\nInstalled ",
                                 str(len(app_list) - len(app_failure)),
@@ -685,7 +685,7 @@ def install(device, *items, stdout_=sys.stdout):
                                 "provided apks.\n"]))
         if app_failure:
             stdout_.write("The following apks could not be installed:\n")
-            for app_path, app_name in app_failure:
+            for app_name in app_failure:
                 stdout_.write("".join([app_name, "\n"]))
     else:
         app = app_list[0]
