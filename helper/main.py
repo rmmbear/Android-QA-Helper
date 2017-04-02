@@ -620,7 +620,7 @@ class Device:
         stdout_.write(line2)
 
 
-def get_app_name(apk_file):
+def get_app_name(apk_file, stdout_=sys.stdout):
     """Extract app name of the provided apk, from its manifest file.
     Return name if it is found, an empty string otherwise.
     """
@@ -631,7 +631,13 @@ def get_app_name(apk_file):
     if app_name:
         return app_name.group()
 
-    return ""
+    app_name = "UNKNOWN APP NAME (" + Path(apk_file).name + ")"
+    stdout_.write("ERROR: Unknown app name\n")
+    stdout_.write(
+        " ".join(["Could not extract app name from the provided apk file:\n"]))
+    stdout_.write(apk_file + "\n")
+    stdout_.write("It may not be a valid apk archive.\n")
+    return app_name
 
 
 def install(device, *items, stdout_=sys.stdout):
@@ -661,25 +667,14 @@ def install(device, *items, stdout_=sys.stdout):
     if not obb_list:
         app_failure = []
         for app in app_list:
-            app_name = get_app_name(app)
-            if not app_name:
-                app_name = "UNKNOWN APP NAME (" + Path(app).name +")"
-                stdout_.write("\nUNKNOWN APP NAME\n")
-                stdout_.write(
-                    " ".join(["Could not extract app name from the provided",
-                              "apk file:\n"]))
-                stdout_.write(app + "\n")
-                stdout_.write("It may not be a valid apk archive.\n")
-
-
+            app_name = get_app_name(app, stdout_)
             stdout_.write(" ".join(["\nINSTALLING:", app_name, "\n"]))
             stdout_.write("Your device may ask you to confirm this!\n")
 
             if not install_apk(device, app, app_name, stdout_=stdout_):
-                stdout_.write(" ".join(["FAILED TO INSTALL:", app_name, "\n"]))
                 app_failure.append(app_name)
 
-        stdout_.write(" ".join(["\nInstalled ",
+        stdout_.write(" ".join(["\nInstalled",
                                 str(len(app_list) - len(app_failure)),
                                 "out of", str(len(app_list)),
                                 "provided apks.\n"]))
@@ -689,22 +684,19 @@ def install(device, *items, stdout_=sys.stdout):
                 stdout_.write("".join([app_name, "\n"]))
     else:
         app = app_list[0]
-        app_name = get_app_name(app)
+        app_name = get_app_name(app, stdout_)
 
-        stdout_.write(" ".join(["INSTALLING:", app_name, "\n"]))
+        stdout_.write(" ".join(["\n", "INSTALLING:", app_name, "\n"]))
         stdout_.write("Your device may ask you to confirm this!\n")
 
         if not install_apk(device, app, app_name, stdout_=stdout_):
-            stdout_.write(" ".join(["FAILED TO INSTALL:", app_name, "\n"]))
             return False
 
-        stdout_.write(
-            " ".join(["\nCOPYING OBB FILES FOR:", app_name, "\n"]))
+        stdout_.write(" ".join(["\nCOPYING OBB FILES FOR:", app_name, "\n"]))
         prepare_obb_dir(device, app_name)
         for obb_file in obb_list:
             if not push_obb(device, obb_file, app_name):
-                stdout_.write("\nOBB COPYING FAILED\n")
-                stdout_.write("Failed to copy " + obb_file + "\n")
+                stdout_.write("ERROR: Failed to copy " + obb_file + "\n")
                 return False
         stdout_.write("\nSuccesfully installed {}!\n".format(app_name))
 
@@ -715,8 +707,8 @@ def install_apk(device, apk_file, app_name, stdout_=sys.stdout):
         "pm", "list", "packages", return_output=True, as_list=False)
 
     if app_name in preinstall_log:
-        stdout_.write(" ".join(["Different version of the app already",
-                                "installed, deleting...\n"]))
+        stdout_.write(" ".join(["WARNING: Different version of the app",
+                                "already installed\n"]))
         result = _clean_uninstall(
             device, target=app_name, app_name=True, check_packages=False)
         if not result:
@@ -724,9 +716,6 @@ def install_apk(device, apk_file, app_name, stdout_=sys.stdout):
 
     device.adb_command("install", "-r", "-i", "com.android.vending",
                        apk_file, stdout_=stdout_)
-    if app_name == "UNKNOWN APP NAME" or not app_name:
-        stdout_.write("No app name -- cannot verify installation outcome\n")
-        return -1
     postinstall_log = device.shell_command("pm", "list", "packages",
                                            return_output=True)
     for log_line in postinstall_log:
@@ -734,13 +723,17 @@ def install_apk(device, apk_file, app_name, stdout_=sys.stdout):
             return True
 
     if device.status != "device":
-        stdout_.write(" ".join([device.info["Product"]["Model"], "- Device",
-                                "has been suddenly disconnected!\n"]))
+        stdout_.write("ERROR: Device has been suddenly disconnected!\n")
     else:
-        stdout_.write("Installed app was not found by package manager\n")
-        stdout_.write(app_name + " could not be installed!\n")
-        stdout_.write(
-            "Please make sure that your device meets app's criteria\n")
+        if app_name.startswith("UNKNOWN APP NAME"):
+            stdout_.write(
+                "ERROR: No app name, cannot verify installation outcome\n")
+        else:
+            stdout_.write(
+                "ERROR: Installed app was not found by package manager\n")
+            stdout_.write(app_name + " could not be installed!\n")
+            stdout_.write(
+                "Please make sure that your device meets app's criteria\n")
     return False
 
 
@@ -778,10 +771,10 @@ def push_obb(device, obb_file, app_name, stdout_=sys.stdout):
         return True
 
     if device.status != "device":
-        stdout_.write("Device has been suddenly disconnected!\n")
+        stdout_.write("ERROR: Device has been suddenly disconnected!\n")
     else:
         stdout_.write(
-            "Pushed obb file could not be found in destination folder.\n")
+            "ERROR: Pushed obb file was not found in destination folder.\n")
     return False
 
 
@@ -815,10 +808,9 @@ def record_copy(device, remote_recording, output, stdout_=sys.stdout):
                                          return_output=True, as_list=False)
     if recording_log != remote_recording:
         if device.status != "device":
-            stdout_.write("Device has been suddenly disconnected!\n")
+            stdout_.write("ERROR: Device has been suddenly disconnected!\n")
         else:
-            stdout_.write(
-                "Unexpected error! The file could not be found on device!\n")
+            stdout_.write("ERROR: The file was not found on device!\n")
         return False
 
     filename = Path(remote_recording).name
@@ -872,12 +864,12 @@ def record(device, output=None, force=False, stdout_=sys.stdout):
 
     remote_recording = record_start(device, stdout_=stdout_)
     if not remote_recording:
-        stdout_.write("Unexpected error! Could not record\n")
+        stdout_.write("ERROR: Unexpected error! Could not record\n")
         return False
 
     copied = record_copy(device, remote_recording, output, stdout_)
     if not copied:
-        stdout_.write("Could not copy recorded clip!\n")
+        stdout_.write("ERROR: Could not copy recorded clip!\n")
         return False
 
     return copied
@@ -899,10 +891,9 @@ def pull_traces(device, output=None, stdout_=sys.stdout):
                                    return_output=True, as_list=False)
     if cat_log != device.ext_storage + "/traces.txt":
         if device.status != "device":
-            stdout_.write("Device has been suddenly disconnected!\n")
+            stdout_.write("ERROR: Device has been suddenly disconnected!\n")
         else:
-            stdout_.write(
-                "Unexpected error! The file could not be found on device!\n")
+            stdout_.write("ERROR: The file was not found on device!\n")
         return False
 
     device.adb_command("pull", device.ext_storage + "/traces.txt",
@@ -912,9 +903,9 @@ def pull_traces(device, output=None, stdout_=sys.stdout):
         return str((output / anr_filename).resolve())
 
     if device.status != "device":
-        stdout_.write("Device has been suddenly disconnected\n!")
+        stdout_.write("ERROR: Device has been suddenly disconnected\n!")
     else:
-        stdout_.write("Unexpected error! The file could not copied!\n")
+        stdout_.write("ERROR: The file could not copied!\n")
 
     return False
 
@@ -934,17 +925,18 @@ def _clean_uninstall(device, target, app_name=False, check_packages=True,
         preinstall_log = device.shell_command(
             "pm", "list", "packages", return_output=True, as_list=False)
         if target not in preinstall_log:
-            stdout_.write("App was not found\n")
+            stdout_.write("ERROR: App was not found\n")
             return False
 
     uninstall_log = device.adb_command("uninstall", target, return_output=True)
     if uninstall_log[-1] != "Success":
         if device.status != "device":
-            stdout_.write("Device has been suddenly disconnected!\n")
+            stdout_.write("ERROR: Device has been suddenly disconnected!\n")
             return False
         else:
             stdout_.write("Unexpected error!\n")
-            stdout_.write(" ".join([target, "could not be uninstalled!\n"]))
+            stdout_.write(
+                " ".join(["ERROR:", target, "could not be uninstalled!\n"]))
             return False
 
     stdout_.write("Done!\n")
@@ -964,7 +956,7 @@ def _clean_remove(device, target, recursive=False, stdout_=sys.stdout):
                                   as_list=False).strip()
     if not result:
         if device.status != "device":
-            stdout_.write("Device has been suddenly disconnected!\n")
+            stdout_.write("ERROR: Device has been suddenly disconnected!\n")
             return False
 
         stdout_.write("Done!\n")
@@ -977,7 +969,7 @@ def _clean_remove(device, target, recursive=False, stdout_=sys.stdout):
         return -1
     else:
         stdout_.write("Unexpected error, got:\n")
-        stdout_.write(result + "\n")
+        stdout_.write("".join(["ERROR: ", result, "\n"]))
         return -2
 
 
@@ -999,10 +991,9 @@ def _clean_replace(device, remote, local, stdout_=sys.stdout):
                                     as_list=False)
     if push_log != remote:
         if device.status != "device":
-            stdout_.write("Device has been suddenly disconnected!\n")
+            stdout_.write("ERROR: Device has been suddenly disconnected!\n")
         else:
-            stdout_.write(
-                "Unexpected error! The file could not be found on device!\n")
+            stdout_.write("ERROR: The file was not found on device!\n")
         return False
     stdout_.write("Done!\n")
     return True
