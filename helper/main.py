@@ -1128,4 +1128,5 @@ def clean(device, config=None, parsed_config=None, force=False,
     for option, items in parsed_config.items():
         for value in items:
             CLEANER_OPTIONS[option][0].__call__(device, *value,
-                                                *CLEANER_OPTIONS[option][2])
+                                                *CLEANER_OPTIONS[option][2],
+                                                stdout_)
