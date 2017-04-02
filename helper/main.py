@@ -884,29 +884,26 @@ def pull_traces(device, output=None, stdout_=sys.stdout):
 
     anr_filename = "".join([device.info["Product"]["Model"], "_anr_",
                             strftime("%Y.%m.%d_%H.%M.%S"), ".txt"])
-    device.shell_command("cat", device.anr_trace_path, ">",
-                         device.ext_storage + "/traces.txt")
+    remote_anr_file = "".join([device.ext_storage, "/", anr_filename])
+    device.shell_command("cat", device.anr_trace_path, ">", remote_anr_file)
 
-    cat_log = device.shell_command("ls", device.ext_storage + "/traces.txt",
-                                   return_output=True, as_list=False)
-    if cat_log != device.ext_storage + "/traces.txt":
+    cat_log = device.shell_command("ls", remote_anr_file, return_output=True,
+                                   as_list=False)
+    if cat_log != remote_anr_file:
         if device.status != "device":
             stdout_.write("ERROR: Device has been suddenly disconnected!\n")
         else:
             stdout_.write("ERROR: The file was not found on device!\n")
         return False
 
-    device.adb_command("pull", device.ext_storage + "/traces.txt",
-                       str(output / anr_filename))
+    device.adb_command("pull", remote_anr_file, str(output / anr_filename))
 
     if (output / anr_filename).is_file():
         return str((output / anr_filename).resolve())
-
     if device.status != "device":
         stdout_.write("ERROR: Device has been suddenly disconnected\n!")
     else:
         stdout_.write("ERROR: The file could not copied!\n")
-
     return False
 
 
