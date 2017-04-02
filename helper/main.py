@@ -1019,28 +1019,29 @@ def parse_cleaner_config(config=CLEANER_CONFIG):
     The former can be passed to clean().
     """
     parsed_config = {}
-    bad_config = ""
+    bad_config = []
 
     for count, line in enumerate(open(config, mode="r").readlines()):
-        if line.startswith("#") or not line.strip():
+        if line.strip().startswith("#") or not line.strip():
             continue
 
-        count += 1 # start from 1 not 0
+        count += 1
 
         pair = line.split(":", maxsplit=1)
         if len(pair) != 2:
-            bad_config += "Line " + str(count) + " - " + "No value\n"
+            bad_config.append(" ".join(["Line", str(count), ": No value"]))
             continue
 
         key = pair[0].strip()
         value = pair[1].strip()
 
         if key not in CLEANER_OPTIONS:
-            bad_config += "Line " + str(count) + " - " + "Unknown command\n"
+            bad_config.append(
+                " ".join(["Line", str(count), ": Unknown command"]))
             continue
 
         if not value:
-            bad_config += "Line " + str(count) + " - " + "No value\n"
+            bad_config.append(" ".join(["Line", str(count), ": No value"]))
             continue
 
         if key not in parsed_config:
@@ -1057,14 +1058,19 @@ def parse_cleaner_config(config=CLEANER_CONFIG):
         if CLEANER_OPTIONS[key][1] != len(items):
             expected = str(CLEANER_OPTIONS[key][1])
             got = str(len(items))
-            bad_config += "Line " + str(count) +": "
-            bad_config += "Expected " + expected + " arguments "
-            bad_config += "but got " + got + "\n"
+            plural = "s"
+            if expected == "1":
+                plural = ""
+            bad_config.append(
+                " ".join(["Line", str(count), ": Expected", expected,
+                          "argument{} but got".format(plural), got]))
             continue
 
         parsed_config[key].append(items)
 
-    return (parsed_config, bad_config)
+    if bad_config:
+        bad_config.append("")
+    return (parsed_config, "\n".join(bad_config))
 
 
 def clean(device, config=None, parsed_config=None, force=False,
@@ -1101,7 +1107,7 @@ def clean(device, config=None, parsed_config=None, force=False,
             if key not in parsed_config:
                 continue
             for item in parsed_config[key]:
-                stdout_.write(str(action) + " : " + str(item) + "\n")
+                stdout_.write(str(action) + " : " + str(item[0]) + "\n")
 
         if "replace" in parsed_config:
             for pair in parsed_config["replace"]:
