@@ -81,8 +81,6 @@ class DeviceTab(QtWidgets.QFrame):
 
         self.write_device_info()
 
-        # TODO: Figure out recording functionality
-
 
     def dragEnterEvent(self, drop):
         mimedata = drop.mimeData()
@@ -262,13 +260,14 @@ class DeviceTab(QtWidgets.QFrame):
 
     def write_to_console(self):
         text = self.stdout_container.read().rstrip()
+        # spam prevention
+        if not text or text == self.last_console_line:
+            return
+
         status = re.search("^\[...%\]", text)
         if status:
             if re.search("^\[...%\]", self.last_console_line):
                 self.remove_last_line()
-        # spam prevention
-        if text == self.last_console_line:
-            return False
 
         self.last_console_line = text
         print("Device tab console log:", [text])
