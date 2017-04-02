@@ -29,3 +29,7 @@
 #            ^                      ^
 #            | remote file          | local file
 #
+
+# remove files left by helper
+remove : /mnt/sdcard/screenrecord_*.mp4
+remove : /mnt/sdcard/_anr_*.txt
