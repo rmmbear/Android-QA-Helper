@@ -918,7 +918,7 @@ def _clean_uninstall(device, target, app_name=False, check_packages=True,
     To disable that, set "app_name" to True.
     """
     if Path(target).is_file() and not app_name:
-        target = get_app_name(target)
+        target = get_app_name(target, stdout_)
 
     stdout_.write(" ".join(["Uninstalling", target, "... "]))
     if check_packages:
