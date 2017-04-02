@@ -795,9 +795,14 @@ def record_start(device, name=None, stdout_=sys.stdout):
     except KeyboardInterrupt:
         pass
     stdout_.write("\nRecording stopped.\n")
-    # we're waiting for the clip to be fully saved to device's storage
-    # there must be a better way of doing this...
-    sleep(1)
+    # for some reason on Windows the try block above is not enough
+    # an odd fix for an odd error
+    try:
+        # we're waiting for the clip to be fully saved to device's storage
+        # there must be a better way of doing this...
+        sleep(1)
+    except KeyboardInterrupt:
+        sleep(1)
     return remote_recording
 
 
