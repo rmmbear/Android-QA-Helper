@@ -188,9 +188,10 @@ class DeviceTab(QtWidgets.QFrame):
         self.enable_buttons()
 
 
-    def install(self):
+    def install(self, *args):
         # TODO: display a picker, pass picked files to _install
-        args = ""
+        if args == (False,):
+            args = ""
         self.disable_buttons()
         threading.Thread(target=self._install,
                          args=(args)).start()
@@ -238,6 +239,9 @@ class DeviceTab(QtWidgets.QFrame):
     def _clean_confirm(self, parsed_config):
         print("confirming cleaning")
         self.cleaning_ended.emit()
+        # TODO: Allow the user to choose config file / create a new one
+        # TODO: Show a confirmation popup before attempting cleaning
+
 
 
     def _clean_proper(self, parsed_config):
