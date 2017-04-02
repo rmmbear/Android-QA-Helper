@@ -722,8 +722,6 @@ def install_apk(device, apk_file, app_name, stdout_=sys.stdout):
         if not result:
             return False
 
-        stdout_.write("\n")
-
     device.adb_command("install", "-r", "-i", "com.android.vending",
                        apk_file, stdout_=stdout_)
     if app_name == "UNKNOWN APP NAME" or not app_name:
@@ -743,7 +741,6 @@ def install_apk(device, apk_file, app_name, stdout_=sys.stdout):
         stdout_.write(app_name + " could not be installed!\n")
         stdout_.write(
             "Please make sure that your device meets app's criteria\n")
-    stdout_.write("\n")
     return False
 
 
@@ -763,9 +760,8 @@ def push_obb(device, obb_file, app_name, stdout_=sys.stdout):
     <Device>.
 
     File is copied to primary storage, and from there to the obb folder.
-    This is done in two steps because of write protection of sorts --
-    attempts to 'adb push' it directly into obb folder may fail on some
-    devices.
+    This is done in two steps because attempts to 'adb push' it directly
+    into obb folder may fail on some devices.
     """
     obb_name = str(Path(obb_file).name)
     obb_target = "".join([device.ext_storage, "/Android/obb/", app_name, "/",
@@ -786,7 +782,6 @@ def push_obb(device, obb_file, app_name, stdout_=sys.stdout):
     else:
         stdout_.write(
             "Pushed obb file could not be found in destination folder.\n")
-    stdout_.write("\n")
     return False
 
 
@@ -1121,14 +1116,12 @@ def clean(device, config=None, parsed_config=None, force=False,
                 stdout_.write(str(action) + " : " + str(item) + "\n")
 
         if "replace" in parsed_config:
-            stdout_.write("\n")
             for pair in parsed_config["replace"]:
-                stdout_.write("The file: " + pair[0] + "\n")
+                stdout_.write("\nThe file: " + pair[0] + "\n")
                 stdout_.write(indent * " " + "will be replaced with:" + "\n")
                 stdout_.write(indent * 2 * " " + pair[1] + "\n")
 
-        stdout_.write("\n")
-        stdout_.write("Continue?\n")
+        stdout_.write("\nContinue?\n")
 
         while True:
             usr_choice = input("Y/N : ").strip().upper()
