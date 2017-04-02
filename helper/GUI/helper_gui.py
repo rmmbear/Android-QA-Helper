@@ -96,6 +96,7 @@ class DeviceTab(QtWidgets.QFrame):
         paths = [x.toLocalFile() for x in mimedata.urls()]
         self.stdout_container.write("Installation triggered through drag&drop")
         self.install(*paths)
+        # TODO: Show a confirmation popup before drag & drop installation
 
 
     def write_device_info(self):
@@ -237,23 +238,24 @@ class DeviceTab(QtWidgets.QFrame):
 
 
     def _clean_confirm(self, parsed_config):
-        print("confirming cleaning")
-        self.cleaning_ended.emit()
-        # TODO: Allow the user to choose config file / create a new one
+        print("Confirming cleaning with following config:")
+        print(parsed_config)
         # TODO: Show a confirmation popup before attempting cleaning
-
+        threading.Thread(
+            target=self._clean_proper, args=([parsed_config])).start()
 
 
     def _clean_proper(self, parsed_config):
-        pass
+        main_.clean(self.device, parsed_config=parsed_config, force=True,
+                    stdout_=self.stdout_container)
+        self.cleaning_ended.emit()
 
 
     def clean(self):
         self.disable_buttons()
         threading.Thread(target=self._clean_prepare).start()
+        # TODO: Allow the user to choose config file / create a new one
 
-        # TODO: Show a popup for picking the config
-        # continue based on the user choice
 
     def remove_last_line(self):
         self.ui.device_console.moveCursor(11)
