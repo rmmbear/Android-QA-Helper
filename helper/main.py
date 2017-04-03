@@ -896,14 +896,15 @@ def pull_traces(device, output=None, stdout_=sys.stdout):
             stdout_.write("ERROR: The file was not found on device!\n")
         return False
 
-    device.adb_command("pull", remote_anr_file, str(output / anr_filename))
+    device.adb_command("pull", remote_anr_file, str(output / anr_filename),
+                       stdout_=stdout_)
 
     if (output / anr_filename).is_file():
         return str((output / anr_filename).resolve())
     if device.status != "device":
         stdout_.write("ERROR: Device has been suddenly disconnected\n!")
     else:
-        stdout_.write("ERROR: The file could not copied!\n")
+        stdout_.write("ERROR: The file was not copied!\n")
     return False
 
 
