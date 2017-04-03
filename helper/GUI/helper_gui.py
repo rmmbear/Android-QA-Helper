@@ -199,14 +199,12 @@ class DeviceTab(QtWidgets.QFrame):
 
 
     def _pull_traces(self):
-        result = main_.pull_traces(self.device)
+        result = main_.pull_traces(self.device, stdout_=self.stdout_container)
         if result:
-            text = "Traces saved to" + main_.pull_traces(self.device)
-        else:
-            text = "Traces could not be saved"
+            text = "Traces saved to" + result
 
         self.stdout_container.write(text)
-        sleep(1) # let's not pull those logs too often :V
+        sleep(0.25) # let's not pull those logs too often :V
         self.traces_pulled.emit()
 
 
