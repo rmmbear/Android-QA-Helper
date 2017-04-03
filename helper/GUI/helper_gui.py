@@ -63,8 +63,6 @@ class DeviceTab(QtWidgets.QFrame):
 
         # recording
         self.ui.record_button.clicked.connect(self.record)
-        self.ui.record_button.clicked.connect(
-            lambda: self.ui.record_button.setEnabled(False))
         self.recording_stopped.connect(self._copy_recording)
 
         # traces
@@ -133,8 +131,8 @@ class DeviceTab(QtWidgets.QFrame):
                 self.stdout_container.write("Stopped recording")
                 self.recording_stopped.emit()
                 return False
-            sleep(1)
-
+            sleep(0.2)
+        self.ui.record_button.setEnabled(False)
         self.device.adb_command("reconnect")
         self.connection_reset.emit()
         self.stdout_container.write("Stopped recording")
@@ -358,7 +356,8 @@ class MainWin(QtWidgets.QMainWindow):
 
         new_tab = DeviceTab(device)
         self.gui_devices[device] = {"tab":new_tab, "name":tab_name}
-        new_tab.connection_reset.connect(self.device_timer.start)
+        new_tab.connection_reset.connect(self.device_timer.stop)
+        new_tab.recording_ended.connect(self.device_timer.start)
         self.device_connected.emit(device)
 
 
