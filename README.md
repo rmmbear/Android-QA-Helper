@@ -3,9 +3,10 @@ For changelog and Windows binaries see releases page: https://github.com/rmmbear
 
 # Requirements:
 - Python 3.6 (if not using binary package)
+- PyQt5 and QT 5.8 (if not using binary package)
+- pytest (for tests)
 - ADB (can be found in platform-tools from Android SDK)
 - AAPT (can be found in build-tools from Android SDK)
-- py.test for tests
 
 Both ADB and AAPT are required for this program to work. To get them, you can do one of two things:
 - Download the whole Android SDK suite and get their packages using the 'Android SDK manager'
@@ -25,11 +26,18 @@ In the root directory of the project there should be two directories: "adb" and 
 From the root of the project:```python -m helper <option>```. You can use ```--help``` to see the list of available options.
 If you're using the frozen code package on windows, you must call the 'helper.exe' from command line, since helper is a command-line only utility (for now). 
 
-# Plans for future:
-- Create an actual readme / documentation
+# GUI:
+The current GUI prototype can be accessed with ```helper --gui```
+It currently has the following functionality:
+- Automatic device detection
+- Recording (press button in a device tab to start recording, press it again to stop)
+- Installing (only through drag & drop, the 'install' button currently does nothing)
+- Cleaning (press 'clean' button WARNING: this may be destructive and there currently is no confirmation dialog)
+- Pulling traces file / anr log (just press the 'pull traces' button)
+
+
+# Current plans:
+- Finish GUI
 - Clean up the code some more
-- Fill out missing docstrings / update existing ones
-- Finish the restructuring process to make it suitable for pip packaging
 - Extend cleaning to support user-defined commands *-- not for 1.0*
-- Revisit the interactive mode idea, but with actual GUI ~~*-- not for 1.0*~~ *-- In progress*
-- Plan new functionality (screenshots? functions enabling doze/standby for testing?) *-- not for 1.0*
+- Plan new functionality (screenshots? functions enabling doze/standby for testing? recovering apks of installed apps from asec directory?) *-- not for 1.0*
