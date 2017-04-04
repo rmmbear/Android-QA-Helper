@@ -63,6 +63,7 @@ class DeviceTab(QtWidgets.QFrame):
 
         # recording
         self.ui.record_button.clicked.connect(self.record)
+        self.ui.record_button.clicked.connect(self.disable_buttons)
         self.recording_stopped.connect(self._copy_recording)
 
         # traces
@@ -123,19 +124,18 @@ class DeviceTab(QtWidgets.QFrame):
             target=main_.record_start, args=(self.device, recording_name),
             kwargs={"stdout_":self.stdout_container}, daemon=True)
         record_.start()
+        sleep(0.2) # wait before enabling buttons
+        # TODO: let the thread know that everything is setup and buttons can be enabled
         self.ui.record_button.setEnabled(True)
         while not lock.acquire(False):
             if not record_.is_alive():
                 # make sure the file is saved ()
                 sleep(1)
-                self.stdout_container.write("Stopped recording")
                 self.recording_stopped.emit()
                 return False
-            sleep(0.2)
-        self.ui.record_button.setEnabled(False)
+            sleep(0.5)
         self.device.adb_command("reconnect")
         self.connection_reset.emit()
-        self.stdout_container.write("Stopped recording")
         self.recording_stopped.emit()
 
 
@@ -162,13 +162,12 @@ class DeviceTab(QtWidgets.QFrame):
 
 
     def record(self):
-        self.disable_buttons()
         self.stdout_container.write("Started recording")
         recording_lock = threading.Lock()
         filename = "screenrecord_" + strftime("%Y.%m.%d_%H.%M.%S") + ".mp4"
         self.recording_job = (
             threading.Thread(target=self._record, args=(recording_lock,)),
-            filename, lambda: recording_lock.release())
+            filename, recording_lock.release)
         self.ui.record_button.clicked.disconnect(self.record)
         self.ui.record_button.clicked.connect(self.recording_job[2])
         recording_lock.acquire()
@@ -176,7 +175,6 @@ class DeviceTab(QtWidgets.QFrame):
 
 
     def _install(self, *args):
-        print("got this for install:", args)
         if not args:
             self.stdout_container.write(
                 "Cannot install, no files were provided")
