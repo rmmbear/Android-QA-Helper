@@ -695,7 +695,7 @@ def install(device, *items, stdout_=sys.stdout):
         stdout_.write(" ".join(["\nCOPYING OBB FILES FOR:", app_name, "\n"]))
         prepare_obb_dir(device, app_name)
         for obb_file in obb_list:
-            if not push_obb(device, obb_file, app_name):
+            if not push_obb(device, obb_file, app_name, stdout_=stdout_):
                 stdout_.write("ERROR: Failed to copy " + obb_file + "\n")
                 return False
         stdout_.write("\nSuccesfully installed {}!\n".format(app_name))
