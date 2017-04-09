@@ -256,8 +256,8 @@ class Device:
                          "Manufacturer",
                          "Brand",
                          "Device"]),
-            ("OS",      ["Android Version",
-                         "Android API Level",
+            ("OS",      ["Version",
+                         "API Level",
                          "Build ID",
                          "Build Fingerprint"]),
             ("RAM",     ["Total"]),
@@ -269,7 +269,7 @@ class Device:
                          "Available ABIs"]),
             ("GPU",     ["Model",
                          "GL Version",
-                         "Compression Types"]),
+                         "GL Extensions"]),
             ("Display", ["Resolution",
                          "Refresh-rate",
                          "V-Sync",
@@ -408,8 +408,8 @@ class Device:
                            "Manufacturer"     :"[ro.product.manufacturer]",
                            "Brand"            :"[ro.product.brand]",
                            "Device"           :"[ro.product.device]"},
-                "OS"     :{"Android Version"  :"[ro.build.version.release]",
-                           "Android API Level":"[ro.build.version.sdk]",
+                "OS"     :{"Version"          :"[ro.build.version.release]",
+                           "API Level"        :"[ro.build.version.sdk]",
                            "Build ID"         :"[ro.build.id]",
                            "Build Fingerprint":"[ro.build.fingerprint]"},
                 "Display":{"Density"          :"[ro.sf.lcd_density]"}
@@ -555,10 +555,10 @@ class Device:
             if identifier in dump:
                 compressions.append(name.strip())
 
-        if not self.info["GPU"]["Compression Types"]:
-            self.info["GPU"]["Compression Types"] = OrderedDict()
+        if not self.info["GPU"]["GL Extensions"]:
+            self.info["GPU"]["GL Extensions"] = OrderedDict()
 
-        self.info["GPU"]["Compression Types"] = ", ".join(compressions)
+        self.info["GPU"]["GL Extensions"] = ", ".join(compressions)
 
 
     def _get_shell_env(self):
@@ -599,7 +599,7 @@ class Device:
     def print_basic_info(self, stdout_=sys.stdout):
         """Print basic device information to console.
         Prints: manufacturer, model, OS version and available texture
-        compression types.
+        GL Extensions.
         """
         model = self.info["Product"]["Model"]
         if model is None:
@@ -612,8 +612,8 @@ class Device:
             os_ver = "Unknown OS version"
 
         line1 = " - ".join([manufacturer, model, os_ver]) + "\n"
-        line2 = ("Compression Types: "
-                 + str(self.info["GPU"]["Compression Types"])
+        line2 = ("GL Extensions: "
+                 + str(self.info["GPU"]["GL Extensions"])
                  + "\n")
 
         stdout_.write(line1)

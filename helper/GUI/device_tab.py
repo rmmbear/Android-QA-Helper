@@ -1,7 +1,5 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file '/home/mac/Desktop/Helper_GUI/helper/GUI/source_ui/device_tab.ui'
-#
 # Created by: PyQt5 UI code generator 5.8.1
 #
 # WARNING! All changes made in this file will be lost!
@@ -48,6 +46,7 @@ class Ui_Form(object):
         self.verticalLayout.addItem(spacerItem)
         self.horizontalLayout.addWidget(self.control_panel)
         self.device_display = QtWidgets.QTabWidget(Form)
+        self.device_display.setFocusPolicy(QtCore.Qt.NoFocus)
         self.device_display.setTabPosition(QtWidgets.QTabWidget.East)
         self.device_display.setObjectName("device_display")
         self.device_info_tab = QtWidgets.QWidget()
@@ -56,8 +55,6 @@ class Ui_Form(object):
         self.verticalLayout_3.setContentsMargins(0, 0, 0, 0)
         self.verticalLayout_3.setObjectName("verticalLayout_3")
         self.device_info = QtWidgets.QTextBrowser(self.device_info_tab)
-        self.device_info.setAcceptDrops(False)
-        self.device_info.setTextInteractionFlags(QtCore.Qt.LinksAccessibleByKeyboard|QtCore.Qt.LinksAccessibleByMouse|QtCore.Qt.TextBrowserInteraction|QtCore.Qt.TextSelectableByKeyboard|QtCore.Qt.TextSelectableByMouse)
         self.device_info.setObjectName("device_info")
         self.verticalLayout_3.addWidget(self.device_info)
         self.device_display.addTab(self.device_info_tab, "")
@@ -89,7 +86,7 @@ class Ui_Form(object):
         self.record_button.setText(_translate("Form", "Record Screen"))
         self.traces_button.setText(_translate("Form", "Pull Traces"))
         self.clean_button.setText(_translate("Form", "Clean"))
-        self.device_info.setPlaceholderText(_translate("Form", "Loading device information..."))
+        self.device_info.setPlaceholderText(_translate("Form", "Loading device data..."))
         self.device_display.setTabText(self.device_display.indexOf(self.device_info_tab), _translate("Form", "Device Information"))
         self.device_display.setTabText(self.device_display.indexOf(self.device_console_tab), _translate("Form", "Console"))
 

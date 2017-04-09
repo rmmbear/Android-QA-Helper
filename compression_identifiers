@@ -4,7 +4,7 @@
 # human-readable name, the two must be comma delimited
 #
 # for reference on GLES extensions, see:
-# https://www.khronos.org/registry/gles/extensions/
+# https://www.khronos.org/registry/OpenGL/index_es.php
 #
 
 GL_AMD_compressed_ATC_texture, ATC
