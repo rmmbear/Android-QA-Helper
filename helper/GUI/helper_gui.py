@@ -300,8 +300,6 @@ class MainWin(QtWidgets.QMainWindow):
         self.device_timer.setInterval(1500)
         self.device_timer.timeout.connect(self.scan_devices)
         self.device_timer.start()
-        self.ui.refresh_device_status.clicked.connect(self.scan_devices)
-        self.ui.refresh_device_status.clicked.connect(self.device_timer.start)
         self.new_device_found.connect(self.add_new_device)
         self.device_connected.connect(self.show_device_tab)
         self.device_disconnected.connect(self.hide_device_tab)
@@ -312,7 +310,6 @@ class MainWin(QtWidgets.QMainWindow):
 
 
     def _scan_devices(self):
-        self.ui.refresh_device_status.setEnabled(False)
         connected_devices = main_.get_devices(stdout_=self.stdout_container)
 
         for device in self.gui_devices:
@@ -328,12 +325,10 @@ class MainWin(QtWidgets.QMainWindow):
         for device in connected_devices:
             self.new_device_found.emit(device)
 
-        self.ui.refresh_device_status.setEnabled(True)
         self.device_scan_ended.emit()
 
 
     def scan_devices(self):
-        # TODO: send feedback when scanning manually
         self.device_scan_started.emit()
         threading.Thread(target=self._scan_devices).start()
 
