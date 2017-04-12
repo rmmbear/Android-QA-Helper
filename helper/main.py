@@ -1,5 +1,5 @@
-#         Android QA Helper - helping you test Android apps!
-#          Copyright (C) 2017  Maciej Mysliwczyk ('rmmbear')
+#   Android QA Helper - helping you test Android apps!
+#   Copyright (C) 2017  Maciej Mysliwczyk 'rmmbear'
 #
 #   This program is free software: you can redistribute it and/or modify
 #   it under the terms of the GNU General Public License as published by
@@ -54,8 +54,8 @@ def adb_execute(*args, return_output=False, check_server=True, as_list=True,
 
         if return_output:
             cmd_out = subprocess.run(
-                (ADB,) + args, encoding="utf-8", stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT, universal_newlines=True).stdout
+                (ADB,) + args, stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT).stdout.decode("utf-8", "replace")
 
             if as_list:
                 return cmd_out.strip().splitlines()
@@ -64,11 +64,11 @@ def adb_execute(*args, return_output=False, check_server=True, as_list=True,
 
         if stdout_ != sys.__stdout__:
             cmd_out = subprocess.Popen(
-                (ADB,) + args, stdout=subprocess.PIPE, encoding="utf-8",
-                stderr=subprocess.STDOUT, universal_newlines=True)
+                (ADB,) + args, stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT).stdout.decode("utf-8", "replace")
 
             last_line = ''
-            for line in cmd_out.stdout:
+            for line in cmd_out.splitlines():
                 if line != last_line:
                     stdout_.write(line)
                     last_line = line

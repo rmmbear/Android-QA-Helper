@@ -1,5 +1,5 @@
-#         Android QA Helper - helping you test Android apps!
-#          Copyright (C) 2017  Maciej Mysliwczyk ('rmmbear')
+#   Android QA Helper - helping you test Android apps!
+#   Copyright (C) 2017  Maciej Mysliwczyk 'rmmbear'
 #
 #   This program is free software: you can redistribute it and/or modify
 #   it under the terms of the GNU General Public License as published by
@@ -22,10 +22,10 @@ from pathlib import Path
 
 
 VERSION = "0.13"
-VERSION_DATE = "09-04-2017"
+VERSION_DATE = "13-04-2017"
 GITHUB_SOURCE = "https://github.com/rmmbear/Android-QA-Helper"
-VERSION_STRING = " ".join(["Android QA Helper ver", VERSION, ":",
-                           VERSION_DATE, ": Copyright (c) 2017 rmmbear"]
+VERSION_STRING = " ".join(["Android QA Helper ver", VERSION, ":", VERSION_DATE,
+                           ": Copyright (c) 2017 Maciej Mysliwczyk 'rmmbear"]
                          )
 SOURCE_STRING = "Check the source code at " + GITHUB_SOURCE
 
