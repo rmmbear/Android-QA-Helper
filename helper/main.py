@@ -577,55 +577,109 @@ class Device:
         # find the path of the primary storage
         primary_storage = None
         if "EXTERNAL_STORAGE" in env_dict:
-            # TODO: Check if the path in 'external_storage' points to directory
-            primary_storage = env_dict["EXTERNAL_STORAGE"]
+            if self.is_dir(env_dict["EXTERNAL_STORAGE"]):
+                primary_storage = env_dict["EXTERNAL_STORAGE"]
 
+        # external storage not found (can that even happen?) try to brute-force
         if not primary_storage:
-            # find external storage by brute-force
-            # TODO: implement brute-force primary storage search
             primary_storage_paths = [
                 "/mnt/sdcard",          # this is a safe bet (in my experience)
-                "/storage/emulated",    # older androids don't have this one
-                "/storage/emulated/0",
                 "/storage/sdcard0",
+                "/storage/emulated",    # older androids don't have this one
+                "/storage/emulated0",
                 "/mnt/emmc"]            # are you a time traveler?
 
-            primary_storage = primary_storage_paths[0]
+            for storage_path in primary_storage_paths:
+                if self.is_dir(storage_path):
+                    primary_storage = storage_path
 
         self.ext_storage = primary_storage
-
         # TODO: search for secondary storage path
         # TODO: search for hostname
 
-    def is_file(self, file_path, symlink_ok=False):
+
+    def is_file(self, file_path, symlink_ok=False, read=True, write=True,
+                execute=False):
         """Check whether a path points to an existing file."""
         if not file_path:
             return False
 
+        permissions = ""
+        if read:
+            permissions += "r"
+        if write:
+            permissions += "w"
+        if execute:
+            permissions += "x"
+
         out = self.shell_command('if [ -f "{}" ];'.format(file_path),
                                  "then echo 0;", "else echo 1;", "fi",
                                  return_output=True, as_list=False)
+
         if out == '0':
+            for permission in permissions:
+                out = self.shell_command(
+                    'if [ -{} "{}" ];'.format(permission, file_path),
+                    "then echo 0;", "else echo 1;", "fi", return_output=True,
+                    as_list=False)
+                if out == '0':
+                    continue
+                elif out == '1':
+                    return False
+                else:
+                    print("Got unexpected output:")
+                    print(out)
+                    return False
+
             return True
         elif out == '1':
             return False
         else:
-            return out
+            print("Got unexpected output:")
+            print(out)
+            return False
 
 
-    def is_dir(self, dir_path, symlink_ok=False):
+    def is_dir(self, dir_path, symlink_ok=False, read=True, write=True,
+                execute=False):
         """Check whether a path points to an existing directory."""
         if not dir_path:
             return False
+
+        permissions = ""
+        if read:
+            permissions += "r"
+        if write:
+            permissions += "w"
+        if execute:
+            permissions += "x"
+
         out = self.shell_command('if [ -d "{}" ];'.format(dir_path),
                                  "then echo 0;", "else echo 1;", "fi",
                                  return_output=True, as_list=False)
+
         if out == '0':
+            for permission in permissions:
+                out = self.shell_command(
+                    'if [ -{} "{}" ];'.format(permission, dir_path),
+                    "then echo 0;", "else echo 1;", "fi", return_output=True,
+                    as_list=False)
+                if out == '0':
+                    continue
+                elif out == '1':
+                    return False
+                else:
+                    print("Got unexpected output:")
+                    print(out)
+                    return False
+
             return True
         elif out == '1':
             return False
         else:
-            return out
+            print("Got unexpected output:")
+            print(out)
+            return False
 
 
     def get_full_info_string(self, indent=4):
