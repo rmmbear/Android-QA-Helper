@@ -600,7 +600,14 @@ class Device:
 
     def is_file(self, file_path, symlink_ok=False, read=True, write=True,
                 execute=False):
-        """Check whether a path points to an existing file."""
+        """Check whether a path points to an existing directory and
+        whether the current user has specified permissions.
+
+        Setting read, write and execute to True, enables checking for
+        those permissions. Function will return True only if all
+        specified permissions are available to the user and if the path
+        does not point to a symlink or symlink_ok is set to True.
+        """
         if not file_path:
             return False
 
@@ -622,27 +629,36 @@ class Device:
                     'if [ -{} "{}" ];'.format(permission, file_path),
                     "then echo 0;", "else echo 1;", "fi", return_output=True,
                     as_list=False)
+
                 if out == '0':
                     continue
-                elif out == '1':
-                    return False
-                else:
+                if out not in ["0", "1"]:
                     print("Got unexpected output:")
                     print(out)
-                    return False
+                return False
 
-            return True
-        elif out == '1':
-            return False
-        else:
+            out = self.shell_command('if [ -L "{}" ];'.format(file_path),
+                                     "then echo 0;", "else echo 1;", "fi",
+                                     return_output=True, as_list=False)
+            if out == '1' or symlink_ok:
+                return True
+
+        if out not in ["0", "1"]:
             print("Got unexpected output:")
             print(out)
-            return False
+        return False
 
 
     def is_dir(self, dir_path, symlink_ok=False, read=True, write=True,
                 execute=False):
-        """Check whether a path points to an existing directory."""
+        """Check whether a path points to an existing directory and
+        whether the current user has specified permissions.
+
+        Setting read, write and execute to True, enables checking for
+        those permissions. Function will return True only if all
+        specified permissions are available to the user and if the path
+        does not point to a symlink or symlink_ok is set to True.
+        """
         if not dir_path:
             return False
 
@@ -664,22 +680,24 @@ class Device:
                     'if [ -{} "{}" ];'.format(permission, dir_path),
                     "then echo 0;", "else echo 1;", "fi", return_output=True,
                     as_list=False)
+
                 if out == '0':
                     continue
-                elif out == '1':
-                    return False
-                else:
+                if out not in ["0", "1"]:
                     print("Got unexpected output:")
                     print(out)
-                    return False
+                return False
 
-            return True
-        elif out == '1':
-            return False
-        else:
+            out = self.shell_command('if [ -L "{}" ];'.format(dir_path),
+                                     "then echo 0;", "else echo 1;", "fi",
+                                     return_output=True, as_list=False)
+            if out == '1' or symlink_ok:
+                return True
+
+        if out not in ["0", "1"]:
             print("Got unexpected output:")
             print(out)
-            return False
+        return False
 
 
     def get_full_info_string(self, indent=4):

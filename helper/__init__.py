@@ -22,7 +22,7 @@ from pathlib import Path
 
 
 VERSION = "0.13"
-VERSION_DATE = "18-04-2017"
+VERSION_DATE = "19-04-2017"
 GITHUB_SOURCE = "https://github.com/rmmbear/Android-QA-Helper"
 VERSION_STRING = " ".join(["Android QA Helper ver", VERSION, ":", VERSION_DATE,
                            ": Copyright (c) 2017 Maciej Mysliwczyk 'rmmbear'"]
