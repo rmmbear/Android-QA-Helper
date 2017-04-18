@@ -169,7 +169,7 @@ def get_devices(stdout_=sys.stdout):
     """
     device_list = []
 
-    for device_serial, device_status in _get_devices(stdout_):
+    for device_serial, device_status in _get_devices(stdout_=stdout_):
         if device_status != "device":
             # device suddenly disconnected or usb debugging not authorized
 
@@ -209,7 +209,7 @@ def pick_device(stdout_=sys.stdout):
     devices. If there are no devices to choose from, it will return the
     sole connected device or None, if there are no devices at all.
     """
-    device_list = get_devices()
+    device_list = get_devices(stdout_=stdout_)
 
     if not device_list:
         return None
@@ -792,7 +792,7 @@ def install(device, *items, stdout_=sys.stdout):
     if not obb_list:
         app_failure = []
         for app in app_list:
-            app_name = get_app_name(app, stdout_)
+            app_name = get_app_name(app, stdout_=stdout_)
             stdout_.write(" ".join(["\nINSTALLING:", app_name, "\n"]))
             stdout_.write("Your device may ask you to confirm this!\n")
 
@@ -809,7 +809,7 @@ def install(device, *items, stdout_=sys.stdout):
                 stdout_.write("".join([app_name, "\n"]))
     else:
         app = app_list[0]
-        app_name = get_app_name(app, stdout_)
+        app_name = get_app_name(app, stdout_=stdout_)
 
         stdout_.write(" ".join(["\n", "INSTALLING:", app_name, "\n"]))
         stdout_.write("Your device may ask you to confirm this!\n")
@@ -886,7 +886,8 @@ def push_obb(device, obb_file, app_name, stdout_=sys.stdout):
                           obb_name])
 
     #pushing obb in two steps to circumvent write protection
-    device.adb_command("push", obb_file, device.ext_storage + "/" + obb_name)
+    device.adb_command("push", obb_file, device.ext_storage + "/" + obb_name,
+                       stdout_=stdout_)
     device.shell_command("mv", "".join(['"', device.ext_storage, "/",
                                         obb_name, '"']),
                          "".join(['"', obb_target, '"']))
@@ -997,7 +998,7 @@ def record(device, output=None, force=False, stdout_=sys.stdout):
         stdout_.write("ERROR: Unexpected error! Could not record\n")
         return False
 
-    copied = record_copy(device, remote_recording, output, stdout_)
+    copied = record_copy(device, remote_recording, output, stdout_=stdout_)
     if not copied:
         stdout_.write("ERROR: Could not copy recorded clip!\n")
         return False
@@ -1046,7 +1047,7 @@ def _clean_uninstall(device, target, app_name=False, check_packages=True,
     To disable that, set "app_name" to True.
     """
     if Path(target).is_file() and not app_name:
-        target = get_app_name(target, stdout_)
+        target = get_app_name(target, stdout_=stdout_)
 
     stdout_.write(" ".join(["Uninstalling", target, "... "]))
     if check_packages:
@@ -1103,14 +1104,14 @@ def _clean_remove(device, target, recursive=False, stdout_=sys.stdout):
 
 def _clean_replace(device, remote, local, stdout_=sys.stdout):
     """Replace file on device (remote) with the a local one."""
-    result = _clean_remove(device, remote)
+    result = _clean_remove(device, remote, stdout_=stdout_)
     if int(result) < 0:
         stdout_.write(
             " ".join(["Cannot replace", remote, "due to unexpected error\n"]))
         return False
 
     stdout_.write(" ".join(["Placing", local, "in its place\n"]))
-    device.adb_command("push", local, remote)
+    device.adb_command("push", local, remote, stdout_=stdout_)
 
     _remote = remote
     if " " in _remote:
@@ -1260,4 +1261,4 @@ def clean(device, config=None, parsed_config=None, force=False,
         for value in items:
             CLEANER_OPTIONS[option][0].__call__(device, *value,
                                                 *CLEANER_OPTIONS[option][2],
-                                                stdout_)
+                                                stdout_=stdout_)
