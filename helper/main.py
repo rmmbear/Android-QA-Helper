@@ -564,15 +564,38 @@ class Device:
     def _get_shell_env(self):
         """Extract information from Android's shell environment"""
         #TODO: Extract information from Android shell
-        #shell_env = self.shell_command("printenv", return_output=True,
-        #                               as_list=False)
-        primary_storage_paths = [
-            "/mnt/sdcard",          # this is a safe bet (in my experience)
-            "/storage/emulated",    # older androids don't have this one
-            "/storage/emulated/0",
-            "/storage/sdcard0",
-            "/mnt/emmc"]            # are you a time traveler?
-        self.ext_storage = primary_storage_paths[0]
+        shell_env = self.shell_command("printenv", return_output=True,
+                                       as_list=False)
+
+        env_dict = {}
+        for line in shell_env:
+            key, value = line.split("=", maxsplit=1)
+            env_dict[key] = value
+        del shell_env
+
+
+        # find the path of the primary storage
+        primary_storage = None
+        if "EXTERNAL_STORAGE" in env_dict:
+            # TODO: Check if the path in 'external_storage' points to directory
+            primary_storage = env_dict["EXTERNAL_STORAGE"]
+
+        if not primary_storage:
+            # find external storage by brute-force
+            # TODO: implement brute-force primary storage search
+            primary_storage_paths = [
+                "/mnt/sdcard",          # this is a safe bet (in my experience)
+                "/storage/emulated",    # older androids don't have this one
+                "/storage/emulated/0",
+                "/storage/sdcard0",
+                "/mnt/emmc"]            # are you a time traveler?
+
+            primary_storage = primary_storage_paths[0]
+
+        self.ext_storage = primary_storage
+
+        # TODO: search for secondary storage path
+        # TODO: search for hostname
 
 
     def get_full_info_string(self, indent=4):
