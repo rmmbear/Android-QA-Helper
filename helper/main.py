@@ -53,19 +53,18 @@ def adb_execute(*args, return_output=False, check_server=True, as_list=True,
             subprocess.run([ADB, "start-server"], stdout=subprocess.PIPE)
 
         if return_output:
-            cmd_out = subprocess.run(
-                (ADB,) + args, stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT).stdout.decode("utf-8", "replace")
+            cmd_out = subprocess.run((ADB,) + args, stdout=subprocess.PIPE,
+                                     stderr=subprocess.STDOUT).stdout
+            cmd_out = cmd_out.decode("utf-8", "replace").strip()
 
             if as_list:
-                return cmd_out.strip().splitlines()
-
-            return cmd_out.strip()
+                return cmd_out.splitlines()
+            return cmd_out
 
         if stdout_ != sys.__stdout__:
-            cmd_out = subprocess.Popen(
-                (ADB,) + args, stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT).stdout.decode("utf-8", "replace")
+            cmd_out = subprocess.Popen((ADB,) + args, stdout=subprocess.PIPE,
+                                       stderr=subprocess.STDOUT).stdout
+            cmd_out = cmd_out.decode("utf-8", "replace").strip()
 
             last_line = ''
             for line in cmd_out.splitlines():
@@ -93,19 +92,18 @@ def aapt_execute(*args, return_output=False, as_list=True, stdout_=sys.stdout):
     """Execute an AAPT command, and return -- or don't -- its result."""
     try:
         if return_output:
-            cmd_out = subprocess.run(
-                (AAPT,) + args, stdout=subprocess.PIPE, encoding="utf-8",
-                stderr=subprocess.STDOUT, universal_newlines=True).stdout
+            cmd_out = subprocess.run((AAPT,) + args, stdout=subprocess.PIPE,
+                                     stderr=subprocess.STDOUT).stdout
+            cmd_out = cmd_out.decode("utf-8", "replace").strip()
 
             if as_list:
-                return cmd_out.strip().splitlines()
-
-            return cmd_out.strip()
+                return cmd_out.splitlines()
+            return cmd_out
 
         if stdout_ != sys.__stdout__:
-            cmd_out = subprocess.Popen(
-                (AAPT,) + args, stdout=subprocess.PIPE, encoding="utf-8",
-                stderr=subprocess.STDOUT, universal_newlines=True)
+            cmd_out = subprocess.Popen((AAPT,) + args, stdout=subprocess.PIPE,
+                                       stderr=subprocess.STDOUT).stdout
+            cmd_out = cmd_out.decode("utf-8", "replace").strip()
 
             last_line = ''
             for line in cmd_out.stdout:
