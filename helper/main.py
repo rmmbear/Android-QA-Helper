@@ -569,10 +569,10 @@ class Device:
 
         env_dict = {}
         for line in shell_env:
-            key, value = line.split("=", maxsplit=1)
-            env_dict[key] = value
-        del shell_env
-
+            line = line.split("=", maxsplit=1)
+            if len(line) == 1:
+                continue
+            env_dict[line[0]] = line[1]
 
         # find the path of the primary storage
         primary_storage = None
@@ -596,6 +596,36 @@ class Device:
 
         # TODO: search for secondary storage path
         # TODO: search for hostname
+
+    def is_file(self, file_path, symlink_ok=False):
+        """Check whether a path points to an existing file."""
+        if not file_path:
+            return False
+
+        out = self.shell_command('if [ -f "{}" ];'.format(file_path),
+                                 "then echo 0;", "else echo 1;", "fi",
+                                 return_output=True, as_list=False)
+        if out == '0':
+            return True
+        elif out == '1':
+            return False
+        else:
+            return out
+
+
+    def is_dir(self, dir_path, symlink_ok=False):
+        """Check whether a path points to an existing directory."""
+        if not dir_path:
+            return False
+        out = self.shell_command('if [ -d "{}" ];'.format(dir_path),
+                                 "then echo 0;", "else echo 1;", "fi",
+                                 return_output=True, as_list=False)
+        if out == '0':
+            return True
+        elif out == '1':
+            return False
+        else:
+            return out
 
 
     def get_full_info_string(self, indent=4):
