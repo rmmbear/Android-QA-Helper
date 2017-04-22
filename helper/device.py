@@ -1,0 +1,677 @@
+
+import re
+import sys
+import subprocess
+from collections import OrderedDict
+
+import helper as helper_
+
+DEVICES = {}
+
+ABI_TO_ARCH = helper_.ABI_TO_ARCH
+ADB = helper_.ADB
+
+
+def adb_execute(*args, return_output=False, check_server=True, as_list=True,
+                stdout_=sys.stdout):
+    """Execute an ADB command, and return -- or don't -- its result.
+
+    If check_server is true, function will first make sure that an ADB
+    server is available before executing the command.
+    """
+    try:
+        if check_server:
+            subprocess.run([ADB, "start-server"], stdout=subprocess.PIPE)
+
+        if return_output:
+            cmd_out = subprocess.run((ADB,) + args, stdout=subprocess.PIPE,
+                                     stderr=subprocess.STDOUT).stdout
+            cmd_out = cmd_out.decode("utf-8", "replace").strip()
+
+            if as_list:
+                return cmd_out.splitlines()
+            return cmd_out
+
+        if stdout_ != sys.__stdout__:
+            cmd_out = subprocess.Popen((ADB,) + args, stdout=subprocess.PIPE,
+                                       stderr=subprocess.STDOUT).stdout
+            cmd_out = cmd_out.decode("utf-8", "replace").strip()
+
+            last_line = ''
+            for line in cmd_out.splitlines():
+                if line != last_line:
+                    stdout_.write(line)
+                    last_line = line
+        else:
+            subprocess.run((ADB,) + args)
+
+    except FileNotFoundError:
+        stdout_.write("".join(["Helper expected ADB to be located in '", ADB,
+                               "' but could not find it.\n"]))
+        sys.exit("Please make sure the ADB binary is in the specified path.")
+    except (PermissionError, OSError):
+        stdout_.write(
+            " ".join(["Helper could not launch ADB. Please make sure the",
+                      "following path is correct and points to an actual ADB",
+                      "binary:", ADB, "To fix this issue you may need to edit",
+                      "or delete the helper config file, located at:",
+                      helper_.CONFIG]))
+        sys.exit()
+
+
+
+def _get_devices(stdout_=sys.stdout):
+    """Return a list of tuples with serial number and status, for all
+    connected devices.
+    """
+    device_list = []
+
+    device_specs = adb_execute("devices", return_output=True)
+    # Check for unexpected output
+    # if such is detected, print it and return an empty list
+    if device_specs:
+        first_line = device_specs.pop(0)
+        if first_line != "List of devices attached":
+            stdout_.write(first_line + "\n")
+            if device_specs:
+                stdout_.write("\n".join(device_specs))
+                return []
+
+    for device_line in device_specs:
+        device = device_line.split()
+        if len(device) != 2:
+            stdout_.write(device_line)
+            continue
+        device_serial = device[0]
+        device_status = device[1]
+        device_list.append((device_serial.strip(), device_status.strip()))
+
+    return device_list
+
+
+def get_devices(stdout_=sys.stdout):
+    """Return a list of currently connected devices, as announced by
+    ADB.
+
+    Also update the internal 'DEVICES' tracker with newly connected
+    devices. The function will update status of devices, as announced by
+    ADB. Objects for devices that were disconnected, will remain in the
+    last known status until reconnected and this function is called, or
+    until their 'status' property is retrieved manually.
+    """
+    device_list = []
+
+    for device_serial, device_status in _get_devices(stdout_=stdout_):
+        if device_status != "device":
+            # device suddenly disconnected or usb debugging not authorized
+
+            unreachable = "{} - {} - Could not be reached! Got status '{}'.\n"
+
+            if device_serial in DEVICES:
+                device = DEVICES[device_serial]
+                if device.initialized:
+                    manuf = device.info["Product"]["Manufacturer"]
+                    model = device.info["Product"]["Model"]
+                    stdout_.write(unreachable.format(manuf, model,
+                                                     device_status))
+                    continue
+
+            stdout_.write(unreachable.format(device_serial, "UNKNOWN DEVICE",
+                                             device_status))
+            continue
+
+        if device_serial not in DEVICES:
+            stdout_.write("".join(["Device with serial id '", device_serial,
+                                   "' connected\n"]))
+            device = Device(device_serial, device_status)
+            DEVICES[device_serial] = device
+        else:
+            DEVICES[device_serial].status = device_status
+            device = DEVICES[device_serial]
+        device_list.append(device)
+
+    if not device_list:
+        stdout_.write(
+            "ERROR: No devices found! Check USB connection and try again.\n")
+    return device_list
+
+
+def pick_device(stdout_=sys.stdout):
+    """Ask the user to pick a device from list of currently connected
+    devices. If there are no devices to choose from, it will return the
+    sole connected device or None, if there are no devices at all.
+    """
+    device_list = get_devices(stdout_=stdout_)
+
+    if not device_list:
+        return None
+
+    if len(device_list) == 1:
+        return device_list[0]
+
+    while True:
+        stdout_.write("Multiple devices detected!\n")
+        stdout_.write(
+            "Please choose which of devices below you want to work with.\n")
+        for counter, device in enumerate(device_list):
+            stdout_.write(" ".join([counter, ":",
+                                    device.get_basic_info_string(), "\n"]))
+
+        stdout_.write("Enter your choice: ")
+        user_choice = input().strip()
+        if not user_choice.isnumeric():
+            stdout_.write("The answer must be a number!\n")
+            continue
+        user_choice = int(user_choice)
+        if user_choice < 0  or user_choice >= len(device_list):
+            stdout_.write("Answer must be one of the above numbers!\n")
+            continue
+
+        return device_list[user_choice]
+
+
+class Device:
+    """Object used in all helper functions."""
+
+    def __init__(self, serial, status=None):
+
+        self.serial = serial
+
+        self.anr_trace_path = None
+        self.available_commands = None
+        self.ext_storage = None
+        self.info = OrderedDict()
+
+        info = [
+            ("Product", ["Model",
+                         "Name",
+                         "Manufacturer",
+                         "Brand",
+                         "Device"]),
+            ("OS",      ["Version",
+                         "API Level",
+                         "Build ID",
+                         "Build Fingerprint"]),
+            ("RAM",     ["Total"]),
+            ("CPU",     ["Chipset",
+                         "Processor",
+                         "Cores",
+                         "Architecture",
+                         "Max Frequency",
+                         "Available ABIs"]),
+            ("GPU",     ["Model",
+                         "GL Version",
+                         "GL Extensions"]),
+            ("Display", ["Resolution",
+                         "Refresh-rate",
+                         "V-Sync",
+                         "Soft V-Sync",
+                         "Density",
+                         "X-DPI",
+                         "Y-DPI"])
+            ]
+
+        for pair in info:
+            props = OrderedDict()
+
+            for prop in pair[1]:
+                props[prop] = None
+
+            self.info[pair[0]] = props
+
+        self.initialized = False
+
+        if not status:
+            self._status = "offline"
+        else:
+            self.status = status
+
+
+    def adb_command(self, *args, **kwargs):
+        """Same as adb_execute(*args), but specific to the given device.
+        """
+
+        return adb_execute("-s", self.serial, *args, **kwargs)
+
+
+    def shell_command(self, *args, **kwargs):
+        """Same as adb_execute(["shell", *args]), but specific to the
+        given device.
+        """
+
+        return adb_execute("-s", self.serial, "shell", *args, **kwargs)
+
+
+    @property
+    def status(self):
+        """Device's current state, as announced by adb. Return offline
+        if device was not found by adb.
+        """
+        for device_specs in _get_devices():
+            if self.serial not in device_specs:
+                continue
+
+            self._status = device_specs[1]
+            self._device_init()
+
+            return self._status
+
+        self._status = "Offline"
+        return self._status
+
+
+    @status.setter
+    def status(self, status):
+
+        self._status = status
+        self._device_init()
+
+
+    def _device_init(self):
+        """Gather all the information."""
+        if self._status == "device" and not self.initialized:
+            self.available_commands = []
+            for command in self.shell_command("ls", "/system/bin",
+                                              return_output=True):
+                command = command.strip()
+                if command:
+                    self.available_commands.append(command)
+
+            self._get_surfaceflinger_info()
+            self._get_prop_info()
+            self._get_cpu_info()
+            self._get_shell_env()
+
+            ram = self.shell_command(
+                "cat", "/proc/meminfo", return_output=True)
+            if ram:
+                ram = ram[0].split(":", maxsplit=1)[-1].strip()
+                try:
+                    ram = str(int(int(ram.split(" ")[0]) /1024)) + " MB"
+                except ValueError:
+                    ram = None
+            else:
+                ram = None
+            self.info["RAM"]["Total"] = ram
+
+            if "wm" in self.available_commands:
+                wm_out = self.shell_command(
+                    "wm", "size", return_output=True, as_list=False)
+                resolution = re.search(
+                    "(?<=^Physical size:)[^\n]*", wm_out, re.MULTILINE)
+                if resolution:
+                    resolution = resolution.group().strip()
+                    self.info["Display"]["Resolution"] = resolution
+
+                if not self.info["Display"]["Density"]:
+                    wm_out = self.shell_command(
+                        "wm", "density", return_output=True, as_list=False)
+                    density = re.search(
+                        "(?<=^Physical density:)[^\n]*", wm_out, re.MULTILINE)
+                    if density:
+                        density = density.group().strip()
+                        self.info["Display"]["Resolution"] = density
+
+            self.initialized = True
+
+
+    def _get_prop_info(self):
+        """Extract all manner of different info from Android's property
+        list.
+        """
+        prop_dump = self.shell_command("getprop", return_output=True)
+        prop_dict = {}
+
+        for prop_pair in prop_dump:
+            if not prop_pair.strip():
+                continue
+
+            props = prop_pair.split(":", maxsplit=1)
+            if len(props) != 2:
+                continue
+
+            if not props[1].strip()[1:-1]:
+                continue
+
+            prop_dict[props[0].strip()] = props[1].strip()[1:-1]
+
+        info = {"Product":{"Model"            :"[ro.product.model]",
+                           "Name"             :"[ro.product.name]",
+                           "Manufacturer"     :"[ro.product.manufacturer]",
+                           "Brand"            :"[ro.product.brand]",
+                           "Device"           :"[ro.product.device]"},
+                "OS"     :{"Version"          :"[ro.build.version.release]",
+                           "API Level"        :"[ro.build.version.sdk]",
+                           "Build ID"         :"[ro.build.id]",
+                           "Build Fingerprint":"[ro.build.fingerprint]"},
+                "Display":{"Density"          :"[ro.sf.lcd_density]"}
+               }
+
+        for info_category in info:
+            for info_key, prop_name in info[info_category].items():
+                if prop_name not in prop_dict:
+                    continue
+
+                self.info[info_category][info_key] = prop_dict[prop_name]
+
+        self.anr_trace_path = None
+        board = None
+        main_abi = None
+
+        if "[dalvik.vm.stack-trace-file]" in prop_dict:
+            self.anr_trace_path = prop_dict["[dalvik.vm.stack-trace-file]"]
+
+        if "[ro.board.platform]" in prop_dict:
+            board = prop_dict["[ro.board.platform]"]
+
+        if not board and "[ro.mediatek.platform]" in prop_dict:
+            board = prop_dict["[ro.mediatek.platform]"]
+
+        if board and not board.isalpha():
+            self.info["CPU"]["Chipset"] = board
+
+        if "[ro.product.cpu.abi]" in prop_dict:
+            main_abi = prop_dict["[ro.product.cpu.abi]"]
+            if main_abi in ABI_TO_ARCH:
+                self.info["CPU"]["Architecture"] = ABI_TO_ARCH[main_abi]
+            else:
+                self.info["CPU"]["Architecture"] = "UNRECOGNIZED"
+
+        possible_abi_prop_names = ["[ro.product.cpu.abi]",
+                                   "[ro.product.cpu.abi2]",
+                                   "[ro.product.cpu.abilist]",
+                                   "[ro.product.cpu.abilist32]",
+                                   "[ro.product.cpu.abilist64]",
+                                  ]
+        abi_list = []
+        for prop_name in possible_abi_prop_names:
+            if prop_name in prop_dict:
+                abi_list.append(prop_dict[prop_name])
+
+        abis = ",".join(abi_list)
+        abis = set(abis.split(","))
+        abis = ", ".join(abis)
+        self.info["CPU"]["Available ABIs"] = abis
+
+
+    def _get_cpu_info(self):
+        """Extract info about CPU and its chipset."""
+        freq_file = "/sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_max_freq"
+        max_freq = self.shell_command("cat", freq_file, return_output=True,
+                                      as_list=False).strip()
+
+        cpuinfo = self.shell_command("cat", "/proc/cpuinfo",
+                                     return_output=True, as_list=False)
+
+        processor = re.search("(?<=^model name)[^\n]*", cpuinfo, re.MULTILINE)
+        if not processor:
+            processor = re.search(
+                "(?<=^Processor)[^\n]*", cpuinfo, re.MULTILINE)
+
+        if processor:
+            processor = processor.group().split(":", maxsplit=1)[-1].strip()
+
+            self.info["CPU"]["Processor"] = processor
+
+        hardware = re.search("(?<=^Hardware)[^\n]*", cpuinfo, re.MULTILINE)
+        if hardware:
+            hardware = hardware.group().split(":", maxsplit=1)[-1].strip()
+
+            if not self.info["CPU"]["Chipset"]:
+                self.info["CPU"]["Chipset"] = hardware
+            elif not self.info["CPU"]["Chipset"] == hardware:
+                if self.info["CPU"]["Chipset"] in hardware:
+                    self.info["CPU"]["Chipset"] = hardware
+                elif hardware in self.info["CPU"]["Chipset"]:
+                    pass
+                else:
+                    self.info["CPU"]["Chipset"] += (" (" + hardware + ")")
+
+        core_dump = self.shell_command(
+            "cat", "/sys/devices/system/cpu/present", return_output=True,
+            as_list=False).strip()
+        cores = core_dump.split("-")[-1]
+
+        if cores and cores.isnumeric():
+            cores = str(int(cores) + 1)
+            self.info["CPU"]["Cores"] = cores
+
+        if max_freq and max_freq.isnumeric():
+            frequency = str(int(max_freq) / 1000) + " MHz"
+            self.info["CPU"]["Max Frequency"] = frequency
+
+
+    def _get_surfaceflinger_info(self):
+        """Extract information from "SufraceFlinger" service dump."""
+        dump = self.shell_command("dumpsys", "SurfaceFlinger",
+                                  return_output=True, as_list=False)
+        gpu_model = None
+        gl_version = None
+
+        gles = re.search("(?<=GLES: )[^\n]*", dump)
+        if gles:
+            gpu_type, gpu_model, gl_version = gles.group().split(", ")
+            gpu_model = " ".join([gpu_type, gpu_model])
+
+        refresh_rate = re.search("(?<=refresh-rate)[^\n]*", dump)
+        if refresh_rate:
+            refresh_rate = refresh_rate.group()
+            refresh_rate = refresh_rate.split(":", maxsplit=1)[-1].strip()
+
+        x_dpi = re.search("(?<=x-dpi)[^\n]*", dump)
+        if x_dpi:
+            x_dpi = x_dpi.group().split(":", maxsplit=1)[-1].strip()
+
+        y_dpi = re.search("(?<=y-dpi)[^\n]*", dump)
+        if y_dpi:
+            y_dpi = y_dpi.group().split(":", maxsplit=1)[-1].strip()
+
+        vsync = re.search("(?<=VSYNC state:)[^\n]*", dump)
+        if vsync:
+            vsync = vsync.group().strip()
+
+        vsync_soft = re.search("(?<=soft-vsync:)[^\n]*", dump)
+        if vsync_soft:
+            vsync_soft = vsync_soft.group().strip()
+
+        self.info["GPU"]["Model"] = gpu_model
+        self.info["GPU"]["GL Version"] = gl_version
+        self.info["Display"]["Refresh-rate"] = refresh_rate
+        self.info["Display"]["V-Sync"] = vsync
+        self.info["Display"]["Soft V-Sync"] = vsync_soft
+        self.info["Display"]["X-DPI"] = x_dpi
+        self.info["Display"]["Y-DPI"] = y_dpi
+
+        compressions = []
+        for identifier, name in helper_.COMPRESSION_TYPES.items():
+            if identifier in dump:
+                compressions.append(name.strip())
+
+        if not self.info["GPU"]["GL Extensions"]:
+            self.info["GPU"]["GL Extensions"] = OrderedDict()
+
+        self.info["GPU"]["GL Extensions"] = ", ".join(compressions)
+
+
+    def _get_shell_env(self):
+        """Extract information from Android's shell environment"""
+        #TODO: Extract information from Android shell
+        shell_env = self.shell_command("printenv", return_output=True,
+                                       as_list=False)
+
+        env_dict = {}
+        for line in shell_env:
+            line = line.split("=", maxsplit=1)
+            if len(line) == 1:
+                continue
+            env_dict[line[0]] = line[1]
+
+        # find the path of the primary storage
+        primary_storage = None
+        if "EXTERNAL_STORAGE" in env_dict:
+            if self.is_dir(env_dict["EXTERNAL_STORAGE"]):
+                primary_storage = env_dict["EXTERNAL_STORAGE"]
+
+        # external storage not found (can that even happen?) try to brute-force
+        if not primary_storage:
+            primary_storage_paths = [
+                "/mnt/sdcard",          # this is a safe bet (in my experience)
+                "/storage/sdcard0",
+                "/storage/emulated",    # older androids don't have this one
+                "/storage/emulated0",
+                "/mnt/emmc"]            # are you a time traveler?
+
+            for storage_path in primary_storage_paths:
+                if self.is_dir(storage_path):
+                    primary_storage = storage_path
+
+        self.ext_storage = primary_storage
+        # TODO: search for secondary storage path
+        # TODO: search for hostname
+
+
+    def is_file(self, file_path, symlink_ok=False, read=True, write=True,
+                execute=False):
+        """Check whether a path points to an existing directory and
+        whether the current user has specified permissions.
+
+        Setting read, write and execute to True, enables checking for
+        those permissions. Function will return True only if all
+        specified permissions are available to the user and if the path
+        does not point to a symlink or symlink_ok is set to True.
+        """
+        if not file_path:
+            return False
+
+        permissions = ""
+        if read:
+            permissions += "r"
+        if write:
+            permissions += "w"
+        if execute:
+            permissions += "x"
+
+        out = self.shell_command('if [ -f "{}" ];'.format(file_path),
+                                 "then echo 0;", "else echo 1;", "fi",
+                                 return_output=True, as_list=False)
+
+        if out == '0':
+            for permission in permissions:
+                out = self.shell_command(
+                    'if [ -{} "{}" ];'.format(permission, file_path),
+                    "then echo 0;", "else echo 1;", "fi", return_output=True,
+                    as_list=False)
+
+                if out == '0':
+                    continue
+                if out not in ["0", "1"]:
+                    print("Got unexpected output:")
+                    print(out)
+                return False
+
+            out = self.shell_command('if [ -L "{}" ];'.format(file_path),
+                                     "then echo 0;", "else echo 1;", "fi",
+                                     return_output=True, as_list=False)
+            if out == '1' or symlink_ok:
+                return True
+
+        if out not in ["0", "1"]:
+            print("Got unexpected output:")
+            print(out)
+        return False
+
+
+    def is_dir(self, dir_path, symlink_ok=False, read=True, write=True,
+                execute=False):
+        """Check whether a path points to an existing directory and
+        whether the current user has specified permissions.
+
+        Setting read, write and execute to True, enables checking for
+        those permissions. Function will return True only if all
+        specified permissions are available to the user and if the path
+        does not point to a symlink or symlink_ok is set to True.
+        """
+        if not dir_path:
+            return False
+
+        permissions = ""
+        if read:
+            permissions += "r"
+        if write:
+            permissions += "w"
+        if execute:
+            permissions += "x"
+
+        out = self.shell_command('if [ -d "{}" ];'.format(dir_path),
+                                 "then echo 0;", "else echo 1;", "fi",
+                                 return_output=True, as_list=False)
+
+        if out == '0':
+            for permission in permissions:
+                out = self.shell_command(
+                    'if [ -{} "{}" ];'.format(permission, dir_path),
+                    "then echo 0;", "else echo 1;", "fi", return_output=True,
+                    as_list=False)
+
+                if out == '0':
+                    continue
+                if out not in ["0", "1"]:
+                    print("Got unexpected output:")
+                    print(out)
+                return False
+
+            out = self.shell_command('if [ -L "{}" ];'.format(dir_path),
+                                     "then echo 0;", "else echo 1;", "fi",
+                                     return_output=True, as_list=False)
+            if out == '1' or symlink_ok:
+                return True
+
+        if out not in ["0", "1"]:
+            print("Got unexpected output:")
+            print(out)
+        return False
+
+
+    def get_full_info_string(self, indent=4):
+        """Return a formatted string containing all device info"""
+
+        info_string = []
+
+        for info_category in self.info:
+            info_string.append(info_category + ": ")
+
+            for info_name, prop in self.info[info_category].items():
+                if prop is None:
+                    prop = "Unknown"
+                info_string.append(indent*" " + info_name + ": " + prop)
+
+        return "\n".join(info_string)
+
+
+    def print_full_info(self, stdout_=sys.stdout):
+        """Print all information from device.info onto screen."""
+        stdout_.write(self.get_full_info_string() + "\n")
+
+
+    def print_basic_info(self, stdout_=sys.stdout):
+        """Print basic device information to console.
+        Prints: manufacturer, model, OS version and available texture
+        GL Extensions.
+        """
+        model = self.info["Product"]["Model"]
+        if model is None:
+            model = "Unknown model"
+        manufacturer = self.info["Product"]["Manufacturer"]
+        if manufacturer is None:
+            manufacturer = "Unknown manufacturer"
+        os_ver = self.info["OS"]["Android Version"]
+        if os_ver is None:
+            os_ver = "Unknown OS version"
+
+        line1 = " - ".join([manufacturer, model, os_ver]) + "\n"
+        line2 = ("GL Extensions: "
+                 + str(self.info["GPU"]["GL Extensions"])
+                 + "\n")
+
+        stdout_.write(line1)
+        stdout_.write(line2)
