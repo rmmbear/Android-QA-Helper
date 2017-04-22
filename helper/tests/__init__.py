@@ -4,6 +4,7 @@ from pathlib import Path
 
 import helper as helper_
 import helper.main as main_
+import helper.device as device_
 
 FULL_DEVICE_CONFIG = helper_.BASE + "/tests/full_config"
 DEVICE_CONFIG = {
@@ -43,7 +44,7 @@ def dump_devices(directory):
 
     Path(directory).mkdir(exist_ok=True)
 
-    for device in main_.get_devices():
+    for device in device_.get_devices():
         device_id = device.info["Product"]["Model"] + "_" + device.info["Product"]["Manufacturer"]
         device_dir = Path(directory, device_id + "_DUMP")
         device_dir.mkdir(exist_ok=True)

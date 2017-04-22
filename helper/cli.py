@@ -1,8 +1,11 @@
+""""""
+
 from pathlib import Path
 from argparse import ArgumentParser, SUPPRESS
 
 import helper as helper_
 import helper.main as main_
+import helper.device as device_
 
 
 PARSER = ArgumentParser(prog="helper", usage="%(prog)s [-d <serial>] [options]")
@@ -82,15 +85,15 @@ def main(args=None):
         helper_gui.main()
 
     if args.device:
-        main_.get_devices()
-        if not args.device[0].strip() in main_.DEVICES:
+        device_.get_devices()
+        if not args.device[0].strip() in device_.DEVICES:
             print("Device with serial number", args.device[0].strip(),
                   "was not found by Helper!")
             return
-        chosen_device = main_.DEVICES[args.device[0].strip()]
+        chosen_device = device_.DEVICES[args.device[0].strip()]
     #
     elif not args.info or not args.clean:
-        chosen_device = main_.pick_device()
+        chosen_device = device_.pick_device()
         if not chosen_device:
             return
 
@@ -111,7 +114,7 @@ def main(args=None):
         if chosen_device:
             device_list = [chosen_device]
         else:
-            device_list.extend(main_.get_devices())
+            device_list.extend(device_.get_devices())
 
         for device in device_list:
             main_.clean(device, args.clean)
@@ -139,7 +142,7 @@ def main(args=None):
         if chosen_device:
             device_list = [chosen_device]
         else:
-            device_list.extend(main_.get_devices())
+            device_list.extend(device_.get_devices())
 
         for device in device_list:
             device.print_full_info()

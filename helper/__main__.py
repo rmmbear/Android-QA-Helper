@@ -5,4 +5,3 @@ try:
     main()
 except KeyboardInterrupt:
     sys.exit("")
-

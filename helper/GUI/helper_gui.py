@@ -1,9 +1,12 @@
-"""Everything in this module is very experimental. I'm still
-very much learning PyQt5, and this is my first project that uses threading in
-a major way. This might get interesting. Consider yourself warned.
+"""Everything in this module is very experimental. I'm still very much
+learning PyQt5, and this is my first project that uses threading in a
+major way. This might get interesting.
+
+Consider yourself warned.
 
 Here be dragons
 """
+
 import re
 import sys
 import queue
@@ -13,6 +16,7 @@ from time import sleep, strftime
 from PyQt5 import QtWidgets, QtCore
 
 import helper.main as main_
+import helper.device as device_
 import helper.GUI.qdarkstyle as qtdark
 from helper.GUI.main_window import Ui_MainWindow as MainWindow_
 from helper.GUI.device_tab import Ui_Form as DeviceTab_
@@ -277,9 +281,9 @@ class DeviceTab(QtWidgets.QFrame):
 
 
 class MainWin(QtWidgets.QMainWindow):
-    new_device_found = QtCore.pyqtSignal(main_.Device)
-    device_connected = QtCore.pyqtSignal(main_.Device)
-    device_disconnected = QtCore.pyqtSignal(main_.Device)
+    new_device_found = QtCore.pyqtSignal(device_.Device)
+    device_connected = QtCore.pyqtSignal(device_.Device)
+    device_disconnected = QtCore.pyqtSignal(device_.Device)
     device_scan_started = QtCore.pyqtSignal()
     device_scan_ended = QtCore.pyqtSignal()
 
@@ -310,7 +314,7 @@ class MainWin(QtWidgets.QMainWindow):
 
 
     def _scan_devices(self):
-        connected_devices = main_.get_devices(stdout_=self.stdout_container)
+        connected_devices = device_.get_devices(stdout_=self.stdout_container)
 
         for device in self.gui_devices:
             tab = self.gui_devices[device]["tab"]

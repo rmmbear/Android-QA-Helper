@@ -3,20 +3,22 @@ from pathlib import Path
 
 import helper as helper_
 import helper.main as main_
+import helper.device as device_
+import helper.apk as apk_
 import helper.tests as tests_
 
 
 FULL_DEVICE_CONFIG = tests_.FULL_DEVICE_CONFIG
 DEVICE_CONFIG = tests_.DEVICE_CONFIG
 
-class DummyDevice(main_.Device):
+class DummyDevice(device_.Device):
 
 
     def __init__(self, config_dir, serial=999999, status="device"):
         self.config_dir = Path(config_dir)
         self.ext_storeage = None
 
-        main_.Device.__init__(self, serial)
+        device_.Device.__init__(self, serial)
 
         if not status:
             self.status = "device"
@@ -201,7 +203,7 @@ class TestNonexistentBinaries:
         main_.ADB = tests_.get_nonexistent_path()
 
         try:
-            main_.adb_execute("")
+            device_.adb_execute("")
         except SystemExit:
             assert True
             return True
@@ -214,7 +216,7 @@ class TestNonexistentBinaries:
         main_.AAPT = tests_.get_nonexistent_path()
 
         try:
-            main_.aapt_execute("")
+            apk_.aapt_execute("")
         except SystemExit:
             assert True
             return True
