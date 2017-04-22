@@ -11,14 +11,17 @@ ABI_TO_ARCH = helper_.ABI_TO_ARCH
 ADB = helper_.ADB
 
 
-def adb_command(*args, **kwargs):
+def adb_command(*args, check_server=True, **kwargs):
     """Execute an ADB command, and return -- or don't -- its result.
 
     If check_server is true, function will first make sure that an ADB
     server is available before executing the command.
     """
     try:
-        return helper_.exe(*args, **kwargs, executable=ADB)
+        if check_server:
+            helper_.exe(ADB, "start-server", return_output=True)
+
+        return helper_.exe(ADB, *args, **kwargs)
     except FileNotFoundError:
         print("".join(["Helper expected ADB to be located in '", ADB,
                        "' but could not find it.\n"]))
