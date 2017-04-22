@@ -57,12 +57,10 @@ def exe(*args, executable, return_output=False, as_list=True,
         cmd_out = subprocess.Popen((executable,) + args,
                                    stdout=subprocess.PIPE,
                                    stderr=subprocess.STDOUT)
-
-        last_line = ''
-        for line in cmd_out.stdout.decode("utf-8", "replace").strip():
-            if line != last_line:
-                stdout_.write(line)
-                last_line = line
+        lines = iter(cmd_out.stdout.readline, b'')
+        while cmd_out.poll() is None:
+            for line in lines:
+                stdout_.write(line.decode("utf-8", "replace").strip())
     else:
         subprocess.run((executable,) + args)
 
