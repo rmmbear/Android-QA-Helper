@@ -1,7 +1,6 @@
 
 import re
 import sys
-import subprocess
 from collections import OrderedDict
 
 import helper as helper_
@@ -12,45 +11,20 @@ ABI_TO_ARCH = helper_.ABI_TO_ARCH
 ADB = helper_.ADB
 
 
-def adb_execute(*args, return_output=False, check_server=True, as_list=True,
-                stdout_=sys.stdout):
+def adb_command(*args, **kwargs):
     """Execute an ADB command, and return -- or don't -- its result.
 
     If check_server is true, function will first make sure that an ADB
     server is available before executing the command.
     """
     try:
-        if check_server:
-            subprocess.run([ADB, "start-server"], stdout=subprocess.PIPE)
-
-        if return_output:
-            cmd_out = subprocess.run((ADB,) + args, stdout=subprocess.PIPE,
-                                     stderr=subprocess.STDOUT).stdout
-            cmd_out = cmd_out.decode("utf-8", "replace").strip()
-
-            if as_list:
-                return cmd_out.splitlines()
-            return cmd_out
-
-        if stdout_ != sys.__stdout__:
-            cmd_out = subprocess.Popen((ADB,) + args, stdout=subprocess.PIPE,
-                                       stderr=subprocess.STDOUT).stdout
-            cmd_out = cmd_out.decode("utf-8", "replace").strip()
-
-            last_line = ''
-            for line in cmd_out.splitlines():
-                if line != last_line:
-                    stdout_.write(line)
-                    last_line = line
-        else:
-            subprocess.run((ADB,) + args)
-
+        return helper_.exe(*args, **kwargs, executable=ADB)
     except FileNotFoundError:
-        stdout_.write("".join(["Helper expected ADB to be located in '", ADB,
-                               "' but could not find it.\n"]))
+        print("".join(["Helper expected ADB to be located in '", ADB,
+                       "' but could not find it.\n"]))
         sys.exit("Please make sure the ADB binary is in the specified path.")
     except (PermissionError, OSError):
-        stdout_.write(
+        print(
             " ".join(["Helper could not launch ADB. Please make sure the",
                       "following path is correct and points to an actual ADB",
                       "binary:", ADB, "To fix this issue you may need to edit",
@@ -66,7 +40,7 @@ def _get_devices(stdout_=sys.stdout):
     """
     device_list = []
 
-    device_specs = adb_execute("devices", return_output=True)
+    device_specs = adb_command("devices", return_output=True)
     # Check for unexpected output
     # if such is detected, print it and return an empty list
     if device_specs:
@@ -228,18 +202,18 @@ class Device:
 
 
     def adb_command(self, *args, **kwargs):
-        """Same as adb_execute(*args), but specific to the given device.
+        """Same as adb_command(*args), but specific to the given device.
         """
 
-        return adb_execute("-s", self.serial, *args, **kwargs)
+        return adb_command("-s", self.serial, *args, **kwargs)
 
 
     def shell_command(self, *args, **kwargs):
-        """Same as adb_execute(["shell", *args]), but specific to the
+        """Same as adb_command(["shell", *args]), but specific to the
         given device.
         """
 
-        return adb_execute("-s", self.serial, "shell", *args, **kwargs)
+        return adb_command("-s", self.serial, "shell", *args, **kwargs)
 
 
     @property

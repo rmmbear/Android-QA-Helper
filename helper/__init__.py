@@ -14,10 +14,11 @@
 #   You should have received a copy of the GNU General Public License
 #   along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-import sys
 import os
+import sys
 import inspect
 import shutil
+import subprocess
 from pathlib import Path
 
 
@@ -39,6 +40,32 @@ ABI_TO_ARCH = {"armeabi"    :"32bit (ARM)",
               }
 
 HELPER_CONFIG_VARS = ["ADB", "AAPT"]
+
+def exe(*args, executable, return_output=False, as_list=True,
+        stdout_=sys.stdout):
+    """Run the provided executable with specified commands"""
+    if return_output:
+        cmd_out = subprocess.run((executable,) + args, stdout=subprocess.PIPE,
+                                 stderr=subprocess.STDOUT).stdout
+        cmd_out = cmd_out.decode("utf-8", "replace").strip()
+
+        if as_list:
+            return cmd_out.splitlines()
+        return cmd_out
+
+    if stdout_ != sys.__stdout__:
+        cmd_out = subprocess.Popen((executable,) + args,
+                                   stdout=subprocess.PIPE,
+                                   stderr=subprocess.STDOUT)
+
+        last_line = ''
+        for line in cmd_out.stdout.decode("utf-8", "replace").strip():
+            if line != last_line:
+                stdout_.write(line)
+                last_line = line
+    else:
+        subprocess.run((executable,) + args)
+
 
 def get_script_dir():
     """
