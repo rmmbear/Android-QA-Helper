@@ -11,7 +11,7 @@ AAPT = helper_.AAPT
 def aapt_command(*args, **kwargs):
     """Execute an AAPT command, and return -- or don't -- its result."""
     try:
-        return helper_.exe(*args, **kwargs, executable=AAPT)
+        return helper_.exe(AAPT, *args, **kwargs)
     except FileNotFoundError:
         print("".join(["Helper expected AAPT to be located in '", AAPT,
                        "' but could not find it.\n"]))

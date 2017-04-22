@@ -41,7 +41,7 @@ ABI_TO_ARCH = {"armeabi"    :"32bit (ARM)",
 
 HELPER_CONFIG_VARS = ["ADB", "AAPT"]
 
-def exe(*args, executable, return_output=False, as_list=True,
+def exe(executable, *args, return_output=False, as_list=True,
         stdout_=sys.stdout):
     """Run the provided executable with specified commands"""
     if return_output:
