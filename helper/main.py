@@ -1,5 +1,4 @@
 """Main module combining operations on apks and devices"""
-
 import sys
 from pathlib import Path
 from time import strftime, sleep
@@ -38,6 +37,7 @@ def install(device, *items, stdout_=sys.stdout):
 
 
 def install_apks_only(device, apk_list, stdout_=sys.stdout):
+    """"""
     app_failure = []
 
     for apk_file in apk_list:
@@ -59,6 +59,7 @@ def install_apks_only(device, apk_list, stdout_=sys.stdout):
 
 
 def install_with_obbs(device, apk_file, obb_list, stdout_=sys.stdout):
+    """"""
     app_name = get_app_name(apk_file, stdout_=stdout_)
 
     stdout_.write(" ".join(["\n", "INSTALLING:", app_name, "\n"]))
@@ -79,7 +80,7 @@ def install_with_obbs(device, apk_file, obb_list, stdout_=sys.stdout):
 def install_application(device, apk_file, app_name, stdout_=sys.stdout):
     """Install an app on specified device."""
     preinstall_log = device.shell_command(
-        "pm", "list", "packages", return_output=True, as_list=False)
+        "pm", "list", "packages", return_output=True, as_list=False).strip()
 
     if app_name in preinstall_log:
         stdout_.write(" ".join(["WARNING: Different version of the app",
@@ -92,10 +93,9 @@ def install_application(device, apk_file, app_name, stdout_=sys.stdout):
     device.adb_command("install", "-r", "-i", "com.android.vending",
                        apk_file, stdout_=stdout_)
     postinstall_log = device.shell_command("pm", "list", "packages",
-                                           return_output=True)
-    for log_line in postinstall_log:
-        if app_name in log_line:
-            return True
+                                           return_output=True, as_list=False)
+    if app_name in postinstall_log:
+        return True
 
     if device.status != "device":
         stdout_.write("ERROR: Device has been suddenly disconnected!\n")
@@ -142,7 +142,7 @@ def push_obb(device, obb_file, app_name, stdout_=sys.stdout):
                                         obb_name, '"']),
                          "".join(['"', obb_target, '"']))
     push_log = device.shell_command("ls", "".join(['"', obb_target, '"']),
-                                    return_output=True, as_list=False)
+                                    return_output=True, as_list=False).strip()
     if push_log == obb_target:
         return True
 
@@ -167,7 +167,7 @@ def record_start(device, name=None, stdout_=sys.stdout):
 
     try:
         device.shell_command("screenrecord", "--verbose", remote_recording,
-                             return_output=False, stdout_=stdout_)
+                             stdout_=stdout_)
     except KeyboardInterrupt:
         pass
     stdout_.write("\nRecording stopped.\n")
@@ -186,7 +186,8 @@ def record_copy(device, remote_recording, output, stdout_=sys.stdout):
     """Start copying recorded clip from device's storage to disk.
     """
     recording_log = device.shell_command("ls", remote_recording,
-                                         return_output=True, as_list=False)
+                                         return_output=True,
+                                         as_list=False).strip()
     if recording_log != remote_recording:
         if device.status != "device":
             stdout_.write("ERROR: Device has been suddenly disconnected!\n")
@@ -198,8 +199,7 @@ def record_copy(device, remote_recording, output, stdout_=sys.stdout):
     filename = device.info["Product"]["Model"] + "_" + filename
     output = str(Path(Path(output).resolve(), filename))
 
-    device.adb_command("pull", remote_recording, output, return_output=False,
-                       stdout_=stdout_)
+    device.adb_command("pull", remote_recording, output, stdout_=stdout_)
     if Path(output).is_file():
         return output
 
@@ -269,7 +269,7 @@ def pull_traces(device, output=None, stdout_=sys.stdout):
     device.shell_command("cat", device.anr_trace_path, ">", remote_anr_file)
 
     cat_log = device.shell_command("ls", remote_anr_file, return_output=True,
-                                   as_list=False)
+                                   as_list=False).strip()
     if cat_log != remote_anr_file:
         if device.status != "device":
             stdout_.write("ERROR: Device has been suddenly disconnected!\n")
@@ -301,14 +301,15 @@ def _clean_uninstall(device, target, app_name=False, check_packages=True,
 
     stdout_.write(" ".join(["Uninstalling", target, "... "]))
     if check_packages:
-        preinstall_log = device.shell_command(
-            "pm", "list", "packages", return_output=True, as_list=False)
+        preinstall_log = device.shell_command("pm", "list", "packages",
+                                              return_output=True,
+                                              as_list=False).strip()
         if target not in preinstall_log:
             stdout_.write("ERROR: App was not found\n")
             return False
 
     uninstall_log = device.adb_command("uninstall", target, return_output=True)
-    if uninstall_log[-1] != "Success":
+    if uninstall_log[-1].strip() != "Success":
         if device.status != "device":
             stdout_.write("ERROR: Device has been suddenly disconnected!\n")
             return False
@@ -367,7 +368,7 @@ def _clean_replace(device, remote, local, stdout_=sys.stdout):
     if " " in _remote:
         _remote = '"{}"'.format(remote)
     push_log = device.shell_command("ls", _remote, return_output=True,
-                                    as_list=False)
+                                    as_list=False).strip()
     if push_log != remote:
         if device.status != "device":
             stdout_.write("ERROR: Device has been suddenly disconnected!\n")
@@ -475,9 +476,11 @@ def clean(device, config=None, parsed_config=None, force=False,
         stdout_.write(bad_config)
         stdout_.write("Aborting cleaning!\n")
         return False
+
     if not parsed_config:
         stdout_.write("Empty config! Cannot clean!\n")
         return False
+
     # Ask user to confirm cleaning
     if not force:
         stdout_.write("The following actions will be performed:\n")

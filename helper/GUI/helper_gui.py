@@ -6,7 +6,6 @@ Consider yourself warned.
 
 Here be dragons
 """
-
 import re
 import sys
 import queue
@@ -100,6 +99,8 @@ class DeviceTab(QtWidgets.QFrame):
         self.stdout_container.write("Installation triggered through drag&drop")
         self.install(*paths)
         # TODO: Show a confirmation popup before drag & drop installation
+        # this will be the same as the confirmation popup in normal install
+        # but pre-populated with files received from drag & drop
 
 
     def write_device_info(self):
