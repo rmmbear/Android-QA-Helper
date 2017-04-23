@@ -1,5 +1,4 @@
 """Module for analyzing apk packages with aapt"""
-
 import re
 import sys
 from pathlib import Path

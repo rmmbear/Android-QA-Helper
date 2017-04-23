@@ -47,7 +47,7 @@ def exe(executable, *args, return_output=False, as_list=True,
     if return_output:
         cmd_out = subprocess.run((executable,) + args, stdout=subprocess.PIPE,
                                  stderr=subprocess.STDOUT).stdout
-        cmd_out = cmd_out.decode("utf-8", "replace").strip()
+        cmd_out = cmd_out.decode("utf-8", "replace")
 
         if as_list:
             return cmd_out.splitlines()
@@ -60,15 +60,13 @@ def exe(executable, *args, return_output=False, as_list=True,
         lines = iter(cmd_out.stdout.readline, b'')
         while cmd_out.poll() is None:
             for line in lines:
-                stdout_.write(line.decode("utf-8", "replace").strip())
+                stdout_.write(line.decode("utf-8", "replace"))
     else:
         subprocess.run((executable,) + args)
 
 
 def get_script_dir():
-    """
-    """
-
+    """"""
     if getattr(sys, 'frozen', False):
         path = os.path.abspath(sys.executable)
     else:
@@ -79,9 +77,7 @@ def get_script_dir():
 
 
 def load_compression_types():
-    """
-    """
-
+    """"""
     with open(COMPRESSION_DEFINITIONS, mode="r", encoding="utf-8") as comps:
         for line in comps.read().splitlines():
             if not line or line.startswith("#"):
@@ -92,6 +88,7 @@ def load_compression_types():
 
 
 def load_config(config):
+    """"""
     with open(config, mode="r", encoding="utf-8") as config_file:
         for line in config_file.readlines():
             line = line.strip().split("=", maxsplit=1)
@@ -109,6 +106,7 @@ def load_config(config):
 
 
 def save_config(config):
+    """"""
     with open(config, mode="w", encoding="utf-8") as config_file:
         for name in HELPER_CONFIG_VARS:
             value = globals()[name]

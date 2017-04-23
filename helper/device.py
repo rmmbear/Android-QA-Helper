@@ -1,5 +1,4 @@
 """"""
-
 import re
 import sys
 from collections import OrderedDict
@@ -7,7 +6,6 @@ from collections import OrderedDict
 import helper as helper_
 
 DEVICES = {}
-
 ABI_TO_ARCH = helper_.ABI_TO_ARCH
 ADB = helper_.ADB
 
@@ -48,7 +46,7 @@ def _get_devices(stdout_=sys.stdout):
     # Check for unexpected output
     # if such is detected, print it and return an empty list
     if device_specs:
-        first_line = device_specs.pop(0)
+        first_line = device_specs.pop(0).strip()
         if first_line != "List of devices attached":
             stdout_.write(first_line + "\n")
             if device_specs:
@@ -149,8 +147,7 @@ def pick_device(stdout_=sys.stdout):
 
 
 class Device:
-    """Object used in all helper functions."""
-
+    """Class representing a physical Android device."""
     def __init__(self, serial, status=None):
 
         self.serial = serial
@@ -208,7 +205,6 @@ class Device:
     def adb_command(self, *args, **kwargs):
         """Same as adb_command(*args), but specific to the given device.
         """
-
         return adb_command("-s", self.serial, *args, **kwargs)
 
 
@@ -216,7 +212,6 @@ class Device:
         """Same as adb_command(["shell", *args]), but specific to the
         given device.
         """
-
         return adb_command("-s", self.serial, "shell", *args, **kwargs)
 
 
@@ -475,7 +470,7 @@ class Device:
         """Extract information from Android's shell environment"""
         #TODO: Extract information from Android shell
         shell_env = self.shell_command("printenv", return_output=True,
-                                       as_list=False)
+                                       as_list=False).strip()
 
         env_dict = {}
         for line in shell_env:
@@ -523,7 +518,6 @@ class Device:
 
         check_read is True by default.
         """
-
         if not file_path:
             file_path = "."
 
@@ -537,33 +531,33 @@ class Device:
 
         out = self.shell_command(
             'if [ -{} "{}" ];'.format(file_type, file_path), "then echo 0;",
-            "else echo 1;", "fi", return_output=True, as_list=False)
+            "else echo 1;", "fi", return_output=True, as_list=False).strip()
 
         if out == '0':
             for permission in permissions:
                 out = self.shell_command(
                     'if [ -{} "{}" ];'.format(permission, file_path),
                     "then echo 0;", "else echo 1;", "fi", return_output=True,
-                    as_list=False)
+                    as_list=False).strip()
 
                 if out == '0':
                     continue
                 if out not in ["0", "1"]:
                     print("Got unexpected output while checking for '",
                           permission, "' permission in file", file_path)
-                    print("Output:", out)
+                    print("Output:", [out])
                 return False
 
             out = self.shell_command('if [ -L "{}" ];'.format(file_path),
                                      "then echo 0;", "else echo 1;", "fi",
-                                     return_output=True, as_list=False)
+                                     return_output=True, as_list=False).strip()
             if out == '1' or symlink_ok:
                 return True
 
-        if out not in ["0", "1"]:
+        if out.strip() not in ["0", "1"]:
             print("Got unexpected output while checking for '", file_type,
                   "' type of file", file_path)
-            print("Output:", out)
+            print("Output:", [out])
             return False
         return False
 
@@ -600,7 +594,6 @@ class Device:
 
     def get_full_info_string(self, indent=4):
         """Return a formatted string containing all device info"""
-
         info_string = []
 
         for info_category in self.info:
@@ -627,9 +620,11 @@ class Device:
         model = self.info["Product"]["Model"]
         if model is None:
             model = "Unknown model"
+
         manufacturer = self.info["Product"]["Manufacturer"]
         if manufacturer is None:
             manufacturer = "Unknown manufacturer"
+
         os_ver = self.info["OS"]["Android Version"]
         if os_ver is None:
             os_ver = "Unknown OS version"
