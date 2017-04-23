@@ -12,63 +12,71 @@ def install(device, *items, stdout_=sys.stdout):
     Accepts either a list of apk files, or list with one apk and as many
     obb files as you like.
     """
-    app_list = []
+    apk_list = []
     obb_list = []
 
     for item in items:
         if item[-3:].lower() == "apk":
-            app_list.append(item)
+            apk_list.append(item)
 
         if item[-3:].lower() == "obb":
             obb_list.append(item)
 
-    if len(app_list) > 1 and obb_list:
+    if len(apk_list) > 1 and obb_list:
         stdout_.write(" ".join(["APK ambiguity! Only one apk file can be",
                                 "installed when also pushing obb files!\n"]))
         return False
 
-    if not app_list:
+    if not apk_list:
         stdout_.write("No APK found among provided files, aborting!\n")
         return False
 
     if not obb_list:
-        app_failure = []
-        for app in app_list:
-            app_name = get_app_name(app, stdout_=stdout_)
-            stdout_.write(" ".join(["\nINSTALLING:", app_name, "\n"]))
-            stdout_.write("Your device may ask you to confirm this!\n")
+        install_apks_only(device, apk_list, stdout_=stdout_)
+    else:
+        install_with_obbs(device, apk_list[0], obb_list, stdout_=stdout_)
 
-            if not install_apk(device, app, app_name, stdout_=stdout_):
-                app_failure.append(app_name)
 
-        stdout_.write(" ".join(["\nInstalled",
-                                str(len(app_list) - len(app_failure)),
-                                "out of", str(len(app_list)),
-                                "provided apks.\n"]))
+def install_apks_only(device, apk_list, stdout_=sys.stdout):
+    app_failure = []
+
+    for apk_file in apk_list:
+        app_name = get_app_name(apk_file, stdout_=stdout_)
+        stdout_.write(" ".join(["\nINSTALLING:", app_name, "\n"]))
+        stdout_.write("Your device may ask you to confirm this!\n")
+
+        if not install_application(device, apk_file, app_name, stdout_=stdout_):
+            app_failure.append(app_name)
+
+    if len(apk_list) > 1:
+        stdout_.write(
+            " ".join(["\nInstalled", str(len(apk_list) - len(app_failure)),
+                      "out of", str(len(apk_list)), "provided apks.\n"]))
         if app_failure:
             stdout_.write("The following apks could not be installed:\n")
             for app_name in app_failure:
                 stdout_.write("".join([app_name, "\n"]))
-    else:
-        app = app_list[0]
-        app_name = get_app_name(app, stdout_=stdout_)
 
-        stdout_.write(" ".join(["\n", "INSTALLING:", app_name, "\n"]))
-        stdout_.write("Your device may ask you to confirm this!\n")
 
-        if not install_apk(device, app, app_name, stdout_=stdout_):
+def install_with_obbs(device, apk_file, obb_list, stdout_=sys.stdout):
+    app_name = get_app_name(apk_file, stdout_=stdout_)
+
+    stdout_.write(" ".join(["\n", "INSTALLING:", app_name, "\n"]))
+    stdout_.write("Your device may ask you to confirm this!\n")
+
+    if not install_application(device, apk_file, app_name, stdout_=stdout_):
+        return False
+
+    stdout_.write(" ".join(["\nCOPYING OBB FILES FOR:", app_name, "\n"]))
+    prepare_obb_dir(device, app_name)
+    for obb_file in obb_list:
+        if not push_obb(device, obb_file, app_name, stdout_=stdout_):
+            stdout_.write("ERROR: Failed to copy " + obb_file + "\n")
             return False
-
-        stdout_.write(" ".join(["\nCOPYING OBB FILES FOR:", app_name, "\n"]))
-        prepare_obb_dir(device, app_name)
-        for obb_file in obb_list:
-            if not push_obb(device, obb_file, app_name, stdout_=stdout_):
-                stdout_.write("ERROR: Failed to copy " + obb_file + "\n")
-                return False
-        stdout_.write("\nSuccesfully installed {}!\n".format(app_name))
+    stdout_.write("\nSuccesfully installed {}!\n".format(app_name))
 
 
-def install_apk(device, apk_file, app_name, stdout_=sys.stdout):
+def install_application(device, apk_file, app_name, stdout_=sys.stdout):
     """Install an app on specified device."""
     preinstall_log = device.shell_command(
         "pm", "list", "packages", return_output=True, as_list=False)
