@@ -515,3 +515,30 @@ def clean(device, config=None, parsed_config=None, force=False,
             CLEANER_OPTIONS[option][0].__call__(device, *value,
                                                 *CLEANER_OPTIONS[option][2],
                                                 stdout_=stdout_)
+
+
+def logcat_record(device, *filters, output_file=None, log_format="threadtime",
+                  stdout_=sys.stdout):
+    """"""
+    # TODO: Simultaneously display and write the log if above verbosity threshold
+    # e.g. Only display log in the console if verbosity in all filters is above
+    # 'info' (that is also why I'm not using logcat -f /path/to/file)
+    if not output_file:
+        output_file = "logcat_" + strftime("%Y.%m.%d_%H.%M.%S") + ".log"
+
+    stdout_.write("Recording logcat log, press ctrl+c to stop...\n")
+    with open(output_file, mode="w", encoding="utf-8") as log_file:
+        try:
+            device.adb_command("logcat", "-v", log_format, *filters,
+                               return_output=False, stdout_=log_file)
+        except KeyboardInterrupt:
+            pass
+        stdout_.write("\nLog recording stopped.\n")
+        # for some reason on Windows the try block above is not enough
+        # an odd fix for an odd error
+        try:
+            pass
+        except KeyboardInterrupt:
+            pass
+
+    return output_file
