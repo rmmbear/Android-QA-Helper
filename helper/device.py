@@ -1,3 +1,4 @@
+""""""
 
 import re
 import sys
@@ -486,7 +487,7 @@ class Device:
         # find the path of the primary storage
         primary_storage = None
         if "EXTERNAL_STORAGE" in env_dict:
-            if self.is_dir(env_dict["EXTERNAL_STORAGE"]):
+            if self.is_dir(env_dict["EXTERNAL_STORAGE"], check_write=True):
                 primary_storage = env_dict["EXTERNAL_STORAGE"]
 
         # external storage not found (can that even happen?) try to brute-force
@@ -499,38 +500,44 @@ class Device:
                 "/mnt/emmc"]            # are you a time traveler?
 
             for storage_path in primary_storage_paths:
-                if self.is_dir(storage_path):
+                if self.is_dir(storage_path, check_write=True):
                     primary_storage = storage_path
 
         self.ext_storage = primary_storage
         # TODO: search for secondary storage path
         # TODO: search for hostname
+        # TODO: decide how to handle situations in which no storage is found
 
 
-    def is_file(self, file_path, symlink_ok=False, read=True, write=True,
-                execute=False):
-        """Check whether a path points to an existing directory and
-        whether the current user has specified permissions.
+    def is_type(self, file_path, file_type, symlink_ok=False, check_read=True,
+                check_write=False, check_execute=False):
+        """Check whether a path points to an existing file that matches
+        the specified type and whether the current user has specified
+        permissions.
 
-        Setting read, write and execute to True, enables checking for
-        those permissions. Function will return True only if all
-        specified permissions are available to the user and if the path
-        does not point to a symlink or symlink_ok is set to True.
+        You can check for read, write and execute permissions, by
+        setting the respective check_* arguments to True. Function will
+        return True only if all specified permissions are available and
+        if the path does not point to a symlink or symlink_ok is set to
+        True.
+
+        check_read is True by default.
         """
+
         if not file_path:
-            return False
+            file_path = "."
 
         permissions = ""
-        if read:
+        if check_read:
             permissions += "r"
-        if write:
+        if check_write:
             permissions += "w"
-        if execute:
+        if check_execute:
             permissions += "x"
 
-        out = self.shell_command('if [ -f "{}" ];'.format(file_path),
-                                 "then echo 0;", "else echo 1;", "fi",
-                                 return_output=True, as_list=False)
+        out = self.shell_command(
+            'if [ -{} "{}" ];'.format(file_type, file_path), "then echo 0;",
+            "else echo 1;", "fi", return_output=True, as_list=False)
 
         if out == '0':
             for permission in permissions:
@@ -542,8 +549,9 @@ class Device:
                 if out == '0':
                     continue
                 if out not in ["0", "1"]:
-                    print("Got unexpected output:")
-                    print(out)
+                    print("Got unexpected output while checking for '",
+                          permission, "' permission in file", file_path)
+                    print("Output:", out)
                 return False
 
             out = self.shell_command('if [ -L "{}" ];'.format(file_path),
@@ -553,60 +561,41 @@ class Device:
                 return True
 
         if out not in ["0", "1"]:
-            print("Got unexpected output:")
-            print(out)
+            print("Got unexpected output while checking for '", file_type,
+                  "' type of file", file_path)
+            print("Output:", out)
+            return False
         return False
 
 
-    def is_dir(self, dir_path, symlink_ok=False, read=True, write=True,
-                execute=False):
+    def is_file(self, file_path, **kwargs):
         """Check whether a path points to an existing directory and
         whether the current user has specified permissions.
 
-        Setting read, write and execute to True, enables checking for
-        those permissions. Function will return True only if all
-        specified permissions are available to the user and if the path
-        does not point to a symlink or symlink_ok is set to True.
+        You can check for read, write and execute permissions, by
+        setting the respective check_* arguments to True. Function will
+        return True only if all specified permissions are available and
+        if the path does not point to a symlink or symlink_ok is set to
+        True.
+
+        check_read is True by default.
         """
-        if not dir_path:
-            return False
+        return self.is_type(file_path=file_path, file_type="f", **kwargs)
 
-        permissions = ""
-        if read:
-            permissions += "r"
-        if write:
-            permissions += "w"
-        if execute:
-            permissions += "x"
 
-        out = self.shell_command('if [ -d "{}" ];'.format(dir_path),
-                                 "then echo 0;", "else echo 1;", "fi",
-                                 return_output=True, as_list=False)
+    def is_dir(self, file_path, **kwargs):
+        """Check whether a path points to an existing directory and
+        whether the current user has specified permissions.
 
-        if out == '0':
-            for permission in permissions:
-                out = self.shell_command(
-                    'if [ -{} "{}" ];'.format(permission, dir_path),
-                    "then echo 0;", "else echo 1;", "fi", return_output=True,
-                    as_list=False)
+        You can check for read, write and execute permissions, by
+        setting the respective check_* arguments to True. Function will
+        return True only if all specified permissions are available and
+        if the path does not point to a symlink or symlink_ok is set to
+        True.
 
-                if out == '0':
-                    continue
-                if out not in ["0", "1"]:
-                    print("Got unexpected output:")
-                    print(out)
-                return False
-
-            out = self.shell_command('if [ -L "{}" ];'.format(dir_path),
-                                     "then echo 0;", "else echo 1;", "fi",
-                                     return_output=True, as_list=False)
-            if out == '1' or symlink_ok:
-                return True
-
-        if out not in ["0", "1"]:
-            print("Got unexpected output:")
-            print(out)
-        return False
+        check_read is True by default.
+        """
+        return self.is_type(file_path=file_path, file_type="d", **kwargs)
 
 
     def get_full_info_string(self, indent=4):
