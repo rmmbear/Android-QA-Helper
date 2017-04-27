@@ -290,7 +290,7 @@ def pull_traces(device, output=None, stdout_=sys.stdout):
 
 
 def _clean_uninstall(device, target, app_name=False, check_packages=True,
-                     stdout_=sys.stdout):
+                     clear_data=True, stdout_=sys.stdout):
     """Uninstall an app from specified device. Target can be an app name
     or a path to apk file -- by default it will check if target is a
     file, and if so it will attempt to extract app name from it.
@@ -299,7 +299,10 @@ def _clean_uninstall(device, target, app_name=False, check_packages=True,
     if Path(target).is_file() and not app_name:
         target = get_app_name(target, stdout_=stdout_)
 
-    stdout_.write(" ".join(["Uninstalling", target, "... "]))
+    if clear_data:
+        stdout_.write("".join(["Clearing application data: ", target, "... "]))
+    else:
+        stdout_.write("".join(["Uninstalling ", target, "... "]))
     if check_packages:
         preinstall_log = device.shell_command("pm", "list", "packages",
                                               return_output=True,
@@ -308,15 +311,20 @@ def _clean_uninstall(device, target, app_name=False, check_packages=True,
             stdout_.write("ERROR: App was not found\n")
             return False
 
-    uninstall_log = device.adb_command("uninstall", target, return_output=True)
+    if clear_data:
+        uninstall_log = device.shell_command("pm", "clear", target,
+                                             return_output=True)
+    else:
+        uninstall_log = device.adb_command("uninstall", target,
+                                           return_output=True)
     if uninstall_log[-1].strip() != "Success":
         if device.status != "device":
             stdout_.write("ERROR: Device has been suddenly disconnected!\n")
             return False
         else:
-            stdout_.write("Unexpected error!\n")
-            stdout_.write(
-                " ".join(["ERROR:", target, "could not be uninstalled!\n"]))
+            stdout_.write("ERROR: Unexpected error!\n")
+            for line in uninstall_log:
+                stdout_.write(line + "\n")
             return False
 
     stdout_.write("Done!\n")
@@ -390,7 +398,10 @@ def _clean_replace(device, remote, local, stdout_=sys.stdout):
 CLEANER_OPTIONS = {"remove"           :(_clean_remove,     1, [False]),
                    "remove_recursive" :(_clean_remove,     1, [True]),
                    "replace"          :(_clean_replace,    2, []),
-                   "uninstall"        :(_clean_uninstall,  1, [])
+                   "uninstall"        :(_clean_uninstall,  1, []),
+                   "clear_data"       :(_clean_uninstall,  1, [False,
+                                                               False,
+                                                               True])
                   }
 
 
@@ -485,8 +496,9 @@ def clean(device, config=None, parsed_config=None, force=False,
     if not force:
         stdout_.write("The following actions will be performed:\n")
         indent = 4
-        for key, action in [("remove", "remove"),
-                            ("remove_recursive", "remove"),
+        for key, action in [("remove_recursive", "remove"),
+                            ("remove", "remove"),
+                            ("clear_data", "clear app data"),
                             ("uninstall", "uninstall")]:
 
             if key not in parsed_config:
