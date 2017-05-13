@@ -34,6 +34,22 @@ def adb_command(*args, check_server=True, **kwargs):
         sys.exit()
 
 
+def abi_to_arch(abi):
+    if abi not in ABI_TO_ARCH:
+        return "Unknown ({})".format(abi)
+
+    return ABI_TO_ARCH[abi]
+
+
+def extract_gles_extensions(surfaceflinger_dump):
+    extensions = []
+    for identifier, name in helper_.COMPRESSION_TYPES.items():
+        if identifier in surfaceflinger_dump:
+            extensions.append(name.strip())
+
+    return extensions
+
+
 def _get_devices(stdout_=sys.stdout):
     """Return a list of tuples with serial number and status, for all
     connected devices.
