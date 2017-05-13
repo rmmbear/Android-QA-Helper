@@ -141,9 +141,10 @@ def pick_device(stdout_=sys.stdout):
 
 class Device:
     """Class representing a physical Android device."""
-    def __init__(self, serial, status=None):
-
+    def __init__(self, serial, status='offline', limit_init=()):
+        """"""
         self.serial = serial
+        self.limit_init = limit_init
 
         self.anr_trace_path = None
         self.available_commands = None
@@ -171,9 +172,6 @@ class Device:
                          "GL Version",
                          "GL Extensions"]),
             ("Display", ["Resolution",
-                         "Refresh-rate",
-                         "V-Sync",
-                         "Soft V-Sync",
                          "Density",
                          "X-DPI",
                          "Y-DPI"])
@@ -181,18 +179,16 @@ class Device:
 
         for pair in info:
             props = OrderedDict()
-
             for prop in pair[1]:
                 props[prop] = None
 
             self.info[pair[0]] = props
 
         self.initialized = False
+        self._status = status
 
-        if not status:
-            self._status = "offline"
-        else:
-            self.status = status
+        if self._status == "device":
+            self.device_init()
 
 
     def adb_command(self, *args, **kwargs):
@@ -214,69 +210,37 @@ class Device:
         if device was not found by adb.
         """
         for device_specs in _get_devices():
-            if self.serial not in device_specs:
-                continue
-
-            self._status = device_specs[1]
-            self._device_init()
-
-            return self._status
+            if self.serial in device_specs:
+                self._status = device_specs[1]
+                return self._status
 
         self._status = "Offline"
         return self._status
 
 
-    @status.setter
-    def status(self, status):
-
-        self._status = status
-        self._device_init()
-
-
-    def _device_init(self):
+    def device_init(self):
         """Gather all the information."""
-        if self._status == "device" and not self.initialized:
-            self.available_commands = []
-            for command in self.shell_command("ls", "/system/bin",
-                                              return_output=True):
-                command = command.strip()
-                if command:
-                    self.available_commands.append(command)
-
-            self._get_surfaceflinger_info()
-            self._get_prop_info()
-            self._get_cpu_info()
-            self._get_shell_env()
-
-            ram = self.shell_command(
-                "cat", "/proc/meminfo", return_output=True)
-            if ram:
-                ram = ram[0].split(":", maxsplit=1)[-1].strip()
+        if self.status == "device":
+            for info_source, info_specs in INFO_EXTRACTION_CONFIG.items():
+                if self.limit_init and info_source[-1] not in self.limit_init:
+                    continue
                 try:
-                    ram = str(int(int(ram.split(" ")[0]) /1024)) + " MB"
-                except ValueError:
-                    ram = None
-            else:
-                ram = None
-            self.info["RAM"]["Total"] = ram
+                    args = info_source[0]
+                except IndexError:
+                    args = ()
+                try:
+                    kwargs = dict(info_source[1])
+                except IndexError:
+                    kwargs = {}
 
-            if "wm" in self.available_commands:
-                wm_out = self.shell_command(
-                    "wm", "size", return_output=True, as_list=False)
-                resolution = re.search(
-                    "(?<=^Physical size:)[^\n]*", wm_out, re.MULTILINE)
-                if resolution:
-                    resolution = resolution.group().strip()
-                    self.info["Display"]["Resolution"] = resolution
+                source_output = None
 
-                if not self.info["Display"]["Density"]:
-                    wm_out = self.shell_command(
-                        "wm", "density", return_output=True, as_list=False)
-                    density = re.search(
-                        "(?<=^Physical density:)[^\n]*", wm_out, re.MULTILINE)
-                    if density:
-                        density = density.group().strip()
-                        self.info["Display"]["Resolution"] = density
+                for info_object in info_specs:
+                    if info_object.can_run(self):
+                        if not source_output:
+                            source_output = self.shell_command(*args, **kwargs)
+
+                        info_object.run(self, source_output)
 
             self.initialized = True
 
