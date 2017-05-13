@@ -34,7 +34,6 @@ def adb_command(*args, check_server=True, **kwargs):
         sys.exit()
 
 
-
 def _get_devices(stdout_=sys.stdout):
     """Return a list of tuples with serial number and status, for all
     connected devices.
@@ -614,3 +613,158 @@ class Device:
 
         stdout_.write(line1)
         stdout_.write(line2)
+
+
+class InfoSpec:
+    """"""
+    __slots__ = ('var_name', 'var_dict_1', 'var_dict_2', 'extraction_commands',
+                 'resolve_multiple_values', 'resolve_existing_values',
+                 'post_extraction_commands')
+    def __init__(self, var_name, var_dict_1=None, var_dict_2=None,
+                 extraction_commands=((),), post_extraction_commands=None,
+                 resolve_multiple_values='merge', resolve_existing_values='merge'):
+        """"""
+        self.var_name = var_name
+        self.var_dict_1 = var_dict_1
+        self.var_dict_2 = var_dict_2
+
+        self.extraction_commands = extraction_commands
+        self.post_extraction_commands = post_extraction_commands
+        self.resolve_multiple_values = resolve_multiple_values
+        self.resolve_existing_values = resolve_existing_values
+
+
+    def get_info_variable_container(self, device):
+        """Return dictionary object that is supposed to contain the
+        extracted info value.
+        """
+        container = device.__dict__
+        for name in (self.var_dict_2, self.var_dict_1):
+            if not name:
+                continue
+            try:
+                container = container[name]
+            except KeyError:
+                container[name] = {}
+                container = container[name]
+
+        return container
+
+
+    def can_run(self, device):
+        """Check if value can be assigned to info container"""
+        try:
+            exists = bool(self.get_info_variable_container(device)[self.var_name])
+        except KeyError:
+            exists = False
+        return not (exists and self.resolve_existing_values == 'drop')
+
+
+    def run(self, device, source):
+        """"""
+        value_container = self.get_info_variable_container(device)
+        try:
+            exists = bool(value_container[self.var_name])
+        except KeyError:
+            exists = False
+
+        extracted = []
+        for extraction_strategy in self.extraction_commands:
+            # 0 - command, 1 - *args, 2 - **kwargs
+            if self.resolve_multiple_values == 'drop' and extracted:
+                break
+
+            tmp_extracted = self._extract_value(extraction_strategy, source)
+            tmp_extracted = self._format_value(tmp_extracted)
+            if not tmp_extracted:
+                continue
+
+            if self.resolve_multiple_values == 'replace':
+                extracted = [tmp_extracted]
+            else:
+                extracted.append(tmp_extracted)
+
+        if extracted:
+            if len(extracted) > 1:
+                extracted = ", ".join(extracted)
+            else:
+                extracted = extracted[0]
+
+            if exists and self.resolve_existing_values == "merge":
+                value_container[self.var_name] += ", " + extracted
+            else:
+                value_container[self.var_name] = extracted
+
+
+    def _extract_value(self, extraction_command, source):
+        """"""
+        if not extraction_command:
+            return source
+
+        self_kwargs = {"$group":0}
+
+        try:
+            args = list(extraction_command[1])
+        except IndexError:
+            args = []
+
+        while '$source' in args:
+            args[args.index('$source')] = source
+        try:
+            kwargs = extraction_command[2]
+        except IndexError:
+            kwargs = ()
+
+        for pair in kwargs:
+            while "$source" in pair:
+                pair[pair.index('$source')] = source
+
+        kwargs = dict(kwargs)
+        for var in self_kwargs:
+            if var in kwargs:
+                self_kwargs[var] = kwargs.pop(var)
+
+        extracted_value = extraction_command[0](*args, **kwargs)
+        if extraction_command[0] == re.search and extracted_value:
+            extracted_value = extracted_value.group(self_kwargs['$group'])
+
+        return extracted_value
+
+
+    def _format_value(self, extracted_value):
+        """"""
+        if not self.post_extraction_commands:
+            try:
+                return extracted_value.strip()
+            except AttributeError:
+                return extracted_value
+        if not extracted_value:
+            return ''
+
+        for formatting_commands in self.post_extraction_commands:
+            # 0 - command, 1 - *args, 2 - **kwargs
+            args = list(formatting_commands[2])
+            while '$extracted' in args:
+                args[args.index('$extracted')] = extracted_value
+            try:
+                kwargs = formatting_commands[3]
+            except IndexError:
+                kwargs = dict()
+
+            for pair in kwargs:
+                while "$extracted" in pair:
+                    pair[pair.index('$extracted')] = extracted_value
+
+            try:
+                if formatting_commands[0] == "function":
+                    extracted_value = formatting_commands[1](*args, **kwargs)
+
+                else:
+                    extracted_value = extracted_value.__getattribute__(formatting_commands[1])(*args, **kwargs)
+            except ValueError:
+                extracted_value = ''
+
+            if not extracted_value:
+                return None
+
+        return extracted_value
