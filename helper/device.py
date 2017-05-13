@@ -768,3 +768,63 @@ class InfoSpec:
                 return None
 
         return extracted_value
+
+
+INFO_EXTRACTION_CONFIG = {
+    (("getprop",), (("as_list", False), ("return_output", True)), "getprop") : (
+        InfoSpec(extraction_commands=((re.search, ('(?<=\\[ro\\.product\\.name\\]: \\[).*(?=\\])', '$source')),), var_name='Name', var_dict_1='Product', var_dict_2='info'),
+        InfoSpec(extraction_commands=((re.search, ('(?<=\\[ro\\.product\\.model\\]: \\[).*(?=\\])', '$source')),), var_name='Model', var_dict_1='Product', var_dict_2='info'),
+        InfoSpec(extraction_commands=((re.search, ('(?<=\\[ro\\.product\\.brand\\]: \\[).*(?=\\])', '$source')),), var_name='Brand', var_dict_1='Product', var_dict_2='info'),
+        InfoSpec(extraction_commands=((re.search, ('(?<=\\[ro\\.product\\.device\\]: \\[).*(?=\\])', '$source')),), var_name='Device', var_dict_1='Product', var_dict_2='info'),
+        InfoSpec(extraction_commands=((re.search, ('(?<=\\[ro\\.product\\.manufacturer\\]: \\[).*(?=\\])', '$source')),), var_name='Manufacturer', var_dict_1='Product', var_dict_2='info'),
+        InfoSpec(extraction_commands=((re.search, ('(?<=\\[ro\\.sf\\.lcd_density\\]: \\[).*(?=\\])', '$source')),), var_name='Density', var_dict_1='Display', var_dict_2='info'),
+        InfoSpec(extraction_commands=((re.search, ('(?<=\\[ro\\.build\\.id\\]: \\[).*(?=\\])', '$source')),), var_name='Build ID', var_dict_1='OS', var_dict_2='info'),
+        InfoSpec(extraction_commands=((re.search, ('(?<=\\[ro\\.build\\.version\\.sdk\\]: \\[).*(?=\\])', '$source')),), var_name='API Level', var_dict_1='OS', var_dict_2='info'),
+        InfoSpec(extraction_commands=((re.search, ('(?<=\\[ro\\.build\\.version\\.release\\]: \\[).*(?=\\])', '$source')),), var_name='Version', var_dict_1='OS', var_dict_2='info'),
+        InfoSpec(extraction_commands=((re.search, ('(?<=\\[ro\\.build\\.fingerprint\\]: \\[).*(?=\\])', '$source')),), var_name='Build Fingerprint', var_dict_1='OS', var_dict_2='info'),
+        InfoSpec(extraction_commands=((re.search, ('(?<=\\[ro\\.board\\.platform\\]: \\[).*(?=\\])', '$source')), (re.search, ('(?<=\\[ro\\.mediatek\\.platform\\]: \\[).*(?=\\])', '$source'))), var_name='Chipset', var_dict_1='CPU', var_dict_2='info'),
+        InfoSpec(extraction_commands=((re.search, ('(?<=\\[ro\\.product\\.cpu\\.abi\\]: \\[).*(?=\\])', '$source')),), var_name='Architecture', var_dict_1='CPU', var_dict_2='info', post_extraction_commands=(('function', abi_to_arch, ('$extracted',)),)),
+        # accommodate for device that only have two abis and abilist is not available in getprop
+        InfoSpec(extraction_commands=((re.search, ('(?<=\\[ro\\.product\\.cpu\\.abi\\]\\: \\[).*(?=\\])', '$source')), (re.search, ('(?<=\\[ro\\.product\\.cpu\\.abi2\\]\\: \\[).*(?=\\])', '$source'))), var_name='Available ABIs', var_dict_1='CPU', var_dict_2='info', resolve_multiple_values='merge'),
+        # replace the above info if abilist is available
+        InfoSpec(extraction_commands=((re.search, ('(?<=\\[ro\\.product\\.cpu\\.abilist\\]\\: \\[).*(?=\\])', '$source')),), var_name='Available ABIs', var_dict_1='CPU', var_dict_2='info', resolve_existing_values='replace', post_extraction_commands=(('method', 'replace', (',', ', ')), ('method', 'replace', ('  ', ' ')))),
+        InfoSpec(extraction_commands=((re.search, ('(?<=\\[dalvik\\.vm\\.stack\\-trace\\-file\\]: \\[).*(?=\\])', '$source')),), var_name='anr_trace_path'),
+    ),
+    (("dumpsys", "SurfaceFlinger"), (("as_list", False), ("return_output", True)), "surfaceflinger_dump"): (
+        InfoSpec(extraction_commands=((re.search, ('(?<=GLES: ).*(?=\\,)', '$source')),), var_name='Model', var_dict_1='GPU', var_dict_2='info'),
+        InfoSpec(extraction_commands=((re.search, ('(?<=GLES: )(?:[^\\,]+\\,){2}(.*)', '$source'), (('$group', 1),)),), var_name='GL Version', var_dict_1='GPU', var_dict_2='info'),
+        InfoSpec(extraction_commands=((re.search, ('(?<=x-dpi).*', '$source')),), var_name='X-DPI', var_dict_1='Display', var_dict_2='info', post_extraction_commands=(('method', 'strip', (' :\t',)),)),
+        InfoSpec(extraction_commands=((re.search, ('(?<=y-dpi).*', '$source')),), var_name='Y-DPI', var_dict_1='Display', var_dict_2='info', post_extraction_commands=(('method', 'strip', (' :\t',)),)),
+        InfoSpec(extraction_commands=((re.search, ('(?<=Display\\[0\\] :)[^,]*', '$source')),), var_name='Resolution', var_dict_1='Display', var_dict_2='info', post_extraction_commands=(('method', 'strip', (' :\t',)),)),
+        InfoSpec(var_name='GL Extensions', var_dict_1='GPU', var_dict_2='info', post_extraction_commands=(('function', extract_gles_extensions, ('$extracted',)), ('function', ', '.join, ('$extracted',)))),
+    ),
+    (("cat", "/proc/cpuinfo"), (("as_list", False), ("return_output", True)), "cpuinfo"): (
+        # TODO: some devices do not have this information in cpuinfo file
+        # Known affected devices: LG G5
+        InfoSpec(extraction_commands=((re.search, ('(?<=^model name).*', '$source')), (re.search, ('(?<=^Processor).*', '$source'))), var_name='Processor', var_dict_1='CPU', var_dict_2='info', resolve_multiple_values='drop', post_extraction_commands=(('method', 'strip', (' :\t',)),)),
+        InfoSpec(extraction_commands=((re.search, ('(?<=^Hardware).*', '$source')),), var_name='Chipset', var_dict_1='CPU', var_dict_2='info', resolve_existing_values='merge', post_extraction_commands=(('method', 'strip', (' :\t',)),)),
+    ),
+    (("cat", "/sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_max_freq"), (("as_list", False), ("return_output", True)), "cpu_freq"): (
+        InfoSpec(var_name='Max Frequency', var_dict_1='CPU', var_dict_2='info', post_extraction_commands=(('function', int, ('$extracted',)), ('method', '__floordiv__', (1000,)), ('function', str, ('$extracted',)), ('method', "__add__", (' MHz',)))),
+    ),
+    (("cat", "/sys/devices/system/cpu/possible"), (("as_list", False), ("return_output", True)), "cpu_cores"): (
+        InfoSpec(extraction_commands=((re.search, ('(?<=-).*', '$source')),), var_name='Cores', var_dict_1='CPU', var_dict_2='info', post_extraction_commands=(('function', int, ('$extracted',)), ('method', '__add__', (1,)), ('function', str, ('$extracted',)))),
+    ),
+    (("cat", "/proc/meminfo"), (("as_list", False), ("return_output", True)), "meminfo") : (
+        InfoSpec(extraction_commands=((re.search, ('(?<=^MemTotal:)[^A-z]*', '$source')),), var_name='Total', var_dict_1='RAM', var_dict_2='info', post_extraction_commands=(('function', int, ('$extracted',)), ('method', '__floordiv__', (1024,)), ('function', str, ('$extracted',)), ('method', '__add__', (' MB',)))),
+    ),
+    (("printenv",), (('as_list', False), ("return_output", True)), "shell_environment") :(
+        InfoSpec(extraction_commands=((re.search, ('(?<=EXTERNAL_STORAGE=).*', '$source')),), var_name="ext_storage"),
+        InfoSpec(extraction_commands=((re.search, ('(?<=SECONDARY_STORAGE=).*', '$source')),), var_name="secondary_storage")
+    ),
+    (("ls", "/system/bin"), (('as_list', True), ("return_output", True)), "available_commands") :(
+        InfoSpec(var_name='available_commands'),),
+    (("pm", "list", "features"), (('as_list', True), ("return_output", True)), "device_features") :(
+        InfoSpec(var_name='available_features'),),
+    (("wm", "size"), (('as_list', False), ("return_output", True)), "screen_size") :(
+        InfoSpec(extraction_commands=((re.search, ('(?<=Physical size:).*', '$source')),), var_name='Resolution', var_dict_1='Display', var_dict_2='info', resolve_existing_values='drop'),
+    ),
+    (("wm", "density"), (('as_list', False), ("return_output", True)), "screen_density") :(
+        InfoSpec(extraction_commands=((re.search, ("(?<=Physical density:).*", '$source')),), var_name='Density', var_dict_1='Display', var_dict_2='info', resolve_existing_values='drop'),
+    ),
+}
