@@ -5,7 +5,6 @@ from collections import OrderedDict
 
 import helper as helper_
 
-DEVICES = {}
 ABI_TO_ARCH = helper_.ABI_TO_ARCH
 ADB = helper_.ADB
 
@@ -66,14 +65,7 @@ def _get_devices(stdout_=sys.stdout):
 
 
 def get_devices(stdout_=sys.stdout):
-    """Return a list of currently connected devices, as announced by
-    ADB.
-
-    Also update the internal 'DEVICES' tracker with newly connected
-    devices. The function will update status of devices, as announced by
-    ADB. Objects for devices that were disconnected, will remain in the
-    last known status until reconnected and this function is called, or
-    until their 'status' property is retrieved manually.
+    """Return a list of device objects for currently connected devices.
     """
     device_list = []
 
@@ -83,27 +75,13 @@ def get_devices(stdout_=sys.stdout):
 
             unreachable = "{} - {} - Could not be reached! Got status '{}'.\n"
 
-            if device_serial in DEVICES:
-                device = DEVICES[device_serial]
-                if device.initialized:
-                    manuf = device.info["Product"]["Manufacturer"]
-                    model = device.info["Product"]["Model"]
-                    stdout_.write(unreachable.format(manuf, model,
-                                                     device_status))
-                    continue
-
             stdout_.write(unreachable.format(device_serial, "UNKNOWN DEVICE",
                                              device_status))
             continue
 
-        if device_serial not in DEVICES:
-            stdout_.write("".join(["Device with serial id '", device_serial,
-                                   "' connected\n"]))
-            device = Device(device_serial, device_status)
-            DEVICES[device_serial] = device
-        else:
-            DEVICES[device_serial].status = device_status
-            device = DEVICES[device_serial]
+        stdout_.write("".join(["Device with serial id '", device_serial,
+                               "' connected\n"]))
+        device = Device(device_serial, device_status)
         device_list.append(device)
 
     if not device_list:
