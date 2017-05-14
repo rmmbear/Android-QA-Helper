@@ -149,9 +149,9 @@ class Device:
         self.serial = serial
         self.limit_init = limit_init
 
-        self.anr_trace_path = None
-        self.available_commands = None
         self.ext_storage = None
+        self.anr_trace_path = None
+        self.available_commands = ()
         self.info = OrderedDict()
 
         info = [
@@ -458,6 +458,7 @@ class InfoSpec:
                 extracted = extracted[0]
 
             if exists and self.resolve_existing_values == "merge":
+
                 value_container[self.var_name] += ", " + extracted
             else:
                 value_container[self.var_name] = extracted
@@ -585,9 +586,11 @@ INFO_EXTRACTION_CONFIG = {
         InfoSpec(extraction_commands=((re.search, ('(?<=SECONDARY_STORAGE=).*', '$source')),), var_name="secondary_storage")
     ),
     (("ls", "/system/bin"), (('as_list', True), ("return_output", True)), "available_commands") :(
-        InfoSpec(var_name='available_commands'),),
+        InfoSpec(var_name='available_commands', resolve_existing_values='replace'),
+    ),
     (("pm", "list", "features"), (('as_list', True), ("return_output", True)), "device_features") :(
-        InfoSpec(var_name='available_features'),),
+        InfoSpec(var_name='available_features', resolve_existing_values='replace'),
+    ),
     (("wm", "size"), (('as_list', False), ("return_output", True)), "screen_size") :(
         InfoSpec(extraction_commands=((re.search, ('(?<=Physical size:).*', '$source')),), var_name='Resolution', var_dict_1='Display', var_dict_2='info', resolve_existing_values='drop'),
     ),

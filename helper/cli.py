@@ -50,18 +50,15 @@ PARSER_GROUP.add_argument("-v", "--version", action="store_true",
 # Hidden options
 PARSER_GROUP.add_argument("--gui", action="store_true", dest="gui",
                           help=SUPPRESS)
-PARSER_GROUP.add_argument("--bugreport", nargs="?", const=".", default=None,
-                          dest="bugreport", help=SUPPRESS)
+PARSER_GROUP.add_argument("--dump-devices", nargs="?", const=".", default=None,
+                          dest="dump_devices", help=SUPPRESS)
 
 
 PARSER_NO_ARGS = PARSER.parse_args([])
 
 
 def main(args=None):
-    if args is None:
-        args = PARSER.parse_args()
-    else:
-        args = PARSER.parse_args(args)
+    args = PARSER.parse_args(args)
     chosen_device = None
 
     if args == PARSER_NO_ARGS:
@@ -74,9 +71,9 @@ def main(args=None):
         print(helper_.SOURCE_STRING)
         return
 
-    if args.bugreport:
+    if args.dump_devices:
         from helper.tests import dump_devices
-        dump_devices(args.bugreport)
+        dump_devices(args.dump_devices)
         return
 
     if args.gui:
@@ -84,15 +81,20 @@ def main(args=None):
         helper_gui.main()
 
     if args.device:
-        device_.get_devices()
-        if not args.device[0].strip() in device_.DEVICES:
-            print("Device with serial number", args.device[0].strip(),
+        desired_device = args.device[0].strip()
+        connected_devices = device_.get_devices(initialize=False)
+
+        for device in connected_devices:
+            if device.serial == desired_device:
+                chosen_device = device
+
+        if not chosen_device:
+            print("Device with serial number", desired_device,
                   "was not found by Helper!")
             return
-        chosen_device = device_.DEVICES[args.device[0].strip()]
-    #
+
     elif not args.info or not args.clean:
-        chosen_device = device_.pick_device()
+        chosen_device = device_.pick_device(initialize=False)
         if not chosen_device:
             return
 
@@ -102,7 +104,43 @@ def main(args=None):
                 print("Provided path does not point to an existing file:",
                       str(Path(filepath).resolve()), sep="\n")
                 return
+
+        chosen_device.limit_init = ('getprop', 'shell_environment')
+        chosen_device.device_init()
         main_.install(chosen_device, *args.install)
+
+    if args.pull_traces:
+        if not Path(args.pull_traces).is_dir():
+            print("Provided path does not point to an existing directory!\n",
+                  str(Path(args.pull_traces).resolve()), sep="")
+            return
+        chosen_device.limit_init = ('getprop', 'shell_environment')
+        chosen_device.device_init()
+        destination = main_.pull_traces(chosen_device, args.pull_traces)
+        if destination:
+            print("Traces file was saved to:", destination, sep="\n")
+
+    if args.record:
+        if not Path(args.record).is_dir():
+            print("Provided path does not point to an existing directory!\n",
+                  str(Path(args.record).resolve()), sep="")
+            return
+        chosen_device.limit_init = ('getprop', 'shell_environment', 'available_commands')
+        chosen_device.device_init()
+        destination = main_.record(chosen_device, args.record)
+        if destination:
+            print("Recorded video was saved to:", destination, sep="\n")
+
+    if args.info:
+        device_list = []
+        if chosen_device:
+            device_list = [chosen_device]
+        else:
+            device_list.extend(device_.get_devices())
+
+        for device in device_list:
+            device.device_init()
+            device.print_full_info()
 
     if args.clean:
         if not Path(args.clean).is_file():
@@ -116,32 +154,6 @@ def main(args=None):
             device_list.extend(device_.get_devices())
 
         for device in device_list:
+            device.limit_init = ('getprop', 'shell_environment')
+            device.device_init()
             main_.clean(device, args.clean)
-
-    if args.pull_traces:
-        if not Path(args.pull_traces).is_dir():
-            print("Provided path does not point to an existing directory!\n",
-                  str(Path(args.pull_traces).resolve()), sep="")
-            return
-        destination = main_.pull_traces(chosen_device, args.pull_traces)
-        if destination:
-            print("Traces file was saved to:", destination, sep="\n")
-
-    if args.record:
-        if not Path(args.record).is_dir():
-            print("Provided path does not point to an existing directory!\n",
-                  str(Path(args.record).resolve()), sep="")
-            return
-        destination = main_.record(chosen_device, args.record)
-        if destination:
-            print("Recorded clip was saved to:", destination, sep="\n")
-
-    if args.info:
-        device_list = []
-        if chosen_device:
-            device_list = [chosen_device]
-        else:
-            device_list.extend(device_.get_devices())
-
-        for device in device_list:
-            device.print_full_info()
