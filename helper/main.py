@@ -86,7 +86,8 @@ def install_application(device, apk_file, app_name, stdout_=sys.stdout):
         stdout_.write(" ".join(["WARNING: Different version of the app",
                                 "already installed\n"]))
         result = _clean_uninstall(
-            device, target=app_name, app_name=True, check_packages=False)
+            device, target=app_name, app_name=True, check_packages=False,
+            stdout_=stdout_)
         if not result:
             return False
 
@@ -138,12 +139,12 @@ def push_obb(device, obb_file, app_name, stdout_=sys.stdout):
     #pushing obb in two steps to circumvent write protection
     device.adb_command("push", obb_file, device.ext_storage + "/" + obb_name,
                        stdout_=stdout_)
-    device.shell_command("mv", "".join(['"', device.ext_storage, "/",
-                                        obb_name, '"']),
-                         "".join(['"', obb_target, '"']))
-    push_log = device.shell_command("ls", "".join(['"', obb_target, '"']),
-                                    return_output=True, as_list=False).strip()
-    if push_log == obb_target:
+    device.shell_command("mv",
+                         "".join(['"', device.ext_storage, "/", obb_name, '"']),
+                         "".join(['"', obb_target, '"']),
+                         stdout_=stdout_)
+
+    if device.is_file("".join(['"', obb_target, '"'])):
         return True
 
     if device.status != "device":
@@ -155,7 +156,7 @@ def push_obb(device, obb_file, app_name, stdout_=sys.stdout):
 
 
 def record_start(device, name=None, stdout_=sys.stdout):
-    """Start recording on specified device. Path of the created clip
+    """Start recording on specified device. Path of the created video
     is returned after the recording has stopped.
 
     If a name is not given, generate a name from current date and time.
@@ -174,7 +175,7 @@ def record_start(device, name=None, stdout_=sys.stdout):
     # for some reason on Windows the try block above is not enough
     # an odd fix for an odd error
     try:
-        # we're waiting for the clip to be fully saved to device's storage
+        # we're waiting for the video to be fully saved to device's storage
         # there must be a better way of doing this...
         sleep(1)
     except KeyboardInterrupt:
@@ -183,12 +184,9 @@ def record_start(device, name=None, stdout_=sys.stdout):
 
 
 def record_copy(device, remote_recording, output, stdout_=sys.stdout):
-    """Start copying recorded clip from device's storage to disk.
+    """Start copying recorded video from device's storage to disk.
     """
-    recording_log = device.shell_command("ls", remote_recording,
-                                         return_output=True,
-                                         as_list=False).strip()
-    if recording_log != remote_recording:
+    if not device.is_file(remote_recording):
         if device.status != "device":
             stdout_.write("ERROR: Device has been suddenly disconnected!\n")
         else:
@@ -250,7 +248,7 @@ def record(device, output=None, force=False, stdout_=sys.stdout):
 
     copied = record_copy(device, remote_recording, output, stdout_=stdout_)
     if not copied:
-        stdout_.write("ERROR: Could not copy recorded clip!\n")
+        stdout_.write("ERROR: Could not copy recorded video!\n")
         return False
 
     return copied
@@ -268,9 +266,7 @@ def pull_traces(device, output=None, stdout_=sys.stdout):
     remote_anr_file = "".join([device.ext_storage, "/", anr_filename])
     device.shell_command("cat", device.anr_trace_path, ">", remote_anr_file)
 
-    cat_log = device.shell_command("ls", remote_anr_file, return_output=True,
-                                   as_list=False).strip()
-    if cat_log != remote_anr_file:
+    if not device.is_file(remote_anr_file):
         if device.status != "device":
             stdout_.write("ERROR: Device has been suddenly disconnected!\n")
         else:
@@ -282,6 +278,7 @@ def pull_traces(device, output=None, stdout_=sys.stdout):
 
     if (output / anr_filename).is_file():
         return str((output / anr_filename).resolve())
+
     if device.status != "device":
         stdout_.write("ERROR: Device has been suddenly disconnected\n!")
     else:
@@ -290,7 +287,7 @@ def pull_traces(device, output=None, stdout_=sys.stdout):
 
 
 def _clean_uninstall(device, target, app_name=False, check_packages=True,
-                     clear_data=True, stdout_=sys.stdout):
+                     clear_data=False, stdout_=sys.stdout):
     """Uninstall an app from specified device. Target can be an app name
     or a path to apk file -- by default it will check if target is a
     file, and if so it will attempt to extract app name from it.
@@ -375,9 +372,8 @@ def _clean_replace(device, remote, local, stdout_=sys.stdout):
     _remote = remote
     if " " in _remote:
         _remote = '"{}"'.format(remote)
-    push_log = device.shell_command("ls", _remote, return_output=True,
-                                    as_list=False).strip()
-    if push_log != remote:
+
+    if not device.is_file(_remote):
         if device.status != "device":
             stdout_.write("ERROR: Device has been suddenly disconnected!\n")
         else:
