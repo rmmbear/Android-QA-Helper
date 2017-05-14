@@ -7,18 +7,6 @@ import helper.main as main_
 import helper.device as device_
 
 FULL_DEVICE_CONFIG = helper_.BASE + "/tests/full_config"
-DEVICE_CONFIG = {
-    "ls /system/bin"                        :"available_commands",
-    "cat /proc/meminfo"                     :"meminfo",
-    "wm size"                               :"screen_size",
-    "wm density"                            :"screen_density",
-    "getprop"                               :"getprop",
-    "cat /sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_max_freq" :"cpu_freq",
-    "cat /proc/cpuinfo"                     :"cpuinfo",
-    "cat /sys/devices/system/cpu/present"   :"cpu_cores",
-    "dumpsys SurfaceFlinger"                :"surfaceflinger_dump",
-    "printenv"                              :"shell_environment"
-    }
 
 
 def get_nonexistent_path():
@@ -44,16 +32,26 @@ def dump_devices(directory):
 
     Path(directory).mkdir(exist_ok=True)
 
-    for device in device_.get_devices():
+    for device in device_.get_devices(limit_init=['getprop']):
         device_id = device.info["Product"]["Model"] + "_" + device.info["Product"]["Manufacturer"]
         device_dir = Path(directory, device_id + "_DUMP")
         device_dir.mkdir(exist_ok=True)
         print()
         print("Dumping", device_id)
 
-        for command, filename in DEVICE_CONFIG.items():
-            output = device.shell_command(command, return_output=True,
-                                          as_list=False)
+        for info_source in device_.INFO_EXTRACTION_CONFIG:
+            try:
+                args = info_source[0]
+            except IndexError:
+                args = ()
+            try:
+                kwargs = dict(info_source[1])
+            except IndexError:
+                kwargs = {}
+
+            filename = info_source[-1]
+
+            output = device.shell_command(*args, return_output=True, as_list=False)
 
             with Path(device_dir, filename).open(mode="w", encoding="utf-8") as dump_file:
                 dump_file.write(output)
