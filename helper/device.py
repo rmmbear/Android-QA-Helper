@@ -79,7 +79,7 @@ def _get_devices(stdout_=sys.stdout):
     return device_list
 
 
-def get_devices(stdout_=sys.stdout):
+def get_devices(stdout_=sys.stdout, initialize=True, limit_init=()):
     """Return a list of device objects for currently connected devices.
     """
     device_list = []
@@ -96,7 +96,10 @@ def get_devices(stdout_=sys.stdout):
 
         stdout_.write("".join(["Device with serial id '", device_serial,
                                "' connected\n"]))
-        device = Device(device_serial, device_status)
+        if initialize:
+            device = Device(device_serial, device_status, limit_init)
+        else:
+            device = Device(device_serial, 'delayed_initialization', limit_init)
         device_list.append(device)
 
     if not device_list:
@@ -105,12 +108,12 @@ def get_devices(stdout_=sys.stdout):
     return device_list
 
 
-def pick_device(stdout_=sys.stdout):
+def pick_device(stdout_=sys.stdout, initialize=True, limit_init=()):
     """Ask the user to pick a device from list of currently connected
     devices. If there are no devices to choose from, it will return the
     sole connected device or None, if there are no devices at all.
     """
-    device_list = get_devices(stdout_=stdout_)
+    device_list = get_devices(stdout_, initialize, limit_init)
 
     if not device_list:
         return None
