@@ -269,9 +269,9 @@ class DeviceTab(QtWidgets.QFrame):
         if not text or text == self.last_console_line:
             return
 
-        status = re.search("^\[...%\]", text)
+        status = re.search("^\\[...%\\]", text)
         if status:
-            if re.search("^\[...%\]", self.last_console_line):
+            if re.search("^\\[...%\\]", self.last_console_line):
                 self.remove_last_line()
 
         self.last_console_line = text
@@ -315,19 +315,21 @@ class MainWin(QtWidgets.QMainWindow):
 
 
     def _scan_devices(self):
-        connected_devices = device_.get_devices(stdout_=self.stdout_container)
+        # list of serial ids of connected devices
+        connected_serials = [pair[0] for pair in device_._get_devices(stdout_=self.stdout_container) if pair[1] == 'device']
 
-        for device in self.gui_devices:
-            tab = self.gui_devices[device]["tab"]
+        for device_serial in self.gui_devices:
+            # device known and tab initialized -- show the tab if hidden (index below 0)
+            if device_serial in connected_serials:
+                if self.ui.device_container.indexOf(self.gui_devices[device_serial]['tab']) < 0:
+                    self.device_connected.emit(self.gui_devices[device_serial]['device'])
+                connected_serials.remove(device_serial)
+            # tab's device not connected, hide the tab if shown (index above 0)
+            elif self.ui.device_container.indexOf(self.gui_devices[device_serial]['tab']) >= 0:
+                self.device_disconnected.emit(self.gui_devices[device_serial]['device'])
 
-            if device in connected_devices:
-                if self.ui.device_container.indexOf(tab) < 0:
-                    self.device_connected.emit(device)
-                connected_devices.remove(device)
-            elif self.ui.device_container.indexOf(tab) >= 0:
-                self.device_disconnected.emit(device)
-
-        for device in connected_devices:
+        for device_serial in connected_serials:
+            device = device_.Device(device_serial, 'device')
             self.new_device_found.emit(device)
 
         self.device_scan_ended.emit()
@@ -353,15 +355,15 @@ class MainWin(QtWidgets.QMainWindow):
         print(tab_name, "found, adding new tab")
 
         new_tab = DeviceTab(device)
-        self.gui_devices[device] = {"tab":new_tab, "name":tab_name}
+        self.gui_devices[device.serial] = {"tab":new_tab, "name":tab_name, 'device':device}
         new_tab.connection_reset.connect(self.device_timer.stop)
         new_tab.recording_ended.connect(self.device_timer.start)
         self.device_connected.emit(device)
 
 
     def hide_device_tab(self, device):
-        device_tab = self.gui_devices[device]["tab"]
-        tab_name = self.gui_devices[device]["name"]
+        device_tab = self.gui_devices[device.serial]["tab"]
+        tab_name = self.gui_devices[device.serial]["name"]
         self.stdout_container.write(" ".join(["Lost connection with",
                                               tab_name]))
         print(tab_name, "disconnected, hiding its tab")
@@ -374,8 +376,8 @@ class MainWin(QtWidgets.QMainWindow):
 
 
     def show_device_tab(self, device):
-        device_tab = self.gui_devices[device]["tab"]
-        tab_name = self.gui_devices[device]["name"]
+        device_tab = self.gui_devices[device.serial]["tab"]
+        tab_name = self.gui_devices[device.serial]["name"]
         self.stdout_container.write(" ".join(["Successfully connected with",
                                               tab_name]))
         print(tab_name, "connected, showing its tab")
@@ -393,6 +395,8 @@ class MainWin(QtWidgets.QMainWindow):
             'ERROR: No devices found! Check USB connection and try again.'
             ]
         text = self.stdout_container.read().rstrip()
+        if not text:
+            return False
 
         # spam prevention
         if text in blacklist:
