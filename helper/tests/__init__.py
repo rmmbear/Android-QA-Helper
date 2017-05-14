@@ -2,11 +2,8 @@ import random
 import string
 from pathlib import Path
 
-import helper as helper_
 import helper.main as main_
 import helper.device as device_
-
-FULL_DEVICE_CONFIG = helper_.BASE + "/tests/full_config"
 
 
 def get_nonexistent_path():
@@ -44,10 +41,6 @@ def dump_devices(directory):
                 args = info_source[0]
             except IndexError:
                 args = ()
-            try:
-                kwargs = dict(info_source[1])
-            except IndexError:
-                kwargs = {}
 
             filename = info_source[-1]
 
