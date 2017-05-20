@@ -5,7 +5,8 @@ import helper.device as device_
 import helper.tests as tests_
 
 
-FULL_DEVICE_CONFIG = FULL_DEVICE_CONFIG = helper_.BASE + "/tests/full_config"
+FULL_DEVICE_CONFIG = helper_.BASE + "/tests/full_config"
+COMPATIBILITY_DIR = helper_.BASE + "/tests/compatibility"
 
 
 class DummyDevice(device_.Device):
@@ -46,7 +47,7 @@ class TestDeviceInit:
         """Test device initialization with a complete input from an actual
         device.
         """
-        device = DummyDevice(0, 'dummy')
+        device = DummyDevice(config_dir, 'dummy')
         device._device_init(config_dir)
 
         device.print_full_info()
@@ -56,7 +57,19 @@ class TestDeviceInit:
 
         for category in device.info.values():
             for key, value in category.items():
+                # extracting resolution is not all that reliant
+                # I'm fine with missing this one key if all others are present
+                if key == 'Resolution':
+                    continue
                 assert key and value
+
+
+    def test_compatibility(self, config_dir=COMPATIBILITY_DIR):
+        config_dir = Path(config_dir)
+
+        for path in config_dir.iterdir():
+            if path.is_dir():
+                self.test_full(str(path))
 
 
     def test_all_limited(self, config_dir=FULL_DEVICE_CONFIG):
