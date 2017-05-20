@@ -50,73 +50,25 @@ PARSER_GROUP.add_argument("-v", "--version", action="store_true",
 # Hidden options
 PARSER_GROUP.add_argument("--gui", action="store_true", dest="gui",
                           help=SUPPRESS)
-PARSER_GROUP.add_argument("--dump-devices", nargs="?", const=".", default=None,
-                          dest="dump_devices", help=SUPPRESS)
+PARSER_GROUP.add_argument("--device_dump", nargs="?", const=".", default=None,
+                          dest="device_dump", help=SUPPRESS)
 
 
 PARSER_NO_ARGS = PARSER.parse_args([])
 
 
-def main(args=None):
-    args = PARSER.parse_args(args)
-    chosen_device = None
 
-    if args == PARSER_NO_ARGS:
-        # no arguments passed, display help
-        PARSER.parse_args(["-h"])
-        return
 
-    if args.version:
-        print(helper_.VERSION_STRING)
-        print(helper_.SOURCE_STRING)
-        return
 
-    if args.dump_devices:
-        from helper.tests import dump_devices
-        dump_devices(args.dump_devices)
-        return
 
-    if args.gui:
-        from helper.GUI import helper_gui
-        helper_gui.main()
 
-    if args.device:
-        desired_device = args.device[0].strip()
-        connected_devices = device_.get_devices(initialize=False)
-
-        for device in connected_devices:
-            if device.serial == desired_device:
-                chosen_device = device
-
-        if not chosen_device:
-            print("Device with serial number", desired_device,
-                  "was not found by Helper!")
-            return
-
-    elif not args.info or not args.clean:
-        chosen_device = device_.pick_device(initialize=False)
-        if not chosen_device:
-            return
-
-    if args.install:
-        for filepath in args.install:
-            if not Path(filepath).is_file():
-                print("Provided path does not point to an existing file:",
-                      str(Path(filepath).resolve()), sep="\n")
-                return
-
-        chosen_device.limit_init = ('getprop', 'shell_environment')
-        chosen_device.device_init()
-        main_.install(chosen_device, *args.install)
-
+def regular_commands(device, args):
     if args.pull_traces:
         if not Path(args.pull_traces).is_dir():
             print("Provided path does not point to an existing directory!\n",
                   str(Path(args.pull_traces).resolve()), sep="")
             return
-        chosen_device.limit_init = ('getprop', 'shell_environment')
-        chosen_device.device_init()
-        destination = main_.pull_traces(chosen_device, args.pull_traces)
+        destination = main_.pull_traces(device, args.pull_traces)
         if destination:
             print("Traces file was saved to:", destination, sep="\n")
 
@@ -125,35 +77,94 @@ def main(args=None):
             print("Provided path does not point to an existing directory!\n",
                   str(Path(args.record).resolve()), sep="")
             return
-        chosen_device.limit_init = ('getprop', 'shell_environment', 'available_commands')
-        chosen_device.device_init()
-        destination = main_.record(chosen_device, args.record)
+        destination = main_.record(device, args.record)
         if destination:
             print("Recorded video was saved to:", destination, sep="\n")
 
-    if args.info:
-        device_list = []
-        if chosen_device:
-            device_list = [chosen_device]
-        else:
-            device_list.extend(device_.get_devices())
 
-        for device in device_list:
+def batch_commands(device_list, args):
+    for device in device_list:
+        if args.install:
+            for filepath in args.install:
+                if not Path(filepath).is_file():
+                    print("Provided path does not point to an existing file:")
+                    print(str(Path(filepath).resolve()))
+                    return
+
+            device.device_init()
+            main_.install(device, *args.install)
+
+        if args.info:
+            device.limit_init = ()
             device.device_init()
             device.print_full_info()
 
-    if args.clean:
-        if not Path(args.clean).is_file():
-            print("Provided path does not point to an existing config file:",
-                  str(Path(args.clean).resolve()), sep="\n")
-            return
-        device_list = []
-        if chosen_device:
-            device_list = [chosen_device]
-        else:
-            device_list.extend(device_.get_devices())
-
-        for device in device_list:
-            device.limit_init = ('getprop', 'shell_environment')
+        if args.clean:
+            if not Path(args.clean).is_file():
+                print("Provided path does not point to an existing config file:",
+                      str(Path(args.clean).resolve()), sep="\n")
+                return
             device.device_init()
             main_.clean(device, args.clean)
+
+
+def main(args=None):
+    args = PARSER.parse_args(args)
+
+    if args == PARSER_NO_ARGS:
+        PARSER.parse_args(["-h"])
+        return
+
+    if args.version:
+        print(helper_.VERSION_STRING)
+        print(helper_.SOURCE_STRING)
+        return
+
+    if args.device_dump:
+        from helper.tests import dump_devices
+        dump_devices(args.dump_devices)
+        return
+
+    if args.gui:
+        from helper.GUI import helper_gui
+        helper_gui.main()
+        return
+
+
+    # ^-functionality not requiring initialized devices
+    # v-the opposite
+    using_batch_commands = not (bool(args.pull_traces) or bool(args.record))
+
+    if not device_._get_devices():
+        print("No devices found!")
+        print("Waiting for any device to come online...")
+        device_.adb_command('wait-for-device')
+
+    chosen_device = None
+    connected_devices = device_.get_devices(initialize=False,
+        limit_init=('getprop', 'shell_environment', 'available_commands'))
+
+    if args.device:
+        desired_device = args.device[0]
+        for device in connected_devices:
+            if device.serial == desired_device:
+                chosen_device = [device]
+
+        if not chosen_device:
+            print("Device with serial number", desired_device,
+                  "was not found by Helper!")
+            return
+
+    if not chosen_device and len(connected_devices) == 1:
+        chosen_device = connected_devices[0]
+
+    if not chosen_device and not using_batch_commands:
+        print("This command cannot be carried out with multiple devices",
+              "- please specify a serial number with '-d' or disconnect",
+              "unused devices.")
+        return
+
+    if using_batch_commands:
+        batch_commands(connected_devices, args)
+    else:
+        regular_commands(chosen_device, args)
