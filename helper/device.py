@@ -126,8 +126,8 @@ def pick_device(stdout_=sys.stdout, initialize=True, limit_init=()):
         stdout_.write(
             "Please choose which of devices below you want to work with.\n")
         for counter, device in enumerate(device_list):
-            stdout_.write(" ".join([counter, ":",
-                                    device.get_basic_info_string(), "\n"]))
+            stdout_.write(" ".join([counter, ":"]))
+            device.print_basic_info(stdout_)
 
         stdout_.write("Enter your choice: ")
         user_choice = input().strip()
@@ -506,7 +506,7 @@ class InfoSpec:
                 return extracted_value.strip()
             except AttributeError:
                 return extracted_value
-        if not extracted_value:
+        if extracted_value is None:
             return ''
 
         for formatting_commands in self.post_extraction_commands:
@@ -550,7 +550,7 @@ INFO_EXTRACTION_CONFIG = {
         InfoSpec(extraction_commands=((re.search, ('(?<=\\[ro\\.build\\.version\\.sdk\\]: \\[).*(?=\\])', '$source')),), var_name='API Level', var_dict_1='OS', var_dict_2='info'),
         InfoSpec(extraction_commands=((re.search, ('(?<=\\[ro\\.build\\.version\\.release\\]: \\[).*(?=\\])', '$source')),), var_name='Version', var_dict_1='OS', var_dict_2='info'),
         InfoSpec(extraction_commands=((re.search, ('(?<=\\[ro\\.build\\.fingerprint\\]: \\[).*(?=\\])', '$source')),), var_name='Build Fingerprint', var_dict_1='OS', var_dict_2='info'),
-        InfoSpec(extraction_commands=((re.search, ('(?<=\\[ro\\.board\\.platform\\]: \\[).*(?=\\])', '$source')), (re.search, ('(?<=\\[ro\\.mediatek\\.platform\\]: \\[).*(?=\\])', '$source'))), var_name='Chipset', var_dict_1='CPU', var_dict_2='info'),
+        #InfoSpec(extraction_commands=((re.search, ('(?<=\\[ro\\.board\\.platform\\]: \\[).*(?=\\])', '$source')), (re.search, ('(?<=\\[ro\\.mediatek\\.platform\\]: \\[).*(?=\\])', '$source'))), var_name='Chipset', var_dict_1='CPU', var_dict_2='info'),
         InfoSpec(extraction_commands=((re.search, ('(?<=\\[ro\\.product\\.cpu\\.abi\\]: \\[).*(?=\\])', '$source')),), var_name='Architecture', var_dict_1='CPU', var_dict_2='info', post_extraction_commands=(('function', abi_to_arch, ('$extracted',)),)),
         # accommodate for device that only have two abis and abilist is not available in getprop
         InfoSpec(extraction_commands=((re.search, ('(?<=\\[ro\\.product\\.cpu\\.abi\\]\\: \\[).*(?=\\])', '$source')), (re.search, ('(?<=\\[ro\\.product\\.cpu\\.abi2\\]\\: \\[).*(?=\\])', '$source'))), var_name='Available ABIs', var_dict_1='CPU', var_dict_2='info', resolve_multiple_values='merge'),
@@ -569,14 +569,14 @@ INFO_EXTRACTION_CONFIG = {
     (("cat", "/proc/cpuinfo"), (("as_list", False), ("return_output", True)), "cpuinfo"): (
         # TODO: some devices do not have this information in cpuinfo file
         # Known affected devices: LG G5
-        InfoSpec(extraction_commands=((re.search, ('(?<=^model name).*', '$source')), (re.search, ('(?<=^Processor).*', '$source'))), var_name='Processor', var_dict_1='CPU', var_dict_2='info', resolve_multiple_values='drop', post_extraction_commands=(('method', 'strip', (' :\t',)),)),
-        InfoSpec(extraction_commands=((re.search, ('(?<=^Hardware).*', '$source')),), var_name='Chipset', var_dict_1='CPU', var_dict_2='info', resolve_existing_values='merge', post_extraction_commands=(('method', 'strip', (' :\t',)),)),
+        InfoSpec(extraction_commands=((re.search, ('(?<=model name).*', '$source')), (re.search, ('(?<=Processor).*', '$source'))), var_name='Processor', var_dict_1='CPU', var_dict_2='info', resolve_multiple_values='drop', post_extraction_commands=(('method', 'strip', (' :\t',)),)),
+        InfoSpec(extraction_commands=((re.search, ('(?<=Hardware).*', '$source')),), var_name='Chipset', var_dict_1='CPU', var_dict_2='info', resolve_existing_values='merge', post_extraction_commands=(('method', 'strip', (' :\t',)),)),
     ),
     (("cat", "/sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_max_freq"), (("as_list", False), ("return_output", True)), "cpu_freq"): (
         InfoSpec(var_name='Max Frequency', var_dict_1='CPU', var_dict_2='info', post_extraction_commands=(('function', int, ('$extracted',)), ('method', '__floordiv__', (1000,)), ('function', str, ('$extracted',)), ('method', "__add__", (' MHz',)))),
     ),
     (("cat", "/sys/devices/system/cpu/possible"), (("as_list", False), ("return_output", True)), "cpu_cores"): (
-        InfoSpec(extraction_commands=((re.search, ('(?<=-).*', '$source')),), var_name='Cores', var_dict_1='CPU', var_dict_2='info', post_extraction_commands=(('function', int, ('$extracted',)), ('method', '__add__', (1,)), ('function', str, ('$extracted',)))),
+        InfoSpec(extraction_commands=((re.search, ('(?<=-).*', '$source')), (re.search, ('.*', '$source'))), var_name='Cores', var_dict_1='CPU', var_dict_2='info', resolve_multiple_values='drop', post_extraction_commands=(('function', lambda x: int(x) + 1, ('$extracted',)), ('function', str, ('$extracted',)))),
     ),
     (("cat", "/proc/meminfo"), (("as_list", False), ("return_output", True)), "meminfo") : (
         InfoSpec(extraction_commands=((re.search, ('(?<=^MemTotal:)[^A-z]*', '$source')),), var_name='Total', var_dict_1='RAM', var_dict_2='info', post_extraction_commands=(('function', int, ('$extracted',)), ('method', '__floordiv__', (1024,)), ('function', str, ('$extracted',)), ('method', '__add__', (' MB',)))),
@@ -588,8 +588,20 @@ INFO_EXTRACTION_CONFIG = {
     (("ls", "/system/bin"), (('as_list', True), ("return_output", True)), "available_commands") :(
         InfoSpec(var_name='available_commands', resolve_existing_values='replace'),
     ),
-    (("pm", "list", "features"), (('as_list', True), ("return_output", True)), "device_features") :(
-        InfoSpec(var_name='available_features', resolve_existing_values='replace'),
+    (("pm", "list", "features"), (('as_list', False), ("return_output", True)), "device_features") :(
+        InfoSpec(extraction_commands=((re.search, ('(?<=feature:)android.hardware.bluetooth', '$source')),), var_name="Bluetooth", var_dict_1='Notable Features', var_dict_2='info', post_extraction_commands=(('function', str, (u"\u2714",)),)),
+        InfoSpec(extraction_commands=((re.search, ('(?<=feature:)android.hardware.bluetooth_le', '$source')),), var_name="Bluetooth Low Energy", var_dict_1='Notable Features', var_dict_2='info', post_extraction_commands=(('function', str, (u"\u2714",)),)),
+        InfoSpec(extraction_commands=((re.search, ('(?<=feature:)android.hardware.consumerir', '$source')),), var_name="Infrared", var_dict_1='Notable Features', var_dict_2='info', post_extraction_commands=(('function', str, (u"\u2714",)),)),
+        InfoSpec(extraction_commands=((re.search, ('(?<=feature:)android.hardware.fingerprint', '$source')),), var_name="Fingerprint Scanner", var_dict_1='Notable Features', var_dict_2='info', post_extraction_commands=(('function', str, (u"\u2714",)),)),
+        InfoSpec(extraction_commands=((re.search, ('(?<=feature:)android.software.freeform_window_management', '$source')),), var_name="Freeform Window Management", var_dict_1='Notable Features', var_dict_2='info', post_extraction_commands=(('function', str, (u"\u2714",)),)),
+        InfoSpec(extraction_commands=((re.search, ('(?<=feature:)android.hardware.nfc', '$source')),), var_name="NFC", var_dict_1='Notable Features', var_dict_2='info', post_extraction_commands=(('function', str, (u"\u2714",)),)),
+        InfoSpec(extraction_commands=((re.search, ('(?<=feature:)android.hardware.telephony.cdma', '$source')),), var_name="CDMA Telephony", var_dict_1='Notable Features', var_dict_2='info', post_extraction_commands=(('function', str, (u"\u2714",)),)),
+        InfoSpec(extraction_commands=((re.search, ('(?<=feature:)android.hardware.telephony.gsm', '$source')),), var_name="GSM Telephony", var_dict_1='Notable Features', var_dict_2='info', post_extraction_commands=(('function', str, (u"\u2714",)),)),
+        InfoSpec(extraction_commands=((re.search, ('(?<=feature:)android.hardware.vr.headtracking', '$source')),), var_name="VR Headtracking", var_dict_1='Notable Features', var_dict_2='info', post_extraction_commands=(('function', str, (u"\u2714",)),)),
+        InfoSpec(extraction_commands=((re.search, ('(?<=feature:)android.software.vr.mode', '$source')),), var_name="VR Mode", var_dict_1='Notable Features', var_dict_2='info', post_extraction_commands=(('function', str, (u"\u2714",)),)),
+        InfoSpec(extraction_commands=((re.search, ('(?<=feature:)android.hardware.vr.high_performance', '$source')),), var_name="High-Performance VR Mode", var_dict_1='Notable Features', var_dict_2='info', post_extraction_commands=(('function', str, (u"\u2714",)),)),
+        InfoSpec(extraction_commands=((re.search, ('(?<=feature:)android.hardware.wifi.aware', '$source')),), var_name="WiFi-Aware", var_dict_1='Notable Features', var_dict_2='info', post_extraction_commands=(('function', str, (u"\u2714",)),)),
+        #InfoSpec(extraction_commands=((re.findall, ('(?<=feature:).*', '$source')),), var_name=' ', var_dict_1='All Features', var_dict_2='info', post_extraction_commands=(('function', ', '.join, ('$extracted',)), ('method', 'replace', ('\r', '')))),
     ),
     (("wm", "size"), (('as_list', False), ("return_output", True)), "screen_size") :(
         InfoSpec(extraction_commands=((re.search, ('(?<=Physical size:).*', '$source')),), var_name='Resolution', var_dict_1='Display', var_dict_2='info', resolve_existing_values='drop'),
