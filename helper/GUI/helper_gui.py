@@ -52,7 +52,7 @@ class DeviceTab(QtWidgets.QFrame):
     connection_reset = QtCore.pyqtSignal()
 
     def __init__(self, device):
-        super(QtWidgets.QFrame, self).__init__()
+        super().__init__()
         self.ui = DeviceTab_()
         self.ui.setupUi(self)
         self.setAcceptDrops(True)
@@ -66,17 +66,20 @@ class DeviceTab(QtWidgets.QFrame):
 
         # recording
         self.ui.record_button.clicked.connect(self.record)
-        self.ui.record_button.clicked.connect(self.disable_buttons)
+        self.ui.record_button.clicked.connect(self.switch_to_console)
         self.recording_stopped.connect(self._copy_recording)
 
         # traces
         self.ui.traces_button.clicked.connect(self.pull_traces)
+        self.ui.traces_button.clicked.connect(self.switch_to_console)
 
         # Installing
         self.ui.install_button.clicked.connect(self.install)
+        self.ui.install_button.clicked.connect(self.switch_to_console)
 
         # Cleaning
         self.ui.clean_button.clicked.connect(self.clean)
+        self.ui.clean_button.clicked.connect(self.switch_to_console)
         self.cleaning_ready.connect(self._clean_confirm)
         self.cleaning_ended.connect(self.enable_buttons)
         self.traces_pulled.connect(self.enable_buttons)
@@ -106,7 +109,7 @@ class DeviceTab(QtWidgets.QFrame):
     def write_device_info(self):
         text = self.device.get_full_info_string()
         print([text])
-        self.ui.device_info.append(text)
+        #self.ui.device_info_tab.append(text)
 
 
     def enable_buttons(self):
@@ -167,6 +170,7 @@ class DeviceTab(QtWidgets.QFrame):
 
 
     def record(self):
+        self.disable_buttons()
         self.stdout_container.write("Started recording")
         recording_lock = threading.Lock()
         filename = "screenrecord_" + strftime("%Y.%m.%d_%H.%M.%S") + ".mp4"
@@ -192,9 +196,11 @@ class DeviceTab(QtWidgets.QFrame):
 
     def install(self, *args):
         # TODO: display a picker, pass picked files to _install
+        self.disable_buttons()
+
         if args == (False,):
             args = ""
-        self.disable_buttons()
+
         threading.Thread(target=self._install,
                          args=(args)).start()
 
@@ -211,7 +217,6 @@ class DeviceTab(QtWidgets.QFrame):
 
     def pull_traces(self):
         self.disable_buttons()
-        print("Pulling traces")
         self.ui.traces_button.setEnabled(False)
         threading.Thread(target=self._pull_traces).start()
 
@@ -278,8 +283,10 @@ class DeviceTab(QtWidgets.QFrame):
         print("Device tab console log:", [text])
         self.ui.device_console.append(text)
         self.ui.device_console.moveCursor(11) # move to the end of document
-        self.ui.device_display.setCurrentIndex(1) # switch to console
 
+    def switch_to_console(self):
+        console_index = self.ui.device_display.indexOf(self.ui.device_console_tab)
+        self.ui.device_display.setCurrentIndex(console_index)
 
 class MainWin(QtWidgets.QMainWindow):
     new_device_found = QtCore.pyqtSignal(device_.Device)
@@ -289,7 +296,7 @@ class MainWin(QtWidgets.QMainWindow):
     device_scan_ended = QtCore.pyqtSignal()
 
     def __init__(self):
-        super(QtWidgets.QMainWindow, self).__init__()
+        super().__init__()
 
         self.gui_devices = {}
         self.ui = MainWindow_()
