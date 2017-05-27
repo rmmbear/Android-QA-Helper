@@ -137,18 +137,21 @@ class DeviceTab(QtWidgets.QFrame):
         self.ui.record_button.setEnabled(True)
         while not lock.acquire(False):
             if not record_.is_alive():
+                self.ui.record_button.clicked.disconnect(self.recording_job[2])
+                self.ui.record_button.setEnabled(False)
                 # make sure the file is saved ()
                 sleep(1)
                 self.recording_stopped.emit()
                 return False
-            sleep(0.5)
-        self.device.adb_command("reconnect")
+            sleep(0.1)
+        self.ui.record_button.clicked.disconnect(self.recording_job[2])
+        self.ui.record_button.setEnabled(False)
+        self.device.reconnect()
         self.connection_reset.emit()
         self.recording_stopped.emit()
 
 
     def _copy_recording_(self):
-        sleep(1)
         filename = self.recording_job[1]
         remote_recording = self.device.ext_storage + "/" + filename
         copied = main_.record_copy(self.device, remote_recording, "./",
@@ -158,7 +161,6 @@ class DeviceTab(QtWidgets.QFrame):
         else:
             self.stdout_container.write("Clip copied to:\n" + copied)
 
-        self.ui.record_button.clicked.disconnect(self.recording_job[2])
         self.ui.record_button.clicked.connect(self.record)
         self.recording_job = None
         self.recording_ended.emit()
@@ -268,6 +270,7 @@ class DeviceTab(QtWidgets.QFrame):
         self.ui.device_console.textCursor().removeSelectedText()
         self.ui.device_console.moveCursor(11)
 
+
     def write_to_console(self):
         text = self.stdout_container.read().rstrip()
         # spam prevention
@@ -284,9 +287,11 @@ class DeviceTab(QtWidgets.QFrame):
         self.ui.device_console.append(text)
         self.ui.device_console.moveCursor(11) # move to the end of document
 
+
     def switch_to_console(self):
         console_index = self.ui.device_display.indexOf(self.ui.device_console_tab)
         self.ui.device_display.setCurrentIndex(console_index)
+
 
 class MainWin(QtWidgets.QMainWindow):
     new_device_found = QtCore.pyqtSignal(device_.Device)

@@ -87,11 +87,9 @@ def get_devices(stdout_=sys.stdout, initialize=True, limit_init=()):
     for device_serial, device_status in _get_devices(stdout_=stdout_):
         if device_status != "device":
             # device suddenly disconnected or usb debugging not authorized
-
-            unreachable = "{} - {} - Could not be reached! Got status '{}'.\n"
-
-            stdout_.write(unreachable.format(device_serial, "UNKNOWN DEVICE",
-                                             device_status))
+            stdout_.write(" ".join(["Device with serial ID", device_serial,
+                                    "could not be reached! Got status:",
+                                    device_status, "\n"]))
             continue
 
         stdout_.write("".join(["Device with serial id '", device_serial,
@@ -334,6 +332,18 @@ class Device:
         check_read is True by default.
         """
         return self.is_type(file_path=file_path, file_type="d", **kwargs)
+
+    def reconnect(self, stdout_=sys.stdout):
+        self.adb_command("reconnect")
+        reconnect_status = self.adb_command("wait-for-device",
+                                            return_output=True, as_list=False)
+        if reconnect_status:
+            # I have not seen the 'wait-for-<status>' command output anything ever
+            # so this is a precaution in case it ever will
+            stdout_.write(reconnect_status + "\n")
+            return False
+
+        return True
 
 
     def get_full_info_string(self, indent=4):
