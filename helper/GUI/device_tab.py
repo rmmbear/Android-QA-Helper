@@ -54,9 +54,14 @@ class Ui_Form(object):
         self.verticalLayout_3 = QtWidgets.QVBoxLayout(self.device_info_tab)
         self.verticalLayout_3.setContentsMargins(0, 0, 0, 0)
         self.verticalLayout_3.setObjectName("verticalLayout_3")
-        self.device_info = QtWidgets.QTextBrowser(self.device_info_tab)
-        self.device_info.setObjectName("device_info")
-        self.verticalLayout_3.addWidget(self.device_info)
+        self.treeWidget = QtWidgets.QTreeWidget(self.device_info_tab)
+        self.treeWidget.setSizeAdjustPolicy(QtWidgets.QAbstractScrollArea.AdjustToContentsOnFirstShow)
+        self.treeWidget.setAlternatingRowColors(True)
+        self.treeWidget.setSelectionMode(QtWidgets.QAbstractItemView.ExtendedSelection)
+        self.treeWidget.setAnimated(True)
+        self.treeWidget.setObjectName("treeWidget")
+        self.treeWidget.header().setCascadingSectionResizes(True)
+        self.verticalLayout_3.addWidget(self.treeWidget)
         self.device_display.addTab(self.device_info_tab, "")
         self.device_console_tab = QtWidgets.QWidget()
         self.device_console_tab.setObjectName("device_console_tab")
@@ -76,7 +81,6 @@ class Ui_Form(object):
         self.horizontalLayout.addItem(spacerItem1)
 
         self.retranslateUi(Form)
-        self.device_display.setCurrentIndex(0)
         QtCore.QMetaObject.connectSlotsByName(Form)
 
     def retranslateUi(self, Form):
@@ -86,7 +90,8 @@ class Ui_Form(object):
         self.record_button.setText(_translate("Form", "Record Screen"))
         self.traces_button.setText(_translate("Form", "Pull Traces"))
         self.clean_button.setText(_translate("Form", "Clean"))
-        self.device_info.setPlaceholderText(_translate("Form", "Loading device data..."))
+        self.treeWidget.headerItem().setText(0, _translate("Form", "Keys"))
+        self.treeWidget.headerItem().setText(1, _translate("Form", "Values"))
         self.device_display.setTabText(self.device_display.indexOf(self.device_info_tab), _translate("Form", "Device Information"))
         self.device_display.setTabText(self.device_display.indexOf(self.device_console_tab), _translate("Form", "Console"))
 
