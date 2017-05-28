@@ -56,13 +56,8 @@ PARSER_GROUP.add_argument("--device_dump", nargs="?", const=".", default=None,
 
 PARSER_NO_ARGS = PARSER.parse_args([])
 
-
-
-
-
-
-
 def regular_commands(device, args):
+    device.device_init()
     if args.pull_traces:
         if not Path(args.pull_traces).is_dir():
             print("Provided path does not point to an existing directory!\n",
@@ -130,9 +125,9 @@ def main(args=None):
         helper_gui.main()
         return
 
-
     # ^-functionality not requiring initialized devices
     # v-the opposite
+
     using_batch_commands = not (bool(args.pull_traces) or bool(args.record))
 
     if not device_._get_devices():
