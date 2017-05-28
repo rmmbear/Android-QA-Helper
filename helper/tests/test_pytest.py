@@ -53,8 +53,8 @@ class TestDeviceInit:
 
         device.print_full_info()
         if write_output:
-            device_file = "".join(["/", device._info['Product']['Model'], "_",
-                                   device._info['Product']['Manufacturer']])
+            device_file = "".join(["/", device._info['Product']['Model'][0], "_",
+                                   device._info['Product']['Manufacturer'][0]])
             write_output += device_file
             with open(write_output, mode='w', encoding='utf-8') as output_file:
                 output_file.write(device.get_full_info_string())
@@ -63,12 +63,15 @@ class TestDeviceInit:
         assert device.anr_trace_path
 
         for category in device._info.values():
-            for key, value in category.items():
-                # extracting resolution is not all that reliant
-                # I'm fine with missing this one key if all others are present
-                if key == 'Resolution':
-                    continue
-                assert key and value
+            if isinstance(category, list):
+                assert category
+            else:
+                for key, value in category.items():
+                    # extracting resolution is not all that reliant
+                    # I'm fine with missing this one key if all others are present
+                    if key == 'Resolution':
+                        continue
+                    assert key and value
 
 
     def test_compatibility(self, config_dir=COMPATIBILITY_DIR,
