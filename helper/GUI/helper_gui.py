@@ -353,10 +353,10 @@ class MainWin(QtWidgets.QMainWindow):
 
 
     def add_new_device(self, device):
-        model = device.info["Product"]["Model"]
+        model = device.info("Product", "Model")
         if model is None:
             model = "Unknown model"
-        manufacturer = device.info["Product"]["Manufacturer"]
+        manufacturer = device.info("Product", "Manufacturer")
         if manufacturer is None:
             manufacturer = "Unknown manufacturer"
 
