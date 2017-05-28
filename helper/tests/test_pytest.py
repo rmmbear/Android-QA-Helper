@@ -7,6 +7,7 @@ import helper.tests as tests_
 
 FULL_DEVICE_CONFIG = helper_.BASE + "/tests/full_config"
 COMPATIBILITY_DIR = helper_.BASE + "/tests/compatibility"
+COMPATIBILITY_OUT_DIR = helper_.BASE + "/tests/compatibility_output"
 
 
 class DummyDevice(device_.Device):
@@ -43,7 +44,7 @@ class DummyDevice(device_.Device):
 
 
 class TestDeviceInit:
-    def test_full(self, config_dir=FULL_DEVICE_CONFIG):
+    def test_full(self, config_dir=FULL_DEVICE_CONFIG, write_output=''):
         """Test device initialization with a complete input from an actual
         device.
         """
@@ -51,6 +52,12 @@ class TestDeviceInit:
         device._device_init(config_dir)
 
         device.print_full_info()
+        if write_output:
+            device_file = "".join(["/", device.info['Product']['Model'], "_",
+                                   device.info['Product']['Manufacturer']])
+            write_output += device_file
+            with open(write_output, mode='w', encoding='utf-8') as output_file:
+                output_file.write(device.get_full_info_string())
 
         assert device.available_commands
         assert device.anr_trace_path
@@ -64,12 +71,16 @@ class TestDeviceInit:
                 assert key and value
 
 
-    def test_compatibility(self, config_dir=COMPATIBILITY_DIR):
+    def test_compatibility(self, config_dir=COMPATIBILITY_DIR,
+                           output_dir=COMPATIBILITY_OUT_DIR):
         config_dir = Path(config_dir)
+        config_dir.mkdir(exist_ok=True)
+        output_dir = Path(output_dir)
+        output_dir.mkdir(exist_ok=True)
 
         for path in config_dir.iterdir():
             if path.is_dir():
-                self.test_full(str(path))
+                self.test_full(str(path), write_output=str(output_dir))
 
 
     def test_all_limited(self, config_dir=FULL_DEVICE_CONFIG):
