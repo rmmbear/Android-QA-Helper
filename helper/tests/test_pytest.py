@@ -53,8 +53,8 @@ class TestDeviceInit:
 
         device.print_full_info()
         if write_output:
-            device_file = "".join(["/", device.info['Product']['Model'], "_",
-                                   device.info['Product']['Manufacturer']])
+            device_file = "".join(["/", device._info['Product']['Model'], "_",
+                                   device._info['Product']['Manufacturer']])
             write_output += device_file
             with open(write_output, mode='w', encoding='utf-8') as output_file:
                 output_file.write(device.get_full_info_string())
@@ -62,7 +62,7 @@ class TestDeviceInit:
         assert device.available_commands
         assert device.anr_trace_path
 
-        for category in device.info.values():
+        for category in device._info.values():
             for key, value in category.items():
                 # extracting resolution is not all that reliant
                 # I'm fine with missing this one key if all others are present
@@ -93,7 +93,7 @@ class TestDeviceInit:
         assert not device.available_commands
         assert not device.anr_trace_path
 
-        for category in device.info.values():
+        for category in device._info.values():
             for key, value in category.items():
                 assert key and not value
 
@@ -110,7 +110,7 @@ class TestDeviceInit:
         assert not device.available_commands
         assert not device.anr_trace_path
 
-        for category in device.info.values():
+        for category in device._info.values():
             for key, value in category.items():
                 assert key and not value
 
@@ -141,7 +141,7 @@ class TestDeviceInit:
         assert device.available_commands
         assert not device.anr_trace_path
 
-        for category in device.info.values():
+        for category in device._info.values():
             for key, value in category.items():
                 assert key
                 assert not value
@@ -208,7 +208,7 @@ class TestDeviceInit:
         #assert device.available_commands
         #assert device.anr_trace_path
 
-        for category in device.info.values():
+        for category in device._info.values():
             for key, value in category.items():
                 assert category and key and value
 
