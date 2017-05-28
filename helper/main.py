@@ -194,7 +194,7 @@ def record_copy(device, remote_recording, output, stdout_=sys.stdout):
         return False
 
     filename = Path(remote_recording).name
-    filename = device.info["Product"]["Model"] + "_" + filename
+    filename = device.info("Product", "Model") + "_" + filename
     output = str(Path(Path(output).resolve(), filename))
 
     device.adb_command("pull", remote_recording, output, stdout_=stdout_)
@@ -213,9 +213,9 @@ def record(device, output=None, force=False, stdout_=sys.stdout):
     """
     # existence of "screenrecord" is dependent on Android version, but let's
     # look for command instead, just to be safe
-    if not "screenrecord" in device.available_commands:
-        android_ver = device.info["OS"]["Android Version"]
-        api_level = device.info["OS"]["Android API Level"]
+    if not 'screenrecord' in device.available_commands:
+        android_ver = device.info("OS", "Version")
+        api_level = device.info("OS", "API Level")
         stdout_.write(
             " ".join(["This device's shell does not have the 'screenrecord'",
                       "command. It is available on all devices with Android",
@@ -261,7 +261,7 @@ def pull_traces(device, output=None, stdout_=sys.stdout):
     else:
         output = Path(output).resolve()
 
-    anr_filename = "".join([device.info["Product"]["Model"], "_anr_",
+    anr_filename = "".join([device.info("Product", "Model"), "_anr_",
                             strftime("%Y.%m.%d_%H.%M.%S"), ".txt"])
     remote_anr_file = "".join([device.ext_storage, "/", anr_filename])
     device.shell_command("cat", device.anr_trace_path, ">", remote_anr_file)
