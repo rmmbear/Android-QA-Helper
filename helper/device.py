@@ -364,8 +364,10 @@ class Device:
                 for info_name, prop in self._info[info_category].items():
                     if not prop:
                         prop = "Unknown"
+                    else:
+                        prop = ", ".join(prop)
                     prop_line = [indent, info_name, ": "]
-                    prop_line.extend(prop)
+                    prop_line.append(prop)
 
                     info_string.append("".join(prop_line))
 
@@ -410,7 +412,7 @@ class InfoSpec:
                  'post_extraction_commands')
     def __init__(self, var_name, var_dict_1=None, var_dict_2=None,
                  extraction_commands=((),), post_extraction_commands=None,
-                 resolve_multiple_values='merge', resolve_existing_values='merge'):
+                 resolve_multiple_values='append', resolve_existing_values='append'):
         """"""
         self.var_name = var_name
         self.var_dict_1 = var_dict_1
@@ -484,7 +486,8 @@ class InfoSpec:
                 if self.resolve_existing_values == "append":
                     value_container[self.var_name].extend(extracted)
                 else:
-                    value_container[self.var_name] = extracted.extend(value_container[self.var_name])
+                    extracted.extend(value_container[self.var_name])
+                    value_container[self.var_name] = extracted
             else:
                     value_container[self.var_name] = extracted
 
@@ -575,10 +578,10 @@ INFO_EXTRACTION_CONFIG = {
         InfoSpec(extraction_commands=((re.search, ('(?<=\\[ro\\.build\\.version\\.sdk\\]: \\[).*(?=\\])', '$source')),), var_name='API Level', var_dict_1='OS', var_dict_2='_info'),
         InfoSpec(extraction_commands=((re.search, ('(?<=\\[ro\\.build\\.version\\.release\\]: \\[).*(?=\\])', '$source')),), var_name='Version', var_dict_1='OS', var_dict_2='_info'),
         InfoSpec(extraction_commands=((re.search, ('(?<=\\[ro\\.build\\.fingerprint\\]: \\[).*(?=\\])', '$source')),), var_name='Build Fingerprint', var_dict_1='OS', var_dict_2='_info'),
-        InfoSpec(extraction_commands=((re.search, ('(?<=\\[ro\\.board\\.platform\\]: \\[).*(?=\\])', '$source')),), var_name='Chipset and Type', var_dict_1='CPU', var_dict_2='_info', resolve_multiple_values='merge'),
+        InfoSpec(extraction_commands=((re.search, ('(?<=\\[ro\\.board\\.platform\\]: \\[).*(?=\\])', '$source')),), var_name='Chipset and Type', var_dict_1='CPU', var_dict_2='_info'),
         InfoSpec(extraction_commands=((re.search, ('(?<=\\[ro\\.product\\.cpu\\.abi\\]: \\[).*(?=\\])', '$source')),), var_name='Architecture', var_dict_1='CPU', var_dict_2='_info', post_extraction_commands=(('function', abi_to_arch, ('$extracted',)),)),
         # accommodate for device that only have two abis and abilist is not available in getprop
-        InfoSpec(extraction_commands=((re.search, ('(?<=\\[ro\\.product\\.cpu\\.abi\\]\\: \\[).*(?=\\])', '$source')), (re.search, ('(?<=\\[ro\\.product\\.cpu\\.abi2\\]\\: \\[).*(?=\\])', '$source'))), var_name='Available ABIs', var_dict_1='CPU', var_dict_2='_info', resolve_multiple_values='merge'),
+        InfoSpec(extraction_commands=((re.search, ('(?<=\\[ro\\.product\\.cpu\\.abi\\]\\: \\[).*(?=\\])', '$source')), (re.search, ('(?<=\\[ro\\.product\\.cpu\\.abi2\\]\\: \\[).*(?=\\])', '$source'))), var_name='Available ABIs', var_dict_1='CPU', var_dict_2='_info'),
         # replace the above info if abilist is available
         InfoSpec(extraction_commands=((re.search, ('(?<=\\[ro\\.product\\.cpu\\.abilist\\]\\: \\[).*(?=\\])', '$source')),), var_name='Available ABIs', var_dict_1='CPU', var_dict_2='_info', resolve_existing_values='replace', post_extraction_commands=(('method', 'replace', (',', ', ')), ('method', 'replace', ('  ', ' ')))),
         InfoSpec(extraction_commands=((re.search, ('(?<=\\[dalvik\\.vm\\.stack\\-trace\\-file\\]: \\[).*(?=\\])', '$source')),), var_name='anr_trace_path'),
@@ -592,7 +595,7 @@ INFO_EXTRACTION_CONFIG = {
         InfoSpec(var_name='Texture Types', var_dict_1='GPU', var_dict_2='_info', post_extraction_commands=(('function', extract_gles_extensions, ('$extracted',)), ('function', ', '.join, ('$extracted',)))),
     ),
     (("cat", "/proc/cpuinfo"), (("as_list", False), ("return_output", True)), "cpuinfo"): (
-        InfoSpec(extraction_commands=((re.search, ('(?<=Hardware).*', '$source')),), var_name='Chipset and Type', var_dict_1='CPU', var_dict_2='_info', post_extraction_commands=(('method', 'strip', (' :\t',)),)),
+        InfoSpec(extraction_commands=((re.search, ('(?<=Hardware).*', '$source')),), var_name='Chipset and Type', var_dict_1='CPU', var_dict_2='_info', resolve_existing_values='prepend', post_extraction_commands=(('method', 'strip', (' :\t',)),)),
         InfoSpec(extraction_commands=((re.search, ('(?<=model name).*', '$source')), (re.search, ('(?<=Processor).*', '$source'))), var_name='Chipset and Type', var_dict_1='CPU', var_dict_2='_info', resolve_multiple_values='drop', post_extraction_commands=(('method', 'strip', (' :\t',)),)),
 
     ),
@@ -625,7 +628,7 @@ INFO_EXTRACTION_CONFIG = {
         InfoSpec(extraction_commands=((re.search, ('(?<=feature:)android.software.vr.mode', '$source')),), var_name="VR Mode", var_dict_1='Notable Features', var_dict_2='_info', post_extraction_commands=(('function', str, (u"\u2714",)),)),
         InfoSpec(extraction_commands=((re.search, ('(?<=feature:)android.hardware.vr.high_performance', '$source')),), var_name="High-Performance VR Mode", var_dict_1='Notable Features', var_dict_2='_info', post_extraction_commands=(('function', str, (u"\u2714",)),)),
         InfoSpec(extraction_commands=((re.search, ('(?<=feature:)android.hardware.wifi.aware', '$source')),), var_name="WiFi-Aware", var_dict_1='Notable Features', var_dict_2='_info', post_extraction_commands=(('function', str, (u"\u2714",)),)),
-        InfoSpec(extraction_commands=((re.findall, ('(?<=feature:).*', '$source')),), var_name='device_features', var_dict_1='_info'),
+        InfoSpec(extraction_commands=((re.findall, ('(?<=feature:).*', '$source')),), var_name='device_features'),
     ),
     (("wm", "size"), (('as_list', False), ("return_output", True)), "screen_size") :(
         InfoSpec(extraction_commands=((re.search, ('(?<=Physical size:).*', '$source')),), var_name='Resolution', var_dict_1='Display', var_dict_2='_info', resolve_existing_values='drop'),
