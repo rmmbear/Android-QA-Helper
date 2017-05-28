@@ -163,15 +163,14 @@ class Device:
                          "Build ID",
                          "Build Fingerprint"]),
             ("RAM",     ["Total"]),
-            ("CPU",     ["Chipset",
-                         "Processor",
+            ("CPU",     ["Chipset and Type",
                          "Cores",
                          "Architecture",
                          "Max Frequency",
                          "Available ABIs"]),
             ("GPU",     ["Model",
                          "GL Version",
-                         "GL Extensions"]),
+                         "Texture Types"]),
             ("Display", ["Resolution",
                          "Density",
                          "X-DPI",
@@ -333,6 +332,7 @@ class Device:
         """
         return self.is_type(file_path=file_path, file_type="d", **kwargs)
 
+
     def reconnect(self, stdout_=sys.stdout):
         self.adb_command("reconnect")
         reconnect_status = self.adb_command("wait-for-device",
@@ -350,13 +350,20 @@ class Device:
         """Return a formatted string containing all device info"""
         info_string = []
 
+        indent = indent * " "
+
         for info_category in self.info:
             info_string.append(info_category + ": ")
 
-            for info_name, prop in self.info[info_category].items():
-                if prop is None:
-                    prop = "Unknown"
-                info_string.append(indent*" " + info_name + ": " + prop)
+            if isinstance(self.info[info_category], list):
+                info_string.append(
+                    indent + ("\n" + indent).join(self.info[info_category]))
+                continue
+            else:
+                for info_name, prop in self.info[info_category].items():
+                    if prop is None:
+                        prop = "Unknown"
+                    info_string.append(indent + info_name + ": " + prop)
 
         return "\n".join(info_string)
 
@@ -369,7 +376,7 @@ class Device:
     def print_basic_info(self, stdout_=sys.stdout):
         """Print basic device information to console.
         Prints: manufacturer, model, OS version and available texture
-        GL Extensions.
+        compression types.
         """
         model = self.info["Product"]["Model"]
         if model is None:
@@ -384,8 +391,8 @@ class Device:
             os_ver = "Unknown OS version"
 
         line1 = " - ".join([manufacturer, model, os_ver]) + "\n"
-        line2 = ("GL Extensions: "
-                 + str(self.info["GPU"]["GL Extensions"])
+        line2 = ("Texture compression types: "
+                 + str(self.info["GPU"]["Texture Types"])
                  + "\n")
 
         stdout_.write(line1)
@@ -467,11 +474,21 @@ class InfoSpec:
             else:
                 extracted = extracted[0]
 
+            if exists:
+                if extracted.lower() == value_container[self.var_name].lower():
+                    return
+
             if exists and self.resolve_existing_values == "merge":
+                # check if the extracted info is redundant
+                if extracted.lower() in value_container[self.var_name].lower():
+                    return
+                # check if extracted info is more verbose than the existing value
+                if value_container[self.var_name].lower() in extracted.lower():
+                    value_container[self.var_name] = extracted
 
                 value_container[self.var_name] += ", " + extracted
             else:
-                value_container[self.var_name] = extracted
+                    value_container[self.var_name] = extracted
 
 
     def _extract_value(self, extraction_command, source):
@@ -560,7 +577,7 @@ INFO_EXTRACTION_CONFIG = {
         InfoSpec(extraction_commands=((re.search, ('(?<=\\[ro\\.build\\.version\\.sdk\\]: \\[).*(?=\\])', '$source')),), var_name='API Level', var_dict_1='OS', var_dict_2='info'),
         InfoSpec(extraction_commands=((re.search, ('(?<=\\[ro\\.build\\.version\\.release\\]: \\[).*(?=\\])', '$source')),), var_name='Version', var_dict_1='OS', var_dict_2='info'),
         InfoSpec(extraction_commands=((re.search, ('(?<=\\[ro\\.build\\.fingerprint\\]: \\[).*(?=\\])', '$source')),), var_name='Build Fingerprint', var_dict_1='OS', var_dict_2='info'),
-        #InfoSpec(extraction_commands=((re.search, ('(?<=\\[ro\\.board\\.platform\\]: \\[).*(?=\\])', '$source')), (re.search, ('(?<=\\[ro\\.mediatek\\.platform\\]: \\[).*(?=\\])', '$source'))), var_name='Chipset', var_dict_1='CPU', var_dict_2='info'),
+        InfoSpec(extraction_commands=((re.search, ('(?<=\\[ro\\.board\\.platform\\]: \\[).*(?=\\])', '$source')),), var_name='Chipset and Type', var_dict_1='CPU', var_dict_2='info', resolve_multiple_values='merge'),
         InfoSpec(extraction_commands=((re.search, ('(?<=\\[ro\\.product\\.cpu\\.abi\\]: \\[).*(?=\\])', '$source')),), var_name='Architecture', var_dict_1='CPU', var_dict_2='info', post_extraction_commands=(('function', abi_to_arch, ('$extracted',)),)),
         # accommodate for device that only have two abis and abilist is not available in getprop
         InfoSpec(extraction_commands=((re.search, ('(?<=\\[ro\\.product\\.cpu\\.abi\\]\\: \\[).*(?=\\])', '$source')), (re.search, ('(?<=\\[ro\\.product\\.cpu\\.abi2\\]\\: \\[).*(?=\\])', '$source'))), var_name='Available ABIs', var_dict_1='CPU', var_dict_2='info', resolve_multiple_values='merge'),
@@ -574,13 +591,12 @@ INFO_EXTRACTION_CONFIG = {
         InfoSpec(extraction_commands=((re.search, ('(?<=x-dpi).*', '$source')),), var_name='X-DPI', var_dict_1='Display', var_dict_2='info', post_extraction_commands=(('method', 'strip', (' :\t',)),)),
         InfoSpec(extraction_commands=((re.search, ('(?<=y-dpi).*', '$source')),), var_name='Y-DPI', var_dict_1='Display', var_dict_2='info', post_extraction_commands=(('method', 'strip', (' :\t',)),)),
         InfoSpec(extraction_commands=((re.search, ('(?<=Display\\[0\\] :)[^,]*', '$source')),), var_name='Resolution', var_dict_1='Display', var_dict_2='info', post_extraction_commands=(('method', 'strip', (' :\t',)),)),
-        InfoSpec(var_name='GL Extensions', var_dict_1='GPU', var_dict_2='info', post_extraction_commands=(('function', extract_gles_extensions, ('$extracted',)), ('function', ', '.join, ('$extracted',)))),
+        InfoSpec(var_name='Texture Types', var_dict_1='GPU', var_dict_2='info', post_extraction_commands=(('function', extract_gles_extensions, ('$extracted',)), ('function', ', '.join, ('$extracted',)))),
     ),
     (("cat", "/proc/cpuinfo"), (("as_list", False), ("return_output", True)), "cpuinfo"): (
-        # TODO: some devices do not have this information in cpuinfo file
-        # Known affected devices: LG G5
-        InfoSpec(extraction_commands=((re.search, ('(?<=model name).*', '$source')), (re.search, ('(?<=Processor).*', '$source'))), var_name='Processor', var_dict_1='CPU', var_dict_2='info', resolve_multiple_values='drop', post_extraction_commands=(('method', 'strip', (' :\t',)),)),
-        InfoSpec(extraction_commands=((re.search, ('(?<=Hardware).*', '$source')),), var_name='Chipset', var_dict_1='CPU', var_dict_2='info', resolve_existing_values='merge', post_extraction_commands=(('method', 'strip', (' :\t',)),)),
+        InfoSpec(extraction_commands=((re.search, ('(?<=Hardware).*', '$source')),), var_name='Chipset and Type', var_dict_1='CPU', var_dict_2='info', post_extraction_commands=(('method', 'strip', (' :\t',)),)),
+        InfoSpec(extraction_commands=((re.search, ('(?<=model name).*', '$source')), (re.search, ('(?<=Processor).*', '$source'))), var_name='Chipset and Type', var_dict_1='CPU', var_dict_2='info', resolve_multiple_values='drop', post_extraction_commands=(('method', 'strip', (' :\t',)),)),
+
     ),
     (("cat", "/sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_max_freq"), (("as_list", False), ("return_output", True)), "cpu_freq"): (
         InfoSpec(var_name='Max Frequency', var_dict_1='CPU', var_dict_2='info', post_extraction_commands=(('function', int, ('$extracted',)), ('method', '__floordiv__', (1000,)), ('function', str, ('$extracted',)), ('method', "__add__", (' MHz',)))),
@@ -611,7 +627,7 @@ INFO_EXTRACTION_CONFIG = {
         InfoSpec(extraction_commands=((re.search, ('(?<=feature:)android.software.vr.mode', '$source')),), var_name="VR Mode", var_dict_1='Notable Features', var_dict_2='info', post_extraction_commands=(('function', str, (u"\u2714",)),)),
         InfoSpec(extraction_commands=((re.search, ('(?<=feature:)android.hardware.vr.high_performance', '$source')),), var_name="High-Performance VR Mode", var_dict_1='Notable Features', var_dict_2='info', post_extraction_commands=(('function', str, (u"\u2714",)),)),
         InfoSpec(extraction_commands=((re.search, ('(?<=feature:)android.hardware.wifi.aware', '$source')),), var_name="WiFi-Aware", var_dict_1='Notable Features', var_dict_2='info', post_extraction_commands=(('function', str, (u"\u2714",)),)),
-        #InfoSpec(extraction_commands=((re.findall, ('(?<=feature:).*', '$source')),), var_name=' ', var_dict_1='All Features', var_dict_2='info', post_extraction_commands=(('function', ', '.join, ('$extracted',)), ('method', 'replace', ('\r', '')))),
+        #InfoSpec(extraction_commands=((re.findall, ('(?<=feature:).*', '$source')),), var_name='device_features', var_dict_1='info'),
     ),
     (("wm", "size"), (('as_list', False), ("return_output", True)), "screen_size") :(
         InfoSpec(extraction_commands=((re.search, ('(?<=Physical size:).*', '$source')),), var_name='Resolution', var_dict_1='Display', var_dict_2='info', resolve_existing_values='drop'),
