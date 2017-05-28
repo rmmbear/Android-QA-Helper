@@ -218,6 +218,18 @@ class Device:
         return self._status
 
 
+    def info(self, index1, index2=None):
+        info_container = self._info[index1]
+        if not index2:
+            if isinstance(info_container, list):
+                return "\n".join(info_container)
+            else:
+                return info_container
+
+        info_container = info_container[index2]
+        return ", ".join(info_container)
+
+
     def device_init(self):
         """Gather all the information."""
         if self.status == "device":
@@ -241,6 +253,11 @@ class Device:
                             source_output = self.shell_command(*args, **kwargs)
 
                         info_object.run(self, source_output)
+
+            if self.anr_trace_path:
+                self.anr_trace_path = self.anr_trace_path[0]
+            if self.ext_storage:
+                self.ext_storage = self.ext_storage[0]
 
             self.initialized = True
 
@@ -356,9 +373,8 @@ class Device:
             info_string.append(info_category + ": ")
 
             if isinstance(self._info[info_category], list):
-                print(self._info[info_category])
                 info_string.append(
-                    indent + ("\n" + indent).join(self._info[info_category][0]))
+                    indent + ("\n" + indent).join(self._info[info_category]))
                 continue
             else:
                 for info_name, prop in self._info[info_category].items():
@@ -384,21 +400,21 @@ class Device:
         Prints: manufacturer, model, OS version and available texture
         compression types.
         """
-        model = self._info["Product"]["Model"]
+        model = self.info("Product", "Model")
         if not model:
             model = "Unknown model"
 
-        manufacturer = self._info["Product"]["Manufacturer"]
+        manufacturer = self.info("Product", "Manufacturer")
         if manufacturer is None:
             manufacturer = "Unknown manufacturer"
 
-        os_ver = self._info["OS"]["Android Version"]
+        os_ver = self.info("OS", "Android Version")
         if os_ver is None:
             os_ver = "Unknown OS version"
 
         line1 = " - ".join([manufacturer, model, os_ver]) + "\n"
         line2 = ("Texture compression types: "
-                 + str(self._info["GPU"]["Texture Types"])
+                 + self.info("GPU", "Texture Types")
                  + "\n")
 
         stdout_.write(line1)
@@ -469,17 +485,40 @@ class InfoSpec:
             if not tmp_extracted:
                 continue
 
+            try:
+                tmp_extracted = tmp_extracted.strip()
+            except AttributeError:
+                pass
+
             if self.resolve_multiple_values == 'replace':
-                extracted = [tmp_extracted]
+                if isinstance(tmp_extracted, list):
+                    extracted = tmp_extracted
+                else:
+                    extracted = [tmp_extracted]
             else:
-                extracted.append(tmp_extracted)
+                if isinstance(tmp_extracted, list):
+                    extracted.extend(tmp_extracted)
+                else:
+                    extracted.append(tmp_extracted)
 
         if extracted:
             if exists and self.resolve_existing_values in ("append", "prepend"):
-                # check if the extracted info is redundant
-                #if extracted.lower() in value_container[self.var_name].lower():
-                #    return
-                # check if extracted info is more verbose than the existing value
+
+                for item in extracted:
+                    sanitized_item = item.lower().replace(" ", "")
+                    for existing_value in value_container[self.var_name]:
+                        sanitized_existing_value = existing_value.lower().replace(" ", "")
+                        # check if the extracted info is redundant
+                        if sanitized_item in sanitized_existing_value:
+                            extracted.remove(item)
+                            break
+                        # check if extracted info is more verbose than the existing value
+                        elif sanitized_existing_value in sanitized_item:
+                            old_item = value_container[self.var_name].index(existing_value)
+                            value_container[self.var_name][old_item] = item
+                            extracted.remove(item)
+                            break
+
                 #if value_container[self.var_name].lower() in extracted.lower():
                 #    value_container[self.var_name] = extracted
 
@@ -489,7 +528,7 @@ class InfoSpec:
                     extracted.extend(value_container[self.var_name])
                     value_container[self.var_name] = extracted
             else:
-                    value_container[self.var_name] = extracted
+                value_container[self.var_name] = extracted
 
 
     def _extract_value(self, extraction_command, source):
@@ -530,10 +569,7 @@ class InfoSpec:
     def _format_value(self, extracted_value):
         """"""
         if not self.post_extraction_commands:
-            try:
-                return extracted_value.strip()
-            except AttributeError:
-                return extracted_value
+            return extracted_value
         if extracted_value is None:
             return ''
 
