@@ -273,8 +273,7 @@ class DeviceTab(QtWidgets.QFrame):
 
     def write_to_console(self):
         text = self.stdout_container.read().rstrip()
-        # spam prevention
-        if not text or text == self.last_console_line:
+        if not text:
             return
 
         status = re.search("^\\[...%\\]", text)
@@ -360,8 +359,7 @@ class MainWin(QtWidgets.QMainWindow):
         if manufacturer is None:
             manufacturer = "Unknown manufacturer"
 
-        tab_name = model + " -- "
-        tab_name += manufacturer
+        tab_name = " ".join([manufacturer, "--", model])
         self.stdout_container.write(" ".join(["Initializing connection with",
                                               tab_name]))
         print(tab_name, "found, adding new tab")
@@ -403,9 +401,7 @@ class MainWin(QtWidgets.QMainWindow):
 
 
     def write_to_console(self):
-        blacklist = [
-            'ERROR: No devices found! Check USB connection and try again.'
-            ]
+        blacklist = []
         text = self.stdout_container.read().rstrip()
         if not text:
             return False
@@ -413,8 +409,8 @@ class MainWin(QtWidgets.QMainWindow):
         # spam prevention
         if text in blacklist:
             return False
-        if text == self.last_console_line:
-            return False
+        #if text == self.last_console_line:
+        #    return False
 
         self.last_console_line = text
         text = "".join(["[", strftime("%H:%M:%S"), "] ", text])

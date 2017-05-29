@@ -53,8 +53,8 @@ class TestDeviceInit:
 
         device.print_full_info()
         if write_output:
-            device_file = "".join(["/", device._info['Product']['Model'][0], "_",
-                                   device._info['Product']['Manufacturer'][0]])
+            device_file = "".join(["/", device.info('Product', 'Manufacturer'),
+                                   "_", device._info('Product', 'Model')])
             write_output += device_file
             with open(write_output, mode='w', encoding='utf-8') as output_file:
                 output_file.write(device.get_full_info_string())
