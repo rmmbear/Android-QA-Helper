@@ -117,7 +117,7 @@ def main(args=None):
 
     if args.device_dump:
         from helper.tests import dump_devices
-        dump_devices(args.dump_devices)
+        dump_devices(args.device_dump)
         return
 
     if args.gui:
