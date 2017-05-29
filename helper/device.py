@@ -666,6 +666,9 @@ INFO_EXTRACTION_CONFIG = {
         InfoSpec(extraction_commands=((re.search, ('(?<=feature:)android.hardware.wifi.aware', '$source')),), var_name="WiFi-Aware", var_dict_1='Notable Features', var_dict_2='_info', post_extraction_commands=(('function', str, (u"\u2714",)),)),
         InfoSpec(extraction_commands=((re.findall, ('(?<=feature:).*', '$source')),), var_name='device_features'),
     ),
+    (("pm", "list", "packages"), (('as_list', False), ("return_output", True)), "installed_apps") :(
+        InfoSpec(extraction_commands=((re.findall, ('(?<=package:).*', '$source')),), var_name='installed_apps', resolve_existing_values='replace'),
+    ),
     (("wm", "size"), (('as_list', False), ("return_output", True)), "screen_size") :(
         InfoSpec(extraction_commands=((re.search, ('(?<=Physical size:).*', '$source')),), var_name='Resolution', var_dict_1='Display', var_dict_2='_info', resolve_existing_values='drop'),
     ),
