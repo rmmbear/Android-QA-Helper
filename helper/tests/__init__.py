@@ -30,7 +30,7 @@ def dump_devices(directory):
     Path(directory).mkdir(exist_ok=True)
 
     for device in device_.get_devices(limit_init=['getprop']):
-        device_id = device.info["Product"]["Model"] + "_" + device.info["Product"]["Manufacturer"]
+        device_id = device.info("Product", "Model") + "_" + device.info("Product", "Manufacturer")
         device_dir = Path(directory, device_id + "_DUMP")
         device_dir.mkdir(exist_ok=True)
         print()
