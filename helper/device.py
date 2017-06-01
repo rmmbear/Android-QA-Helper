@@ -262,13 +262,13 @@ class Device:
             self.initialized = True
 
 
-    def is_type(self, file_path, file_type, symlink_ok=False, check_read=True,
-                check_write=False, check_execute=False):
+    def is_type(self, file_path, file_type, check_read=True, check_write=False,
+                check_execute=False, symlink_ok=False):
         """Check whether a path points to an existing file that matches
-        the specified type and whether the current user has specified
-        permissions.
+        the specified type and whether the current user has the
+        specified permissions.
 
-        You can check for read, write and execute permissions, by
+        You can check for read, write and execute permissions by
         setting the respective check_* arguments to True. Function will
         return True only if all specified permissions are available and
         if the path does not point to a symlink or symlink_ok is set to
@@ -291,63 +291,54 @@ class Device:
             'if [ -{} "{}" ];'.format(file_type, file_path), "then echo 0;",
             "else echo 1;", "fi", return_output=True, as_list=False).strip()
 
-        if out == '0':
-            for permission in permissions:
-                out = self.shell_command(
-                    'if [ -{} "{}" ];'.format(permission, file_path),
-                    "then echo 0;", "else echo 1;", "fi", return_output=True,
-                    as_list=False).strip()
-
-                if out == '0':
-                    continue
-                if out not in ["0", "1"]:
-                    print("Got unexpected output while checking for '",
-                          permission, "' permission in file", file_path)
-                    print("Output:", [out])
-                return False
-
-            out = self.shell_command('if [ -L "{}" ];'.format(file_path),
-                                     "then echo 0;", "else echo 1;", "fi",
-                                     return_output=True, as_list=False).strip()
-            if out == '1' or symlink_ok:
-                return True
-
-        if out.strip() not in ["0", "1"]:
+        if out not in ["0", "1"]:
             print("Got unexpected output while checking for '", file_type,
                   "' type of file", file_path)
             print("Output:", [out])
             return False
-        return False
+
+        if out == '1':
+            return False
+
+        for permission in permissions:
+            out = self.shell_command(
+                'if [ -{} "{}" ];'.format(permission, file_path),
+                "then echo 0;", "else echo 1;", "fi", return_output=True,
+                as_list=False).strip()
+
+            if out not in ["0", "1"]:
+                print("Got unexpected output while checking for '",
+                      permission, "' permission in file", file_path)
+                print("Output:", [out])
+
+            if out == '1':
+                return False
+
+        out = self.shell_command('if [ -L "{}" ];'.format(file_path),
+                                 "then echo 0;", "else echo 1;", "fi",
+                                 return_output=True, as_list=False).strip()
+        if not (out == '1' or symlink_ok):
+            return False
+
+        return True
 
 
-    def is_file(self, file_path, **kwargs):
-        """Check whether a path points to an existing directory and
-        whether the current user has specified permissions.
+    def is_file(self, file_path, *args, **kwargs):
+        """Check whether a path points to an existing file and whether
+        the current user has the specified permissions.
 
-        You can check for read, write and execute permissions, by
-        setting the respective check_* arguments to True. Function will
-        return True only if all specified permissions are available and
-        if the path does not point to a symlink or symlink_ok is set to
-        True.
-
-        check_read is True by default.
+        This is the same as calling device.is_type(<path>, "f", ...)
         """
-        return self.is_type(file_path=file_path, file_type="f", **kwargs)
+        return self.is_type(file_path, "f", *args, **kwargs)
 
 
-    def is_dir(self, file_path, **kwargs):
+    def is_dir(self, file_path, *args, **kwargs):
         """Check whether a path points to an existing directory and
-        whether the current user has specified permissions.
+        whether the current user has the specified permissions.
 
-        You can check for read, write and execute permissions, by
-        setting the respective check_* arguments to True. Function will
-        return True only if all specified permissions are available and
-        if the path does not point to a symlink or symlink_ok is set to
-        True.
-
-        check_read is True by default.
+        This is the same as calling device.is_type(<path>, "d", ...)
         """
-        return self.is_type(file_path=file_path, file_type="d", **kwargs)
+        return self.is_type(file_path, "d", *args, **kwargs)
 
 
     def reconnect(self, stdout_=sys.stdout):
