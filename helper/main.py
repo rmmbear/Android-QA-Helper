@@ -177,6 +177,7 @@ def record_start(device, name=None, stdout_=sys.stdout):
     try:
         # we're waiting for the video to be fully saved to device's storage
         # there must be a better way of doing this...
+        # TODO: FIX THIS
         sleep(1)
     except KeyboardInterrupt:
         sleep(1)
@@ -300,6 +301,8 @@ def _clean_uninstall(device, target, app_name=False, check_packages=True,
         stdout_.write("".join(["Clearing application data: ", target, "... "]))
     else:
         stdout_.write("".join(["Uninstalling ", target, "... "]))
+
+    stdout_.flush()
     if check_packages:
         preinstall_log = device.shell_command("pm", "list", "packages",
                                               return_output=True,
@@ -337,6 +340,7 @@ def _clean_remove(device, target, recursive=False, stdout_=sys.stdout):
         target = '"{}"'.format(target)
 
     stdout_.write(" ".join(["Removing", target, "... "]))
+    stdout_.flush()
     result = device.shell_command(command, target, return_output=True,
                                   as_list=False).strip()
     if not result:

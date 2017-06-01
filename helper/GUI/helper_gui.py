@@ -40,6 +40,14 @@ class StdoutContainer(QtCore.QObject):
     def read(self):
         return self.container.get(False)
 
+    def flush(self):
+        # TODO: move cursor back to end of last line when stdout_ is flushed
+        # TODO: display loading indicator until the next write
+        #       can be done by continuously writing and deleting a set of
+        #       characters, to create effect shown below
+        #       [   ] -> [.  ] -> [.. ] -> [...] -> [   ]
+        pass
+
 
 class DeviceTab(QtWidgets.QFrame):
     recording_started = QtCore.pyqtSignal()
