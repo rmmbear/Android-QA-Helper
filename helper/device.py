@@ -8,6 +8,16 @@ import helper as helper_
 ABI_TO_ARCH = helper_.ABI_TO_ARCH
 ADB = helper_.ADB
 
+KNOWN_COMPRESSION_NAMES = {}
+# Load known compression type names
+with open(helper_.COMPRESSION_DEFINITIONS, mode="r", encoding="utf-8") as comps:
+    for line in comps.read().splitlines():
+        if not line or line.startswith("#"):
+            continue
+
+        comp_id, comp_name = line.split(",")
+        KNOWN_COMPRESSION_NAMES[comp_id] = comp_name
+
 
 def adb_command(*args, check_server=True, **kwargs):
     """Execute an ADB command, and return -- or don't -- its result.
@@ -35,15 +45,17 @@ def adb_command(*args, check_server=True, **kwargs):
 
 
 def abi_to_arch(abi):
+    """"""
     if abi not in ABI_TO_ARCH:
         return "Unknown ({})".format(abi)
 
     return ABI_TO_ARCH[abi]
 
 
-def extract_gles_extensions(surfaceflinger_dump):
+def extract_compression_names(surfaceflinger_dump):
+    """"""
     extensions = []
-    for identifier, name in helper_.COMPRESSION_TYPES.items():
+    for identifier, name in KNOWN_COMPRESSION_NAMES.items():
         if identifier in surfaceflinger_dump:
             extensions.append(name.strip())
 
@@ -212,13 +224,14 @@ class Device:
         for device_specs in _get_devices():
             if self.serial in device_specs:
                 self._status = device_specs[1]
-                return self._status
+            else:
+                self._status = "Offline"
 
-        self._status = "Offline"
         return self._status
 
 
     def info(self, index1, index2=None):
+        """"""
         info_container = self._info[index1]
         if not index2:
             if isinstance(info_container, list):
@@ -342,6 +355,10 @@ class Device:
 
 
     def reconnect(self, stdout_=sys.stdout):
+        """Restart connection with device.
+
+        Return true when device comes back online.
+        """
         self.adb_command("reconnect")
         reconnect_status = self.adb_command("wait-for-device",
                                             return_output=True, as_list=False)
@@ -566,13 +583,17 @@ class InfoSpec:
 
         for formatting_commands in self.post_extraction_commands:
             # 0 - command, 1 - *args, 2 - **kwargs
-            args = list(formatting_commands[2])
-            while '$extracted' in args:
-                args[args.index('$extracted')] = extracted_value
+            try:
+                args = list(formatting_commands[2])
+            except IndexError:
+                args = []
             try:
                 kwargs = formatting_commands[3]
             except IndexError:
                 kwargs = dict()
+
+            while '$extracted' in args:
+                args[args.index('$extracted')] = extracted_value
 
             for pair in kwargs:
                 while "$extracted" in pair:
@@ -619,7 +640,8 @@ INFO_EXTRACTION_CONFIG = {
         InfoSpec(extraction_commands=((re.search, ('(?<=x-dpi).*', '$source')),), var_name='X-DPI', var_dict_1='Display', var_dict_2='_info', post_extraction_commands=(('method', 'strip', (' :\t',)),)),
         InfoSpec(extraction_commands=((re.search, ('(?<=y-dpi).*', '$source')),), var_name='Y-DPI', var_dict_1='Display', var_dict_2='_info', post_extraction_commands=(('method', 'strip', (' :\t',)),)),
         InfoSpec(extraction_commands=((re.search, ('(?<=Display\\[0\\] :)[^,]*', '$source')),), var_name='Resolution', var_dict_1='Display', var_dict_2='_info', post_extraction_commands=(('method', 'strip', (' :\t',)),)),
-        InfoSpec(var_name='Texture Types', var_dict_1='GPU', var_dict_2='_info', post_extraction_commands=(('function', extract_gles_extensions, ('$extracted',)), ('function', ', '.join, ('$extracted',)))),
+        InfoSpec(extraction_commands=((re.search, ('(?<=GLES:)(.*)(\\n*)(.*\\n*.*)', '$source'), (('$group', 3),)),), var_name='gles_extensions', post_extraction_commands=(('method', 'split'),)),
+        InfoSpec(var_name='Texture Types', var_dict_1='GPU', var_dict_2='_info', post_extraction_commands=(('function', extract_compression_names, ('$extracted',)),)),
     ),
     (("cat", "/proc/cpuinfo"), (("as_list", False), ("return_output", True)), "cpuinfo"): (
         InfoSpec(extraction_commands=((re.search, ('(?<=Hardware).*', '$source')),), var_name='Chipset and Type', var_dict_1='CPU', var_dict_2='_info', resolve_existing_values='prepend', post_extraction_commands=(('method', 'strip', (' :\t',)),)),
