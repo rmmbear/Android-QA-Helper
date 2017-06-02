@@ -24,11 +24,9 @@ from pathlib import Path
 
 VERSION = "0.14"
 VERSION_DATE = "02-06-2017"
-GITHUB_SOURCE = "https://github.com/rmmbear/Android-QA-Helper"
 VERSION_STRING = " ".join(["Android QA Helper ver", VERSION, ":", VERSION_DATE,
-                           ": Copyright (c) 2017 rmmbear"]
-                         )
-SOURCE_STRING = "Check the source code at " + GITHUB_SOURCE
+                           ": Copyright (c) 2017 rmmbear"])
+SOURCE_STRING = "Check the source code at https://github.com/rmmbear/Android-QA-Helper"
 
 ABI_TO_ARCH = {"armeabi"    :"32bit (ARM)",
                "armeabi-v7a":"32bit (ARM)",
@@ -113,24 +111,25 @@ def save_config(config):
 
             config_file.write("".join([name, "=", str(value), "\n"]))
 
-
+AAPT_AVAILABLE = False
 EDITED_CONFIG = False
 BASE = get_script_dir()
-CONFIG = str(Path(BASE + "/../helper_config").resolve())
-ADB = str(Path(BASE + "/../adb/adb"))
-AAPT = str(Path(BASE + "/../aapt/aapt"))
-Path(ADB).parent.mkdir(exist_ok=True)
-Path(AAPT).parent.mkdir(exist_ok=True)
 
-ADB = str(Path(ADB).resolve())
-AAPT = str(Path(AAPT).resolve())
+ADB = Path(BASE + "/../adb/adb")
+AAPT = Path(BASE + "/../aapt/aapt")
+CONFIG = Path(BASE + "/../helper_config")
 
 if sys.platform == "win32":
     AAPT += ".exe"
     ADB += ".exe"
 
-if Path(CONFIG).is_file():
-    load_config(CONFIG)
+Path(ADB).parent.mkdir(exist_ok=True)
+Path(AAPT).parent.mkdir(exist_ok=True)
+if not CONFIG.is_file():
+    with CONFIG.open(mode="w", encoding="utf-8") as f:
+        pass
+CONFIG = str(CONFIG.resolve())
+load_config(CONFIG)
 
 if not Path(ADB).is_file():
     ADB = shutil.which("adb")
@@ -152,14 +151,15 @@ if not Path(ADB).is_file():
             print("Provided path is not a file!")
             sys.exit()
 
-        ADB = str(Path(user_path).resolve())
+        ADB = Path(user_path)
         EDITED_CONFIG = True
 
 if not Path(AAPT).is_file():
     AAPT = shutil.which("aapt")
 
     if not AAPT:
-        print("Helper could not find AAPT, which is required for this program.",
+        print("Helper could not find AAPT, which is required for certain",
+              "operations on apk files, including app installation."
               "Close this window, place the binary in",
               str(Path(BASE + "/../aapt").resolve()), "and delete helper config",
               "(located at:", CONFIG, ") or enter its path below")
@@ -175,18 +175,24 @@ if not Path(AAPT).is_file():
             print("Provided path is not a file!")
             sys.exit()
 
-        AAPT = str(Path(user_path).resolve())
+        AAPT = Path(user_path)
         EDITED_CONFIG = True
 
-CLEANER_CONFIG = str(Path(BASE + "/../cleaner_config").resolve())
-if not Path(CLEANER_CONFIG).is_file():
-    with open(CLEANER_CONFIG, mode="w", encoding="utf-8") as empty_file:
+ADB = str(ADB.resolve())
+AAPT = str(AAPT.resolve())
+
+CLEANER_CONFIG = Path(BASE + "/../cleaner_config")
+if not CLEANER_CONFIG.is_file():
+    with CLEANER_CONFIG.open(mode="w", encoding="utf-8") as empty_file:
         pass
 
-COMPRESSION_DEFINITIONS = str(Path(BASE + "/../compression_identifiers").resolve())
-if not Path(COMPRESSION_DEFINITIONS).is_file():
-    with open(COMPRESSION_DEFINITIONS, mode="w", encoding="utf-8") as empty_file:
+COMPRESSION_DEFINITIONS = Path(BASE + "/../compression_identifiers")
+if not COMPRESSION_DEFINITIONS.is_file():
+    with COMPRESSION_DEFINITIONS.open(mode="w", encoding="utf-8") as empty_file:
         pass
+
+CLEANER_CONFIG = str(CLEANER_CONFIG)
+COMPRESSION_DEFINITIONS = str(COMPRESSION_DEFINITIONS)
 
 COMPRESSION_TYPES = {}
 load_compression_types()
