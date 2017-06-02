@@ -74,17 +74,6 @@ def get_script_dir():
     return os.path.dirname(path)
 
 
-def load_compression_types():
-    """"""
-    with open(COMPRESSION_DEFINITIONS, mode="r", encoding="utf-8") as comps:
-        for line in comps.read().splitlines():
-            if not line or line.startswith("#"):
-                continue
-
-            comp_id, comp_name = line.split(",")
-            COMPRESSION_TYPES[comp_id] = comp_name
-
-
 def load_config(config):
     """"""
     with open(config, mode="r", encoding="utf-8") as config_file:
@@ -193,9 +182,6 @@ if not COMPRESSION_DEFINITIONS.is_file():
 
 CLEANER_CONFIG = str(CLEANER_CONFIG)
 COMPRESSION_DEFINITIONS = str(COMPRESSION_DEFINITIONS)
-
-COMPRESSION_TYPES = {}
-load_compression_types()
 
 if EDITED_CONFIG:
     save_config(CONFIG)
