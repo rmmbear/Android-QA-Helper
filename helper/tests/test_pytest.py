@@ -44,12 +44,13 @@ class DummyDevice(device_.Device):
 
 
 class TestDeviceInit:
-    def test_full(self, config_dir=FULL_DEVICE_CONFIG, write_output=''):
+    def test_full(self, config_dir=FULL_DEVICE_CONFIG, write_output=None,
+                  ignore_nonexistent_files=False):
         """Test device initialization with a complete input from an actual
         device.
         """
         device = DummyDevice(config_dir, 'dummy')
-        device._device_init(config_dir)
+        device._device_init(config_dir, ignore_nonexistent_files=ignore_nonexistent_files)
 
         device.print_full_info()
         if write_output:
@@ -58,6 +59,10 @@ class TestDeviceInit:
             write_output += device_file
             with open(write_output, mode='w', encoding='utf-8') as output_file:
                 output_file.write(device.get_full_info_string())
+                output_file.write("\n\n\n")
+                for key, value in device.__dict__.items():
+                    output_file.write("".join([str(key), " : ", str(value)]))
+                    output_file.write("\n")
 
         assert device.available_commands
         assert device.anr_trace_path
@@ -83,7 +88,8 @@ class TestDeviceInit:
 
         for path in config_dir.iterdir():
             if path.is_dir():
-                self.test_full(str(path), write_output=str(output_dir))
+                self.test_full(str(path), write_output=str(output_dir),
+                               ignore_nonexistent_files=True)
 
 
     def test_all_limited(self, config_dir=FULL_DEVICE_CONFIG):
