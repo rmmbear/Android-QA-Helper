@@ -23,7 +23,7 @@ from pathlib import Path
 
 
 VERSION = "0.14"
-VERSION_DATE = "02-06-2017"
+VERSION_DATE = "03-06-2017"
 VERSION_STRING = " ".join(["Android QA Helper ver", VERSION, ":", VERSION_DATE,
                            ": Copyright (c) 2017 rmmbear"])
 SOURCE_STRING = "Check the source code at https://github.com/rmmbear/Android-QA-Helper"
@@ -100,7 +100,8 @@ def save_config(config):
 
             config_file.write("".join([name, "=", str(value), "\n"]))
 
-AAPT_AVAILABLE = False
+
+AAPT_AVAILABLE = True
 EDITED_CONFIG = False
 BASE = get_script_dir()
 
@@ -117,6 +118,7 @@ Path(AAPT).parent.mkdir(exist_ok=True)
 if not CONFIG.is_file():
     with CONFIG.open(mode="w", encoding="utf-8") as f:
         pass
+
 CONFIG = str(CONFIG.resolve())
 load_config(CONFIG)
 
@@ -124,6 +126,8 @@ if not Path(ADB).is_file():
     ADB = shutil.which("adb")
 
     if not ADB:
+
+        print("\nADB BINARY MISSING!")
         print("Helper could not find ADB, which is required for this program.",
               "Close this window, place the binary in",
               str(Path(BASE + "/../adb").resolve()), "and delete helper config",
@@ -147,28 +151,36 @@ if not Path(AAPT).is_file():
     AAPT = shutil.which("aapt")
 
     if not AAPT:
+        print("\nAAPT BINARY MISSING!")
         print("Helper could not find AAPT, which is required for certain",
-              "operations on apk files, including app installation."
-              "Close this window, place the binary in",
+              "operations on apk files, including app installation. To load",
+              "the aapt, close this window, place the binary in",
               str(Path(BASE + "/../aapt").resolve()), "and delete helper config",
-              "(located at:", CONFIG, ") or enter its path below")
+              "(located at:", CONFIG, "). You can also enter its path below",
+              "or press enter without typing anything to skip this.")
         user_path = input(": ").strip()
-        if len(user_path) > 1:
-            if user_path[0] in ["'", '"']:
-                user_path = user_path[1::]
+        if user_path:
+            if len(user_path) > 1:
+                if user_path[0] in ["'", '"']:
+                    user_path = user_path[1::]
 
-            if user_path[-1] in ["'", '"']:
-                user_path = user_path[:-1]
+                if user_path[-1] in ["'", '"']:
+                    user_path = user_path[:-1]
 
-        if not Path(user_path).is_file():
-            print("Provided path is not a file!")
-            sys.exit()
+            if not Path(user_path).is_file():
+                print("Provided path is not a file!")
+                sys.exit()
 
-        AAPT = Path(user_path)
-        EDITED_CONFIG = True
+            AAPT = Path(user_path)
+            EDITED_CONFIG = True
+        else:
+            print("You chose not to load the aapt binary. Please note that",
+                  "some features will not be available because of this.")
+            AAPT_AVAILABLE = False
 
-ADB = str(ADB.resolve())
-AAPT = str(AAPT.resolve())
+ADB = str(ADB)
+AAPT = str(AAPT)
+
 
 CLEANER_CONFIG = Path(BASE + "/../cleaner_config")
 if not CLEANER_CONFIG.is_file():
