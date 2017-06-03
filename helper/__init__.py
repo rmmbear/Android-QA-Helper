@@ -133,13 +133,7 @@ if not Path(ADB).is_file():
               str(Path(BASE + "/../adb").resolve()), "and delete helper config",
               "(located at:", CONFIG, ") or enter its path below")
         user_path = input(": ")
-        if len(user_path) > 1:
-            if user_path[0] in ["'", '"']:
-                user_path = user_path[1::]
-
-            if user_path[-1] in ["'", '"']:
-                user_path = user_path[:-1]
-
+        user_path = user_path.strip("'\"")
         if not Path(user_path).is_file():
             print("Provided path is not a file!")
             sys.exit()
@@ -160,13 +154,7 @@ if not Path(AAPT).is_file():
               "or press enter without typing anything to skip this.")
         user_path = input(": ").strip()
         if user_path:
-            if len(user_path) > 1:
-                if user_path[0] in ["'", '"']:
-                    user_path = user_path[1::]
-
-                if user_path[-1] in ["'", '"']:
-                    user_path = user_path[:-1]
-
+            user_path = user_path.strip("'\"")
             if not Path(user_path).is_file():
                 print("Provided path is not a file!")
                 sys.exit()
@@ -180,7 +168,6 @@ if not Path(AAPT).is_file():
 
 ADB = str(ADB)
 AAPT = str(AAPT)
-
 
 CLEANER_CONFIG = Path(BASE + "/../cleaner_config")
 if not CLEANER_CONFIG.is_file():
