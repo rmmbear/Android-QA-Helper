@@ -87,10 +87,10 @@ def install_application(device, apk_file, app_name,
                                   "internal":"-f"}
 
     if install_location not in possible_install_locations:
-        raise ValueError("".join(["Function received", install_location, "but",
-                                  "knows only the following install",
-                                  "locations: 'automatic', 'external', ",
-                                  "'internal'"]))
+        raise ValueError(" ".join(["Function received", install_location,
+                                   "but knows only the following install",
+                                   "locations: 'automatic', 'external',",
+                                   "'internal'"]))
 
     apk_file = apk_file.strip("\"'")
     apk_name = Path(apk_file).name
@@ -109,8 +109,9 @@ def install_application(device, apk_file, app_name,
     if app_name in available_packages:
         stdout_.write(" ".join(["WARNING: Different version of the app",
                                 "already installed\n"]))
-        if not _clean_uninstall(device, app_name, app_name=True):
-            print("ERROR: Could not uninstall the app!\n")
+        if not _clean_uninstall(device, app_name, app_name=True,
+                                stdout_=stdout_):
+            stdout_.write("ERROR: Could not uninstall the app!\n")
             return False
 
     stdout_.write("Installing {}...\n".format(app_name))
@@ -119,15 +120,15 @@ def install_application(device, apk_file, app_name,
     destination = '"{}"'.format(destination)
     device.shell_command("pm", "install", "-i", "com.android.vending",
                          possible_install_locations[install_location],
-                         destination)
-    device.shell_command("rm", destination)
+                         destination, stdout_=stdout_)
+    device.shell_command("rm", destination, stdout_=stdout_)
 
     available_packages = device.shell_command("pm", "list", "packages",
                                               return_output=True,
                                               as_list=False)
 
     if app_name not in available_packages:
-        print("ERROR: App could not be installed!\n")
+        stdout_.write("ERROR: App could not be installed!\n")
         return False
 
     stdout_.write("Installation completed!\n")
