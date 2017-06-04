@@ -26,6 +26,9 @@ def install(device, *items, stdout_=sys.stdout):
                                 "installed when also pushing obb files!\n"]))
         return False
 
+    # TODO: Accommodate for situations where aapt is not available
+    # TODO: Add ability to pick install location
+
     if not apk_list:
         stdout_.write("No APK found among provided files, aborting!\n")
         return False
@@ -77,40 +80,58 @@ def install_with_obbs(device, apk_file, obb_list, stdout_=sys.stdout):
     stdout_.write("\nSuccesfully installed {}!\n".format(app_name))
 
 
-def install_application(device, apk_file, app_name, stdout_=sys.stdout):
-    """Install an app on specified device."""
-    preinstall_log = device.shell_command(
-        "pm", "list", "packages", return_output=True, as_list=False).strip()
+def install_application(device, apk_file, app_name,
+                        install_location="automatic", stdout_=sys.stdout):
+    """Install an application from a local apk file."""
+    possible_install_locations = {"automatic":"", "external":"-s",
+                                  "internal":"-f"}
 
-    if app_name in preinstall_log:
+    if install_location not in possible_install_locations:
+        raise ValueError("".join(["Function received", install_location, "but",
+                                  "knows only the following install",
+                                  "locations: 'automatic', 'external', ",
+                                  "'internal'"]))
+
+    apk_file = apk_file.strip("\"'")
+    apk_name = Path(apk_file).name
+    destination = ("/data/local/tmp/" + apk_name).replace(" ", "_")
+
+    stdout_.write("Copying the apk file to device...\n")
+    device.adb_command("push", apk_file, destination, stdout_=stdout_)
+
+    if not device.is_file(destination):
+        stdout_.write("ERROR: Could not copy apk file to device\n")
+        return False
+
+    available_packages = device.shell_command("pm", "list", "packages",
+                                              return_output=True,
+                                              as_list=False)
+    if app_name in available_packages:
         stdout_.write(" ".join(["WARNING: Different version of the app",
                                 "already installed\n"]))
-        result = _clean_uninstall(
-            device, target=app_name, app_name=True, check_packages=False,
-            stdout_=stdout_)
-        if not result:
+        if not _clean_uninstall(device, app_name, app_name=True):
+            print("ERROR: Could not uninstall the app!\n")
             return False
 
-    device.adb_command("install", "-r", "-i", "com.android.vending",
-                       apk_file, stdout_=stdout_)
-    postinstall_log = device.shell_command("pm", "list", "packages",
-                                           return_output=True, as_list=False)
-    if app_name in postinstall_log:
-        return True
+    stdout_.write("Installing {}...\n".format(app_name))
+    stdout_.flush()
 
-    if device.status != "device":
-        stdout_.write("ERROR: Device has been suddenly disconnected!\n")
-    else:
-        if app_name.startswith("UNKNOWN APP NAME"):
-            stdout_.write(
-                "ERROR: No app name, cannot verify installation outcome\n")
-        else:
-            stdout_.write(
-                "ERROR: Installed app was not found by package manager\n")
-            stdout_.write(app_name + " could not be installed!\n")
-            stdout_.write(
-                "Please make sure that your device meets app's criteria\n")
-    return False
+    destination = '"{}"'.format(destination)
+    device.shell_command("pm", "install", "-i", "com.android.vending",
+                         possible_install_locations[install_location],
+                         destination)
+    device.shell_command("rm", destination)
+
+    available_packages = device.shell_command("pm", "list", "packages",
+                                              return_output=True,
+                                              as_list=False)
+
+    if app_name not in available_packages:
+        print("ERROR: App could not be installed!\n")
+        return False
+
+    stdout_.write("Installation completed!\n")
+    return True
 
 
 def prepare_obb_dir(device, app_name):
