@@ -202,6 +202,10 @@ class Device:
         if self._status == "device":
             self.device_init()
 
+    def __str__(self):
+        """Return device's serial number."""
+        return self.serial
+
 
     def adb_command(self, *args, **kwargs):
         """Same as adb_command(*args), but specific to the given device.
@@ -243,11 +247,14 @@ class Device:
         return ", ".join(info_container)
 
 
-    def device_init(self):
+    def device_init(self, limit_init=None):
         """Gather all the information."""
+        # TODO: Implement ability to re-do the initialization
+        if not limit_init:
+            limit_init = self.limit_init
         if self.status == "device":
             for info_source, info_specs in INFO_EXTRACTION_CONFIG.items():
-                if self.limit_init and info_source[-1] not in self.limit_init:
+                if limit_init and info_source[-1] not in limit_init:
                     continue
                 try:
                     args = info_source[0]
