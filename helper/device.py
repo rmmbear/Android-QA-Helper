@@ -118,40 +118,6 @@ def get_devices(stdout_=sys.stdout, initialize=True, limit_init=()):
     return device_list
 
 
-def pick_device(stdout_=sys.stdout, initialize=True, limit_init=()):
-    """Ask the user to pick a device from list of currently connected
-    devices. If there are no devices to choose from, it will return the
-    sole connected device or None, if there are no devices at all.
-    """
-    device_list = get_devices(stdout_, initialize, limit_init)
-
-    if not device_list:
-        return None
-
-    if len(device_list) == 1:
-        return device_list[0]
-
-    while True:
-        stdout_.write("Multiple devices detected!\n")
-        stdout_.write(
-            "Please choose which of devices below you want to work with.\n")
-        for counter, device in enumerate(device_list):
-            stdout_.write(" ".join([counter, ":"]))
-            device.print_basic_info(stdout_)
-
-        stdout_.write("Enter your choice: ")
-        user_choice = input().strip()
-        if not user_choice.isnumeric():
-            stdout_.write("The answer must be a number!\n")
-            continue
-        user_choice = int(user_choice)
-        if user_choice < 0  or user_choice >= len(device_list):
-            stdout_.write("Answer must be one of the above numbers!\n")
-            continue
-
-        return device_list[user_choice]
-
-
 class Device:
     """Class representing a physical Android device."""
     def __init__(self, serial, status='offline', limit_init=()):
@@ -165,28 +131,34 @@ class Device:
         self._info = OrderedDict()
 
         info = [
-            ("Product", ["Model",
-                         "Name",
-                         "Manufacturer",
-                         "Brand",
-                         "Device"]),
-            ("OS",      ["Version",
-                         "API Level",
-                         "Build ID",
-                         "Build Fingerprint"]),
-            ("RAM",     ["Total"]),
-            ("CPU",     ["Chipset and Type",
-                         "Cores",
-                         "Architecture",
-                         "Max Frequency",
-                         "Available ABIs"]),
-            ("GPU",     ["Model",
-                         "GL Version",
-                         "Texture Types"]),
-            ("Display", ["Resolution",
-                         "Density",
-                         "X-DPI",
-                         "Y-DPI"])
+            ("Product", [
+                "Model",
+                "Name",
+                "Manufacturer",
+                "Brand",
+                "Device"]),
+            ("OS", [
+                "Version",
+                "API Level",
+                "Build ID",
+                "Build Fingerprint"]),
+            ("RAM", [
+                "Total"]),
+            ("CPU", [
+                "Chipset and Type",
+                "Cores",
+                "Architecture",
+                "Max Frequency",
+                "Available ABIs"]),
+            ("GPU", [
+                "Model",
+                "GL Version",
+                "Texture Types"]),
+            ("Display", [
+                "Resolution",
+                "Density",
+                "X-DPI",
+                "Y-DPI"]),
             ]
 
         for pair in info:
@@ -758,7 +730,8 @@ INFO_EXTRACTION_CONFIG = {
     (("cat", "/sys/devices/system/cpu/possible"), (("as_list", False), ("return_output", True)), "cpu_cores"): (
         InfoSpec(
             extraction_commands=(
-                (re.search, ('(?<=-).*', '$source')), (re.search, ('.*', '$source'))),
+                (re.search, ('(?<=-).*', '$source')),
+                (re.search, ('.*', '$source'))),
             var_name='Cores', var_dict_1='CPU', var_dict_2='_info', resolve_multiple_values='drop',
             post_extraction_commands=(
                 ('function', lambda x: int(x) + 1, ('$extracted',)),

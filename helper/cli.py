@@ -1,4 +1,5 @@
 """"""
+import sys
 from pathlib import Path
 from argparse import ArgumentParser, SUPPRESS
 
@@ -55,6 +56,41 @@ PARSER_GROUP.add_argument("--device_dump", nargs="?", const=".", default=None,
 
 
 PARSER_NO_ARGS = PARSER.parse_args([])
+
+
+def pick_device(stdout_=sys.stdout, initialize=True, limit_init=()):
+    """Ask the user to pick a device from list of currently connected
+    devices. If there are no devices to choose from, it will return the
+    sole connected device or None, if there are no devices at all.
+    """
+    #device_list = get_devices(stdout_, initialize, limit_init)
+    device_list = None
+    if not device_list:
+        return None
+
+    if len(device_list) == 1:
+        return device_list[0]
+
+    while True:
+        stdout_.write("Multiple devices detected!\n")
+        stdout_.write(
+            "Please choose which of devices below you want to work with.\n")
+        for counter, device in enumerate(device_list):
+            stdout_.write(" ".join([counter, ":"]))
+            device.print_basic_info(stdout_)
+
+        stdout_.write("Enter your choice: ")
+        user_choice = input().strip()
+        if not user_choice.isnumeric():
+            stdout_.write("The answer must be a number!\n")
+            continue
+        user_choice = int(user_choice)
+        if user_choice < 0  or user_choice >= len(device_list):
+            stdout_.write("Answer must be one of the above numbers!\n")
+            continue
+
+        return device_list[user_choice]
+
 
 def regular_commands(device, args):
     device.device_init()
