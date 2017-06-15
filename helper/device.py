@@ -5,18 +5,21 @@ from collections import OrderedDict
 
 import helper as helper_
 
+def _load_known_compressions():
+    with open(helper_.COMPRESSION_DEFINITIONS, mode="r", encoding="utf-8") as comps:
+        for line in comps.read().splitlines():
+            if not line or line.startswith("#"):
+                continue
+
+            name, comp_id = line.split("=", maxsplit=1)
+            KNOWN_COMPRESSION_NAMES[comp_id] = name.strip()
+
+
 ABI_TO_ARCH = helper_.ABI_TO_ARCH
 ADB = helper_.ADB
 
 KNOWN_COMPRESSION_NAMES = {}
-# Load known compression type names
-with open(helper_.COMPRESSION_DEFINITIONS, mode="r", encoding="utf-8") as comps:
-    for line in comps.read().splitlines():
-        if not line or line.startswith("#"):
-            continue
-
-        comp_id, comp_name = line.split(",")
-        KNOWN_COMPRESSION_NAMES[comp_id] = comp_name
+_load_known_compressions()
 
 
 def adb_command(*args, check_server=True, **kwargs):
@@ -57,7 +60,7 @@ def extract_compression_names(surfaceflinger_dump):
     extensions = []
     for identifier, name in KNOWN_COMPRESSION_NAMES.items():
         if identifier in surfaceflinger_dump:
-            extensions.append(name.strip())
+            extensions.append(name)
 
     return extensions
 
