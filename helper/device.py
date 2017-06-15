@@ -131,6 +131,7 @@ class Device:
         self.ext_storage = None
         self.anr_trace_path = None
         self.available_commands = ()
+        self.device_features = ()
         self._info = OrderedDict()
 
         info = [
@@ -258,6 +259,12 @@ class Device:
                 self.anr_trace_path = self.anr_trace_path[0]
             if self.ext_storage:
                 self.ext_storage = self.ext_storage[0]
+
+            if self.device_features:
+                new_list = []
+                for item in self.device_features:
+                    new_list.append(item.strip())
+                self.device_features = new_list
 
             self.initialized = True
 
