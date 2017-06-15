@@ -159,6 +159,11 @@ class Device:
                 "Density",
                 "X-DPI",
                 "Y-DPI"]),
+            ("Notable Features", [
+                "Bluetooth",
+                "Bluetooth Low Energy",
+                "InfraRed",
+                "NFC"]),
             ]
 
         for pair in info:
