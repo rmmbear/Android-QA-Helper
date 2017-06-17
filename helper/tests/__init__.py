@@ -17,37 +17,30 @@ def get_nonexistent_path():
             return str(nonexistent_path.resolve())
 
 
-def dump_devices(directory):
+def dump_devices(device, directory="."):
     """Function for dumping device information used in device initiation.
     Dumped files can be used with TestDeviceInit.test_full().
     """
-    print("Before continuing, please remember that ALL dumped files may contain",
-          "sensitive data. Please pay special attention to the 'getprop' file",
-          "which almost certainly will contain data you do not want people to",
-          "see.",)
-    input("Press enter to continue")
-
     Path(directory).mkdir(exist_ok=True)
 
-    for device in device_.get_devices(limit_init=['getprop']):
-        device_id = "".join([device.info("Product", "Manufacturer"), "_",
-                             device.info("Product", "Model")])
-        device_dir = Path(directory, device_id + "_DUMP")
-        device_dir.mkdir(exist_ok=True)
-        print()
-        print("Dumping", device_id)
+    device_id = "".join([device.info("Product", "Manufacturer"), "_",
+                         device.info("Product", "Model")])
+    device_dir = Path(directory, (device_id + "_DUMP").replace(" ", "_"))
+    device_dir.mkdir(exist_ok=True)
+    print()
+    print("Dumping", device_id)
 
-        for info_source in device_.INFO_EXTRACTION_CONFIG:
-            try:
-                args = info_source[0]
-            except IndexError:
-                args = ()
+    for info_source in device_.INFO_EXTRACTION_CONFIG:
+        try:
+            args = info_source[0]
+        except IndexError:
+            args = ()
 
-            filename = info_source[-1]
+        filename = info_source[-1]
 
-            output = device.shell_command(*args, return_output=True, as_list=False)
+        output = device.shell_command(*args, return_output=True, as_list=False)
 
-            with Path(device_dir, filename).open(mode="w", encoding="utf-8") as dump_file:
-                dump_file.write(output)
+        with Path(device_dir, filename).open(mode="w", encoding="utf-8") as dump_file:
+            dump_file.write(output)
 
-        print("Device dumped to", str(device_dir.resolve()))
+    print("Device dumped to", str(device_dir.resolve()))
