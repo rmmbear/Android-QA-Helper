@@ -37,66 +37,12 @@ ABI_TO_ARCH = {"armeabi"    :"32bit (ARM)",
                "mips"       :"32bit (Mips)",
                "mips64"     :"64bit (Mips64)",
               }
-
+ADB_VERSION = "Unknown"
+ADB_REVISION = "Unknown"
+AAPT_VERSION = "Unknown"
+AAPT_AVAILABLE = True
+EDITED_CONFIG = False
 HELPER_CONFIG_VARS = ["ADB", "AAPT"]
-
-def exe(executable, *args, return_output=False, as_list=True,
-        stdout_=sys.stdout):
-    """Run the provided executable with specified commands"""
-    if return_output:
-        cmd_out = subprocess.run((executable,) + args, stdout=subprocess.PIPE,
-                                 stderr=subprocess.STDOUT).stdout
-        cmd_out = cmd_out.decode("utf-8", "replace")
-
-        if as_list:
-            return cmd_out.splitlines()
-        return cmd_out
-
-    if stdout_ != sys.__stdout__:
-        cmd_out = subprocess.Popen((executable,) + args,
-                                   stdout=subprocess.PIPE,
-                                   stderr=subprocess.STDOUT)
-        lines = iter(cmd_out.stdout.readline, b'')
-        while cmd_out.poll() is None:
-            for line in lines:
-                stdout_.write(line.decode("utf-8", "replace"))
-    else:
-        subprocess.run((executable,) + args)
-
-
-def _check_adb(adb=ADB):
-    """Check if executable saved in ADB is and actual ADB executable
-    and extract its version.
-    """
-    import re
-    out = exe(adb, "version", return_output=True, as_list=False)
-
-    if not "android debug bridge" in out.lower():
-        return False
-
-    version_name = re.search("(?<=version ).*", out, re.I)
-    version_code = re.search("(?<=revision ).*", out, re.I)
-
-    if version_name:
-        globals()["ADB_VERSION"] = version_name.group().strip()
-    if version_code:
-        globals()["ADB_REVISION"] = version_code.group().strip()
-
-
-def _check_aapt(aapt=AAPT):
-    """Check if executable saved in AAPT is and actual AAPT executable
-    and extract its version.
-    """
-    import re
-    out = exe(aapt, "version", return_output=True, as_list=False)
-
-    if not "android asset packaging tool" in out.lower():
-        return False
-
-    version_name = re.search("(?<=android asset packaging tool, ).*", out, re.I)
-
-    if version_name:
-        globals()["AAPT_VERSION"] = version_name.group().strip()
 
 
 def _get_script_dir():
@@ -108,6 +54,156 @@ def _get_script_dir():
 
     path = os.path.realpath(path)
     return os.path.dirname(path)
+
+BASE = _get_script_dir()
+ADB = BASE + "/../adb/adb"
+AAPT = BASE + "/../aapt/aapt"
+CONFIG = BASE + "/../helper_config"
+CLEANER_CONFIG = BASE + "/../cleaner_config"
+COMPRESSION_DEFINITIONS = BASE + "/../compression_identifiers"
+
+if sys.platform == "win32":
+    AAPT += ".exe"
+    ADB += ".exe"
+
+
+def exe(executable, *args, return_output=False, as_list=True,
+        stdout_=sys.stdout):
+    """Run the provided executable with specified commands"""
+    try:
+        if return_output:
+            cmd_out = subprocess.run((executable,) + args, stdout=subprocess.PIPE,
+                                     stderr=subprocess.STDOUT).stdout
+            cmd_out = cmd_out.decode("utf-8", "replace")
+
+            if as_list:
+                return cmd_out.splitlines()
+            return cmd_out
+
+        if stdout_ != sys.__stdout__:
+            cmd_out = subprocess.Popen((executable,) + args,
+                                       stdout=subprocess.PIPE,
+                                       stderr=subprocess.STDOUT)
+            lines = iter(cmd_out.stdout.readline, b'')
+            while cmd_out.poll() is None:
+                for line in lines:
+                    stdout_.write(line.decode("utf-8", "replace"))
+        else:
+            subprocess.run((executable,) + args)
+    except PermissionError:
+        stdout_.write("ERROR: cannot execute the provided binary!\n")
+        stdout_.write(executable + "\n")
+        stdout_.write("Please check the integrity of the above file and restart this program.\n\n")
+        return ""
+
+def _check_adb():
+    """Check if executable saved in ADB is and actual ADB executable
+    and extract its version.
+    """
+    adb = ADB
+    adb_path_changed = False
+
+    if not Path(adb).is_file():
+        adb = shutil.which("adb")
+
+    if not adb:
+        print("ADB BINARY MISSING!")
+        print("Helper could not find ADB, which is required for this program.",
+              "Close this window, place the binary in:",
+              "'{}'".format(Path(BASE + "/../adb").resolve()),
+              "and delete helper config or enter its path below (use drag and",
+              "drop if your terminal allows it).")
+        adb = input(": ").strip(" '\"")
+        if not Path(adb).is_file():
+            print("Provided path is not a file!")
+            return False
+        print("\n")
+
+        adb = str(Path(adb).resolve())
+        adb_path_changed = True
+
+    import re
+    out = exe(adb, "version", return_output=True, as_list=False)
+
+    if "android debug bridge" not in out.lower():
+        print("CORRUPT ADB BINARY!")
+        print(adb)
+        print("The file is either not an executable binary or is not an ADB",
+              "binary. Replace the file with an actual ADB binary and edit",
+              "or remove the helper config file.")
+        return False
+
+    version_name = re.search("(?<=version ).*", out, re.I)
+    version_code = re.search("(?<=revision ).*", out, re.I)
+
+    if adb_path_changed:
+        globals()["ADB"] = adb
+        globals()["EDITED_CONFIG"] = True
+    if version_name:
+        globals()["ADB_VERSION"] = version_name.group().strip()
+        print("Using ADB version", ADB_VERSION)
+    if version_code:
+        globals()["ADB_REVISION"] = version_code.group().strip()
+
+    return True
+
+
+def _check_aapt(aapt=AAPT):
+    """Check if executable saved in AAPT is and actual AAPT executable
+    and extract its version.
+    """
+    aapt = AAPT
+    aapt_path_changed = False
+
+    if not Path(aapt).is_file():
+        aapt = shutil.which("aapt")
+
+    if not aapt:
+        print("AAPT BINARY MISSING!")
+        print("Helper could not find AAPT, which is required for certain",
+              "operations on apk files, including app installation. To load",
+              "the aapt, close this window, place the binary in:",
+              "'{}'".format(Path(BASE + "/../aapt").resolve()),
+              "and delete helper config. You can also enter its path below",
+              "(use drag-and-drop if your terminal allows it) or press enter",
+              "without typing anything to skip this.")
+        aapt = input(": ").strip(" '\"")
+        if aapt:
+            if not Path(aapt).is_file():
+                print("Provided path is not a file!")
+                return False
+
+            aapt = str(Path(aapt).resolve())
+            aapt_path_changed = True
+        else:
+            print("You chose not to load the aapt binary. Please note that",
+                  "some features will not be available because of this.")
+            globals()["AAPT"] = ""
+            globals()["AAPT_AVAILABLE"] = False
+            return
+        print("\n")
+
+    import re
+    out = exe(aapt, "version", return_output=True, as_list=False)
+
+    if "android asset packaging tool" not in out.lower():
+        print("CORRUPT AAPT BINARY!")
+        print(aapt)
+        print("The file is either not an executable binary or is not an AAPT",
+              "binary. Replace the file with an actual AAPT binary and edit",
+              "or remove the helper config file.")
+        return False
+
+    version_name = re.search("(?<=android asset packaging tool, v).*", out, re.I)
+
+    if aapt_path_changed:
+        globals()["AAPT"] = aapt
+        globals()["EDITED_CONFIG"] = True
+    if version_name:
+        globals()["AAPT_VERSION"] = version_name.group().strip()
+        print("Using AAPT version", AAPT_VERSION)
+
+    return True
 
 
 def _load_config(config):
@@ -136,86 +232,27 @@ def _save_config(config):
 
             config_file.write("".join([name, "=", str(value), "\n"]))
 
-ADB_VERSION = "Unknown"
-ADB_REVISION = "Unknown"
-AAPT_VERSION = "Unknown"
-AAPT_AVAILABLE = True
-EDITED_CONFIG = False
-BASE = _get_script_dir()
 
-ADB = Path(BASE + "/../adb/adb")
-AAPT = Path(BASE + "/../aapt/aapt")
-CONFIG = Path(BASE + "/../helper_config")
-
-if sys.platform == "win32":
-    AAPT += ".exe"
-    ADB += ".exe"
-
+# Create the necessary directories and files if they don't yet exist
 Path(ADB).parent.mkdir(exist_ok=True)
 Path(AAPT).parent.mkdir(exist_ok=True)
-if not CONFIG.is_file():
-    with CONFIG.open(mode="w", encoding="utf-8") as f:
-        passw
+if not Path(CONFIG).is_file():
+    with open(CONFIG, mode="w", encoding="utf-8") as f:
+        pass
+if not Path(CLEANER_CONFIG).is_file():
+    with open(CLEANER_CONFIG, mode="w", encoding="utf-8") as empty_file:
+        pass
+if not Path(COMPRESSION_DEFINITIONS).is_file():
+    with open(COMPRESSION_DEFINITIONS, mode="w", encoding="utf-8") as empty_file:
+        pass
 
-CONFIG = str(CONFIG.resolve())
+CONFIG = CONFIG
 _load_config(CONFIG)
 
-if not Path(ADB).is_file():
-    ADB = shutil.which("adb")
-
-    if not ADB:
-
-        print("\nADB BINARY MISSING!")
-        print("Helper could not find ADB, which is required for this program.",
-              "Close this window, place the binary in",
-              str(Path(BASE + "/../adb").resolve()), "and delete helper config",
-              "(located at:", CONFIG, ") or enter its path below")
-        user_path = input(": ")
-        user_path = user_path.strip("'\"")
-        if not Path(user_path).is_file():
-            print("Provided path is not a file!")
-            sys.exit()
-
-        ADB = Path(user_path)
-        EDITED_CONFIG = True
-
-if not Path(AAPT).is_file():
-    AAPT = shutil.which("aapt")
-
-    if not AAPT:
-        print("\nAAPT BINARY MISSING!")
-        print("Helper could not find AAPT, which is required for certain",
-              "operations on apk files, including app installation. To load",
-              "the aapt, close this window, place the binary in",
-              str(Path(BASE + "/../aapt").resolve()), "and delete helper config",
-              "(located at:", CONFIG, "). You can also enter its path below",
-              "or press enter without typing anything to skip this.")
-        user_path = input(": ").strip()
-        if user_path:
-            user_path = user_path.strip("'\"")
-            if not Path(user_path).is_file():
-                print("Provided path is not a file!")
-                sys.exit()
-
-            AAPT = Path(user_path)
-            EDITED_CONFIG = True
-        else:
-            print("You chose not to load the aapt binary. Please note that",
-                  "some features will not be available because of this.")
-            AAPT_AVAILABLE = False
-
-ADB = str(ADB)
-AAPT = str(AAPT)
-
-CLEANER_CONFIG = Path(BASE + "/../cleaner_config")
-if not CLEANER_CONFIG.is_file():
-    with CLEANER_CONFIG.open(mode="w", encoding="utf-8") as empty_file:
-        pass
-
-COMPRESSION_DEFINITIONS = Path(BASE + "/../compression_identifiers")
-if not COMPRESSION_DEFINITIONS.is_file():
-    with COMPRESSION_DEFINITIONS.open(mode="w", encoding="utf-8") as empty_file:
-        pass
+if not _check_adb():
+    sys.exit()
+if not _check_aapt() in (None, True):
+    sys.exit()
 
 CLEANER_CONFIG = str(CLEANER_CONFIG)
 COMPRESSION_DEFINITIONS = str(COMPRESSION_DEFINITIONS)
