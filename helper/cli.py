@@ -161,6 +161,7 @@ def batch_commands(device_list, args):
             main_.clean(device, args.clean)
 
         if args.device_dump:
+            device.device_init()
             from helper.tests import dump_devices
             dump_devices(device, args.device_dump)
 
@@ -218,7 +219,7 @@ def main(args=None):
               "unused devices.")
         return
 
-    if args.dump_devices:
+    if args.device_dump:
         print("Before continuing, please remember that ALL dumped files may",
               "contain sensitive data. Please pay special attention to the",
               "'getprop' file which almost certainly will contain data you do",
