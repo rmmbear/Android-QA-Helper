@@ -21,13 +21,14 @@ import shutil
 import subprocess
 from pathlib import Path
 
-
+# Program meta-info
 VERSION = "0.14"
-VERSION_DATE = "16-06-2017"
+VERSION_DATE = "17-06-2017"
 VERSION_STRING = " ".join(["Android QA Helper ver", VERSION, ":", VERSION_DATE,
                            ": Copyright (c) 2017 rmmbear"])
 SOURCE_STRING = "Check the source code at https://github.com/rmmbear/Android-QA-Helper"
 
+# Global config variables
 ABI_TO_ARCH = {"armeabi"    :"32bit (ARM)",
                "armeabi-v7a":"32bit (ARM)",
                "arm64-v8a"  :"64bit (ARM64)",
@@ -63,18 +64,53 @@ def exe(executable, *args, return_output=False, as_list=True,
         subprocess.run((executable,) + args)
 
 
-def get_script_dir():
+def _check_adb(adb=ADB):
+    """Check if executable saved in ADB is and actual ADB executable
+    and extract its version.
+    """
+    import re
+    out = exe(adb, "version", return_output=True, as_list=False)
+
+    if not "android debug bridge" in out.lower():
+        return False
+
+    version_name = re.search("(?<=version ).*", out, re.I)
+    version_code = re.search("(?<=revision ).*", out, re.I)
+
+    if version_name:
+        globals()["ADB_VERSION"] = version_name.group().strip()
+    if version_code:
+        globals()["ADB_REVISION"] = version_code.group().strip()
+
+
+def _check_aapt(aapt=AAPT):
+    """Check if executable saved in AAPT is and actual AAPT executable
+    and extract its version.
+    """
+    import re
+    out = exe(aapt, "version", return_output=True, as_list=False)
+
+    if not "android asset packaging tool" in out.lower():
+        return False
+
+    version_name = re.search("(?<=android asset packaging tool, ).*", out, re.I)
+
+    if version_name:
+        globals()["AAPT_VERSION"] = version_name.group().strip()
+
+
+def _get_script_dir():
     """"""
     if getattr(sys, 'frozen', False):
         path = os.path.abspath(sys.executable)
     else:
-        path = inspect.getabsfile(get_script_dir)
+        path = inspect.getabsfile(_get_script_dir)
 
     path = os.path.realpath(path)
     return os.path.dirname(path)
 
 
-def load_config(config):
+def _load_config(config):
     """"""
     with open(config, mode="r", encoding="utf-8") as config_file:
         for line in config_file.readlines():
@@ -92,7 +128,7 @@ def load_config(config):
             globals()[name] = value
 
 
-def save_config(config):
+def _save_config(config):
     """"""
     with open(config, mode="w", encoding="utf-8") as config_file:
         for name in HELPER_CONFIG_VARS:
@@ -100,10 +136,12 @@ def save_config(config):
 
             config_file.write("".join([name, "=", str(value), "\n"]))
 
-
+ADB_VERSION = "Unknown"
+ADB_REVISION = "Unknown"
+AAPT_VERSION = "Unknown"
 AAPT_AVAILABLE = True
 EDITED_CONFIG = False
-BASE = get_script_dir()
+BASE = _get_script_dir()
 
 ADB = Path(BASE + "/../adb/adb")
 AAPT = Path(BASE + "/../aapt/aapt")
@@ -117,10 +155,10 @@ Path(ADB).parent.mkdir(exist_ok=True)
 Path(AAPT).parent.mkdir(exist_ok=True)
 if not CONFIG.is_file():
     with CONFIG.open(mode="w", encoding="utf-8") as f:
-        pass
+        passw
 
 CONFIG = str(CONFIG.resolve())
-load_config(CONFIG)
+_load_config(CONFIG)
 
 if not Path(ADB).is_file():
     ADB = shutil.which("adb")
@@ -183,4 +221,4 @@ CLEANER_CONFIG = str(CLEANER_CONFIG)
 COMPRESSION_DEFINITIONS = str(COMPRESSION_DEFINITIONS)
 
 if EDITED_CONFIG:
-    save_config(CONFIG)
+    _save_config(CONFIG)
