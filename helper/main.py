@@ -4,7 +4,7 @@ from pathlib import Path
 from time import strftime, sleep
 
 import helper as helper_
-from helper.apk import get_app_name
+from helper import apk
 
 def install(device, *items, stdout_=sys.stdout):
     """Install apps.
@@ -16,7 +16,7 @@ def install(device, *items, stdout_=sys.stdout):
 
     for item in items:
         if item[-3:].lower() == "apk":
-            apk_list.append(item)
+            apk_list.append(apk.App(item))
 
         if item[-3:].lower() == "obb":
             obb_list.append(item)
@@ -44,12 +44,11 @@ def install_apks_only(device, apk_list, stdout_=sys.stdout):
     app_failure = []
 
     for apk_file in apk_list:
-        app_name = get_app_name(apk_file, stdout_=stdout_)
-        stdout_.write(" ".join(["\nINSTALLING:", app_name, "\n"]))
+        stdout_.write(" ".join(["\nINSTALLING:", apk_file.app_name, "\n"]))
         stdout_.write("Your device may ask you to confirm this!\n")
 
-        if not install_application(device, apk_file, app_name, stdout_=stdout_):
-            app_failure.append(app_name)
+        if not install_application(device, apk_file, stdout_=stdout_):
+            app_failure.append(apk_file.app_name)
 
     if len(apk_list) > 1:
         stdout_.write(
@@ -63,28 +62,37 @@ def install_apks_only(device, apk_list, stdout_=sys.stdout):
 
 def install_with_obbs(device, apk_file, obb_list, stdout_=sys.stdout):
     """"""
-    app_name = get_app_name(apk_file, stdout_=stdout_)
-
-    stdout_.write(" ".join(["\n", "INSTALLING:", app_name, "\n"]))
+    stdout_.write(" ".join(["\n", "INSTALLING:", apk_file.app_name, "\n"]))
     stdout_.write("Your device may ask you to confirm this!\n")
 
-    if not install_application(device, apk_file, app_name, stdout_=stdout_):
+    if not install_application(device, apk_file, stdout_=stdout_):
         return False
 
-    stdout_.write(" ".join(["\nCOPYING OBB FILES FOR:", app_name, "\n"]))
-    prepare_obb_dir(device, app_name)
+    if apk_file.app_name.startswith("Unknown"):
+        stdout_.write("ERROR: Unknown app name, cannot push obb files!\n")
+        return False
+
+    stdout_.write(" ".join(["\nCOPYING OBB FILES FOR:", apk_file.app_name, "\n"]))
+    prepare_obb_dir(device, apk_file.app_name)
     for obb_file in obb_list:
-        if not push_obb(device, obb_file, app_name, stdout_=stdout_):
+        if not push_obb(device, obb_file, apk_file.app_name, stdout_=stdout_):
             stdout_.write("ERROR: Failed to copy " + obb_file + "\n")
             return False
-    stdout_.write("\nSuccesfully installed {}!\n".format(app_name))
+    stdout_.write("\nSuccesfully installed {}!\n".format(apk_file.app_name))
 
 
-def install_application(device, apk_file, app_name,
-                        install_location="automatic", stdout_=sys.stdout):
+def install_application(device, apk_file, install_location="automatic",
+                        stdout_=sys.stdout):
     """Install an application from a local apk file."""
     possible_install_locations = {"automatic":"", "external":"-s",
                                   "internal":"-f"}
+
+    if apk_file.app_name.startswith("Unknown"):
+        stdout_.write("WARNING: This app does not appear to be a valid .apk archive\n")
+        stdout_.write(" ".join([
+            "Helper will attempt to install it, but cannot verify its status",
+            "afterwards. This also makes installation with obb files",
+            "impossible!\n"]))
 
     if install_location not in possible_install_locations:
         raise ValueError(" ".join(["Function received", install_location,
@@ -92,12 +100,11 @@ def install_application(device, apk_file, app_name,
                                    "locations: 'automatic', 'external',",
                                    "'internal'"]))
 
-    apk_file = apk_file.strip("\"'")
-    apk_name = Path(apk_file).name
-    destination = ("/data/local/tmp/" + apk_name).replace(" ", "_")
+    apk_filename = Path(apk_file.host_path).name
+    destination = ("/data/local/tmp/helper_" + apk_filename).replace(" ", "_")
 
     stdout_.write("Copying the apk file to device...\n")
-    device.adb_command("push", apk_file, destination, stdout_=stdout_)
+    device.adb_command("push", apk_file.host_path, destination, stdout_=stdout_)
 
     if not device.is_file(destination):
         stdout_.write("ERROR: Could not copy apk file to device\n")
@@ -106,15 +113,14 @@ def install_application(device, apk_file, app_name,
     available_packages = device.shell_command("pm", "list", "packages",
                                               return_output=True,
                                               as_list=False)
-    if app_name in available_packages:
+    if apk_file.app_name in available_packages:
         stdout_.write(" ".join(["WARNING: Different version of the app",
                                 "already installed\n"]))
-        if not _clean_uninstall(device, app_name, app_name=True,
-                                stdout_=stdout_):
+        if not _clean_uninstall(device, apk_file, stdout_=stdout_):
             stdout_.write("ERROR: Could not uninstall the app!\n")
             return False
 
-    stdout_.write("Installing {}...\n".format(app_name))
+    stdout_.write("Installing {}...\n".format(apk_file.display_name))
     stdout_.flush()
 
     destination = '"{}"'.format(destination)
@@ -127,7 +133,7 @@ def install_application(device, apk_file, app_name,
                                               return_output=True,
                                               as_list=False)
 
-    if app_name not in available_packages:
+    if apk_file.app_name not in available_packages:
         stdout_.write("ERROR: App could not be installed!\n")
         return False
 
@@ -166,7 +172,7 @@ def push_obb(device, obb_file, app_name, stdout_=sys.stdout):
                          "".join(['"', obb_target, '"']),
                          stdout_=stdout_)
 
-    if device.is_file("".join(['"', obb_target, '"'])):
+    if device.is_file(obb_target):
         return True
 
     if device.status != "device":
@@ -255,8 +261,8 @@ def record(device, output=None, force=False, stdout_=sys.stdout):
     if not force:
         stdout_.write(
             "".join(["Helper will record your device's screen (audio is not ",
-                     "captured). The recording will stop after pressing ",
-                     "'ctrl+c', or if 3 minutes have elapsed. Recording will ",
+                     "captured). The recording will stop if 'ctrl+c' is",
+                     "pressed or if 3 minutes have elapsed. Recording will ",
                      "be then saved to:\n", output, "\n"]))
         try:
             input("Press enter whenever you are ready to record.\n")
@@ -309,35 +315,40 @@ def pull_traces(device, output=None, stdout_=sys.stdout):
     return False
 
 
-def _clean_uninstall(device, target, app_name=False, check_packages=True,
-                     clear_data=False, stdout_=sys.stdout):
+def _clean_uninstall(device, apk_file, check_packages=True, clear_data=False,
+                     stdout_=sys.stdout):
     """Uninstall an app from specified device. Target can be an app name
     or a path to apk file -- by default it will check if target is a
     file, and if so it will attempt to extract app name from it.
     To disable that, set "app_name" to True.
     """
-    if Path(target).is_file() and not app_name:
-        target = get_app_name(target, stdout_=stdout_)
+    if isinstance(apk_file, str):
+        display_name = apk_file
+        app_name = apk_file
+    else:
+        display_name = apk_file.display_name
+        app_name = apk_file.app_name
 
     if clear_data:
-        stdout_.write("".join(["Clearing application data: ", target, "... "]))
+        stdout_.write("".join(["Clearing application data: ",
+                               display_name, "... "]))
     else:
-        stdout_.write("".join(["Uninstalling ", target, "... "]))
+        stdout_.write("".join(["Uninstalling ", display_name, "... "]))
 
     stdout_.flush()
     if check_packages:
         preinstall_log = device.shell_command("pm", "list", "packages",
                                               return_output=True,
                                               as_list=False).strip()
-        if target not in preinstall_log:
+        if app_name not in preinstall_log:
             stdout_.write("ERROR: App was not found\n")
             return False
 
     if clear_data:
-        uninstall_log = device.shell_command("pm", "clear", target,
+        uninstall_log = device.shell_command("pm", "clear", app_name,
                                              return_output=True)
     else:
-        uninstall_log = device.adb_command("uninstall", target,
+        uninstall_log = device.adb_command("uninstall", app_name,
                                            return_output=True)
     if uninstall_log[-1].strip() != "Success":
         if device.status != "device":
@@ -422,7 +433,6 @@ CLEANER_OPTIONS = {"remove"           :(_clean_remove,     1, [False]),
                    "replace"          :(_clean_replace,    2, []),
                    "uninstall"        :(_clean_uninstall,  1, []),
                    "clear_data"       :(_clean_uninstall,  1, [False,
-                                                               False,
                                                                True])
                   }
 
