@@ -194,6 +194,13 @@ def main(args=None):
         helper_gui.main()
         return
 
+    for output_path in (args.device_dump, args.pull_traces, args.record):
+        if output_path is not None:
+            if not Path(output_path).is_dir():
+                print("ERROR: The provided path does not point to an existing directory!")
+                return False
+
+
     # ^-functionality not requiring initialized devices
     # v-the opposite
 
