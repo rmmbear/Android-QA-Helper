@@ -145,7 +145,6 @@ def regular_commands(device, args):
                 print(filepath)
                 return False
 
-        device.device_init()
         main_.install(device, *args.install)
 
 
@@ -198,7 +197,7 @@ def main(args=None):
     # ^-functionality not requiring initialized devices
     # v-the opposite
 
-    using_batch_commands = not (bool(args.pull_traces) or bool(args.record))
+    using_batch_commands = not (bool(args.pull_traces) or bool(args.record) or bool(args.install))
 
     if not device_._get_devices():
         print("No devices found!")
