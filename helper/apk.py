@@ -25,26 +25,6 @@ def aapt_command(*args, **kwargs):
         sys.exit()
 
 
-def get_app_name(apk_file, stdout_=sys.stdout):
-    """Extract app name of the provided apk, from its manifest file.
-    Return name if it is found, an empty string otherwise.
-    """
-    app_dump = aapt_command(
-        "dump", "badging", apk_file, return_output=True, as_list=False)
-    app_name = re.search("(?<=name=')[^']*", app_dump)
-
-    if app_name:
-        return app_name.group()
-
-    app_name = "UNKNOWN APP NAME (" + Path(apk_file).name + ")"
-    stdout_.write("ERROR: Unknown app name\n")
-    stdout_.write(
-        " ".join(["Could not extract app name from the provided apk file:\n"]))
-    stdout_.write(apk_file + "\n")
-    stdout_.write("It may not be a valid apk archive.\n")
-    return app_name
-
-
 class App:
     def __init__(self, apk_file):
 
@@ -68,7 +48,7 @@ class App:
 
 
     def _from_device(self, device, limited_init=True):
-        raise NotImplementedError("")
+        raise NotImplementedError()
         dump = device.shell_command("dumpsys", "package", self.app_name,
                                     return_output=True, as_list=False)
 
@@ -102,6 +82,11 @@ class App:
         """Load app data from a local apk file."""
         dump = aapt_command("dump", "badging", self.host_path,
                             return_output=True, as_list=False)
+
+        if "error: dump failed" in dump.lower():
+            unknown = "Unknown! ({})".format(Path(self.host_path).name)
+            self.app_name = unknown
+            self.display_name = unknown
 
         search_group = {
             "app_name" : "(?<=name\\=\\')[^\\']*",
