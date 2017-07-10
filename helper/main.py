@@ -87,18 +87,25 @@ def install_application(device, apk_file, install_location="automatic",
     possible_install_locations = {"automatic":"", "external":"-s",
                                   "internal":"-f"}
 
+    if install_location not in possible_install_locations:
+        raise ValueError(" ".join(["Function received", install_location,
+                                   "but knows only the following install",
+                                   "locations: 'automatic', 'external',",
+                                   "'internal'"]))
+
     if apk_file.app_name.startswith("Unknown"):
         stdout_.write("WARNING: This app does not appear to be a valid .apk archive\n")
         stdout_.write(" ".join([
             "Helper will attempt to install it, but cannot verify its status",
             "afterwards. This also makes installation with obb files",
             "impossible!\n"]))
-
-    if install_location not in possible_install_locations:
-        raise ValueError(" ".join(["Function received", install_location,
-                                   "but knows only the following install",
-                                   "locations: 'automatic', 'external',",
-                                   "'internal'"]))
+    else:
+        can_be_installed = apk_file.can_be_installed(device)
+        if not can_be_installed[0]:
+            stdout_.write("This application cannot be installed, because:\n")
+            for reason in can_be_installed[1]:
+                stdout_.write(reason + "\n")
+            return False
 
     apk_filename = Path(apk_file.host_path).name
     destination = ("/data/local/tmp/helper_" + apk_filename).replace(" ", "_")
