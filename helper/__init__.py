@@ -23,7 +23,7 @@ from pathlib import Path
 
 # Program meta-info
 VERSION = "0.14"
-VERSION_DATE = "18-06-2017"
+VERSION_DATE = "10-07-2017"
 VERSION_STRING = " ".join(["Android QA Helper ver", VERSION, ":", VERSION_DATE,
                            ": Copyright (c) 2017 rmmbear"])
 SOURCE_STRING = "Check the source code at https://github.com/rmmbear/Android-QA-Helper"
@@ -236,15 +236,9 @@ def _save_config(config):
 # Create the necessary directories and files if they don't yet exist
 Path(ADB).parent.mkdir(exist_ok=True)
 Path(AAPT).parent.mkdir(exist_ok=True)
-if not Path(CONFIG).is_file():
-    with open(CONFIG, mode="w", encoding="utf-8") as f:
-        pass
-if not Path(CLEANER_CONFIG).is_file():
-    with open(CLEANER_CONFIG, mode="w", encoding="utf-8") as empty_file:
-        pass
-if not Path(COMPRESSION_DEFINITIONS).is_file():
-    with open(COMPRESSION_DEFINITIONS, mode="w", encoding="utf-8") as empty_file:
-        pass
+Path(CONFIG).touch(exist_ok=True)
+Path(CLEANER_CONFIG).touch(exist_ok=True)
+Path(COMPRESSION_DEFINITIONS).touch(exist_ok=True)
 
 CONFIG = CONFIG
 _load_config(CONFIG)
