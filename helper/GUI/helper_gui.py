@@ -335,20 +335,23 @@ class MainWin(QtWidgets.QMainWindow):
 
     def _scan_devices(self):
         # list of serial ids of connected devices
-        connected_serials = [pair[0] for pair in device_._get_devices(stdout_=self.stdout_container) if pair[1] == 'device']
+        connected_serials = {device.serial: device for device in device_.get_devices(stdout_=self.stdout_container, initialize=False)}
+
+        # TODO: this code replaces existing device tabs with identical tab every time it is fired
+        # whoops
 
         for device_serial in self.gui_devices:
             # device known and tab initialized -- show the tab if hidden (index below 0)
             if device_serial in connected_serials:
                 if self.ui.device_container.indexOf(self.gui_devices[device_serial]['tab']) < 0:
                     self.device_connected.emit(self.gui_devices[device_serial]['device'])
-                connected_serials.remove(device_serial)
+                connected_serials.pop(device_serial)
             # tab's device not connected, hide the tab if shown (index above 0)
             elif self.ui.device_container.indexOf(self.gui_devices[device_serial]['tab']) >= 0:
                 self.device_disconnected.emit(self.gui_devices[device_serial]['device'])
 
         for device_serial in connected_serials:
-            device = device_.Device(device_serial, 'device')
+            device = connected_serials[device_serial]
             self.new_device_found.emit(device)
 
         self.device_scan_ended.emit()
@@ -360,6 +363,7 @@ class MainWin(QtWidgets.QMainWindow):
 
 
     def add_new_device(self, device):
+        device.device_init()
         model = device.info("Product", "Model")
         if model is None:
             model = "Unknown model"
@@ -368,8 +372,8 @@ class MainWin(QtWidgets.QMainWindow):
             manufacturer = "Unknown manufacturer"
 
         tab_name = " ".join([manufacturer, "--", model])
-        self.stdout_container.write(" ".join(["Initializing connection with",
-                                              tab_name]))
+        #self.stdout_container.write(" ".join(["Initializing connection with",
+        #                                      tab_name]))
         print(tab_name, "found, adding new tab")
 
         new_tab = DeviceTab(device)
@@ -417,8 +421,8 @@ class MainWin(QtWidgets.QMainWindow):
         # spam prevention
         if text in blacklist:
             return False
-        #if text == self.last_console_line:
-        #    return False
+        if text == self.last_console_line:
+            return False
 
         self.last_console_line = text
         text = "".join(["[", strftime("%H:%M:%S"), "] ", text])
