@@ -71,12 +71,12 @@ def _get_devices(stdout_=sys.stdout):
     """
     device_list = []
 
-    device_specs = adb_command("devices", return_output=True)
+    device_specs = adb_command("devices", return_output=True, as_list=True)
     # Check for unexpected output
     # if such is detected, print it and return an empty list
     if device_specs:
         first_line = device_specs.pop(0).strip()
-        if first_line != "List of devices attached":
+        if first_line.lower() != "list of devices attached":
             stdout_.write(first_line + "\n")
             if device_specs:
                 stdout_.write("\n".join(device_specs))
@@ -471,6 +471,7 @@ class InfoSpec:
     def run(self, device, source):
         """"""
         value_container = self.get_info_variable_container(device)
+
         try:
             exists = bool(value_container[self.var_name])
         except KeyError:
