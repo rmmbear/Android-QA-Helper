@@ -353,11 +353,18 @@ def _clean_uninstall(device, apk_file, check_packages=True, clear_data=False,
 
     if clear_data:
         uninstall_log = device.shell_command("pm", "clear", app_name,
-                                             return_output=True)
+                                             return_output=True,
+                                             as_list=False).strip()
     else:
         uninstall_log = device.adb_command("uninstall", app_name,
-                                           return_output=True)
-    if uninstall_log[-1].strip() != "Success":
+                                           return_output=True,
+                                           as_list=False).strip()
+
+    # TODO: Use a better error/success detection method
+    # - check if the app has been removed from list of available packages in pm
+    # - don't know what to do for data cleaning though
+
+    if uninstall_log.lower() != "success":
         if device.status != "device":
             stdout_.write("ERROR: Device has been suddenly disconnected!\n")
             return False
@@ -383,6 +390,11 @@ def _clean_remove(device, target, recursive=False, stdout_=sys.stdout):
     stdout_.flush()
     result = device.shell_command(command, target, return_output=True,
                                   as_list=False).strip()
+
+    # TODO: Use a better error/success detection method
+    # - use the device.is_type methods here
+
+    # TODO: fix the mixed output type
     if not result:
         if device.status != "device":
             stdout_.write("ERROR: Device has been suddenly disconnected!\n")
