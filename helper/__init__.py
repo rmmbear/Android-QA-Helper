@@ -23,7 +23,7 @@ from pathlib import Path
 
 # Program meta-info
 VERSION = "0.14"
-VERSION_DATE = "11-07-2017"
+VERSION_DATE = "14-07-2017"
 VERSION_STRING = " ".join(["Android QA Helper ver", VERSION, ":", VERSION_DATE,
                            ": Copyright (c) 2017 rmmbear"])
 SOURCE_STRING = "Check the source code at https://github.com/rmmbear/Android-QA-Helper"
@@ -96,6 +96,7 @@ def exe(executable, *args, return_output=False, as_list=True,
         stdout_.write("Please check the integrity of the above file and restart this program.\n\n")
         return ""
 
+
 def _check_adb():
     """Check if executable saved in ADB is and actual ADB executable
     and extract its version.
@@ -141,7 +142,6 @@ def _check_adb():
         globals()["EDITED_CONFIG"] = True
     if version_name:
         globals()["ADB_VERSION"] = version_name.group().strip()
-        print("Using ADB version", ADB_VERSION)
     if version_code:
         globals()["ADB_REVISION"] = version_code.group().strip()
 
@@ -201,7 +201,6 @@ def _check_aapt(aapt=AAPT):
         globals()["EDITED_CONFIG"] = True
     if version_name:
         globals()["AAPT_VERSION"] = version_name.group().strip()
-        print("Using AAPT version", AAPT_VERSION)
 
     return True
 
