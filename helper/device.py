@@ -1,6 +1,7 @@
 """"""
 import re
 import sys
+from pathlib import Path
 from collections import OrderedDict
 
 import helper as helper_
@@ -130,6 +131,7 @@ class Device:
 
         self.ext_storage = None
         self.anr_trace_path = None
+        self.installed_apps = ()
         self.available_commands = ()
         self.device_features = ()
         self._info = OrderedDict()
@@ -183,6 +185,7 @@ class Device:
         if self._status == "device":
             self.device_init()
 
+
     def __str__(self):
         """Return device's serial number."""
         return self.serial
@@ -221,8 +224,8 @@ class Device:
         if not index2:
             if isinstance(info_container, list):
                 return "\n".join(info_container)
-            else:
-                return info_container
+
+            return info_container
 
         info_container = info_container[index2]
         return ", ".join(info_container)
@@ -410,7 +413,7 @@ class Device:
         if manufacturer is None:
             manufacturer = "Unknown manufacturer"
 
-        os_ver = self.info("OS", "Android Version")
+        os_ver = self.info("OS", "Version")
         if os_ver is None:
             os_ver = "Unknown OS version"
 
@@ -421,6 +424,42 @@ class Device:
 
         stdout_.write(line1)
         stdout_.write(line2)
+
+
+    def extract_apk(self, app_name, out_dir=".", stdout_=sys.stdout):
+        """Extract an application's apk file."""
+
+        if not Path(out_dir).is_dir():
+            stdout_.write("ERROR: Specified path is not an existing directory!\n")
+            return False
+
+        if app_name not in self.installed_apps:
+            stdout_.write(app_name, "not in list of installed apps.\n")
+            return False
+
+        app_path = self.shell_command(
+            "pm", "path", app_name, return_output=True, as_list=False).strip()
+
+        package_line = re.search('(?<=package:).*', app_path)
+        if not package_line:
+            # this should not happen under normal circumstances
+            # but
+            stdout_.write("ERROR: Got no path from package manager!\n")
+            return False
+
+        app_path = package_line.group()
+
+        filename = Path(app_path).name
+        out_file = Path(out_dir, filename)
+
+        stdout_.write("Copying {}'s apk file...\n".format(app_name))
+        self.adb_command("pull", app_path, str(out_file), stdout_=stdout_)
+
+        if out_file.is_file():
+            return str(out_file.resolve())
+
+        stdout_.write("ERROR: The apk file could not be saved locally!\n")
+        return False
 
 
 class InfoSpec:
@@ -479,7 +518,6 @@ class InfoSpec:
 
         extracted = []
         for extraction_strategy in self.extraction_commands:
-            # 0 - command, 1 - *args, 2 - **kwargs
             if self.resolve_multiple_values == 'drop' and extracted:
                 break
 
@@ -599,7 +637,8 @@ class InfoSpec:
                     extracted_value = formatting_commands[1](*args, **kwargs)
 
                 else:
-                    extracted_value = extracted_value.__getattribute__(formatting_commands[1])(*args, **kwargs)
+                    extracted_value = extracted_value.__getattribute__(
+                        formatting_commands[1])(*args, **kwargs)
             except ValueError:
                 extracted_value = ''
 
@@ -859,7 +898,7 @@ INFO_EXTRACTION_CONFIG = {
     (("pm", "list", "packages"), (('as_list', False), ("return_output", True)), "installed_apps") :(
         InfoSpec(
             extraction_commands=(
-                (re.findall, ('(?<=package:).*', '$source')),),
+                (re.findall, ('((?<=package:).*?)\r', '$source')),),
             var_name='installed_apps', resolve_existing_values='replace'),
     ),
     (("wm", "size"), (('as_list', False), ("return_output", True)), "screen_size") :(
