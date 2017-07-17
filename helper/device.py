@@ -5,6 +5,7 @@ from pathlib import Path
 from collections import OrderedDict
 
 import helper as helper_
+import helper.apk as apk_
 
 def _load_known_compressions():
     with open(helper_.COMPRESSION_DEFINITIONS, mode="r", encoding="utf-8") as comps:
@@ -426,8 +427,13 @@ class Device:
         stdout_.write(line2)
 
 
-    def extract_apk(self, app_name, out_dir=".", stdout_=sys.stdout):
+    def extract_apk(self, app, out_dir=".", stdout_=sys.stdout):
         """Extract an application's apk file."""
+
+        if isinstance(app, apk_.App):
+            app_name = app.app_name
+        else:
+            app_name = app
 
         if not Path(out_dir).is_dir():
             stdout_.write("ERROR: Specified path is not an existing directory!\n")
@@ -443,7 +449,6 @@ class Device:
         package_line = re.search('(?<=package:).*', app_path)
         if not package_line:
             # this should not happen under normal circumstances
-            # but
             stdout_.write("ERROR: Got no path from package manager!\n")
             return False
 
