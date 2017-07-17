@@ -35,10 +35,14 @@ class App:
         self.display_name = ''
         self.version_name = ''
         self.version_code = ''
+        self.is_game = False
+
+        self.launchable_activity = ''
 
         # requirements
         self.target_sdk = ''
         self.min_sdk = ''
+        self.max_sdk = ''
         self.used_permissions = []
         self.used_features = []
         self.supported_abis = []
@@ -68,7 +72,7 @@ class App:
         if not limited_init:
             apk_path = device.shell_command("pm", "path", self.app_name,
                                             return_output=True, as_list=False)
-            apk_path = re.search("(?<=package:).*", apk_path)
+            apk_path = re.search("(?:package\\:)(.*)", apk_path)
 
             if apk_path:
                 self.device_path = apk_path.group().strip()
@@ -89,25 +93,28 @@ class App:
             self.display_name = unknown
 
         search_group = {
-            "app_name" : "(?<=name\\=\\')[^\\']*",
-            "display_name" : "(?<=application\\-label\\-en\\-GB\\:\\')[^\\']*",
-            "version_name" : "(?<=versionName\\=\\')[^\\']*",
-            "version_code" : "(?<=versionCode\\=\\')[^\\']*",
-            "min_sdk" : "(?<=sdkVersion\\:\\')[^\\']*",
-            "target_sdk" : "(?<=targetSdkVersion\\:\\')[^\\']*",
-            "supported_abis" : "(?<=native-code\\: ).*"
+            "app_name" : "(?:name\\=\\')([^\\']*)",
+            "display_name" : "(?:application\\:\\ label\\=\\')([^\\']*)",
+            "version_name" : "(?:versionName\\=\\')([^\\']*)",
+            "version_code" : "(?:versionCode\\=\\')([^\\']*)",
+            "min_sdk" : "(?:sdkVersion\\:\\')([^\\']*)",
+            "target_sdk" : "(?:targetSdkVersion\\:\\')([^\\']*)",
+            "max_sdk" : "(?:maxSdkVersion\\=\\')([^\\']*)",
+            "supported_abis" : "(?:native-code\\:\\ )(.*)",
+            "is_game" : "(application\\-isGame)",
+            "launchable_activity" : "(?:launchable\\-activity\\:\\ name=\\')([^\\']*)",
             }
 
         findall_group = {
-            "supported_textures" : "(?<=supports\\-gl\\-texture\\:\\')[^\\']*",
-            "used_permissions" : "(?<=uses\\-permission\\:\\ name\\=\\')[^\\']*",
-            "used_features" : "(?<=uses\\-feature\\:\\ name\\=\\')[^\\']*"
+            "supported_textures" : "(?:supports\\-gl\\-texture\\:\\')([^\\']*)",
+            "used_permissions" : "(?:name\\=\\')([^\\']*)(?:.*maxSdkVersion\\=\\')?([^\\']*)",
+            "used_features" : "(?:uses\\-feature\\:\\ name\\=\\')([^\\']*)"
             }
 
         for key, value in search_group.items():
             extracted = re.search(value, dump)
             if extracted:
-                self.__dict__[key] = extracted.group().strip()
+                self.__dict__[key] = extracted.group(1).strip()
 
         for key, value in findall_group.items():
             extracted = re.findall(value, dump)
@@ -119,7 +126,7 @@ class App:
 
 
     def can_be_installed(self, device):
-        """"""
+        """Check if specified device meets app's requirements."""
         well_can_it = True
         reasons = []
 
