@@ -428,7 +428,11 @@ class Device:
 
 
     def extract_apk(self, app, out_dir=".", stdout_=sys.stdout):
-        """Extract an application's apk file."""
+        """Extract an application's apk file.
+
+        To specify the application, provide either an app name or an
+        app object.
+        """
 
         if isinstance(app, apk_.App):
             app_name = app.app_name
@@ -464,6 +468,41 @@ class Device:
             return str(out_file.resolve())
 
         stdout_.write("ERROR: The apk file could not be saved locally!\n")
+        return False
+
+
+    def launch_app(self, app, stdout_=sys.stdout):
+        """Launch an app"""
+
+        intent = "".join([app.app_name, "/",app.launchable_activity])
+
+        launch_log = self.shell_command("am", "start", "-n", intent,
+                                        return_output=True, as_list=False)
+
+        #TODO: make error detection prettier
+        if "".join(["Starting: Intent { cmp=", intent, " }"]) in launch_log:
+            if "Error type" in launch_log:
+                stdout_.write("ERROR: App was not launched!\n")
+
+                if "".join(["Activity class {", intent, "} does not exist"]) in launch_log:
+                    stdout_.write("Either the app is not installed or the launch activity does not exist\n")
+                    stdout_.write("Intent: {}\n".format(intent))
+                else:
+                    stdout_.write("AM LOG:\n{}\n".format(re.search("(?:Error type [0-9]*)(.*)", launch_log, re.DOTALL).group(1)))
+            elif "Activity not started, its current task has been brought to the front" in launch_log:
+                stdout_.write("App already running, bringing it to front.\n")
+                return True
+            else:
+                stdout_.write("App appears to have been succesfully launched.\n")
+                return True
+        else:
+            if self.status != "device":
+                stdout_.write("ERROR: Device was suddenly disconnected!\n")
+            else:
+                stdout_.write("ERROR: Unknown error!\n")
+                if launch_log:
+                    stdout_.write("AM LOG:\n{}\n".format(launch_log))
+
         return False
 
 
