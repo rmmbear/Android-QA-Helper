@@ -7,16 +7,46 @@ import helper as helper_
 
 AAPT = helper_.AAPT
 
-def aapt_command(*args, **kwargs):
+# last updated: 2017.07.19
+# https://developer.android.com/reference/android/Manifest.permission.html
+ANDROID_DANGEROUS_PERMISSIONS = """android.permission.ACCESS_COARSE_LOCATION
+android.permission.ACCESS_FINE_LOCATION
+com.android.voicemail.permission.ADD_VOICEMAIL
+android.permission.ANSWER_PHONE_CALLS
+android.permission.BODY_SENSORS
+android.permission.CALL_PHONE
+android.permission.CAMERA
+android.permission.GET_ACCOUNTS
+android.permission.PROCESS_OUTGOING_CALLS
+android.permission.READ_CALENDAR
+android.permission.READ_CALL_LOG
+android.permission.READ_CONTACTS
+android.permission.READ_EXTERNAL_STORAGE
+android.permission.READ_PHONE_NUMBERS
+android.permission.READ_PHONE_STATE
+android.permission.READ_SMS
+android.permission.RECEIVE_MMS
+android.permission.RECEIVE_SMS
+android.permission.RECEIVE_WAP_PUSH
+android.permission.RECORD_AUDIO
+android.permission.SEND_SMS
+android.permission.USE_SIP
+android.permission.WRITE_CALENDAR
+android.permission.WRITE_CALL_LOG
+android.permission.WRITE_CONTACTS
+android.permission.WRITE_EXTERNAL_STORAGE""".splitlines()
+
+
+def aapt_command(*args, stdout_=sys.stdout, **kwargs):
     """Execute an AAPT command, and return -- or don't -- its result."""
     try:
         return helper_.exe(AAPT, *args, **kwargs)
     except FileNotFoundError:
-        print("".join(["Helper expected AAPT to be located in '", AAPT,
-                       "' but could not find it.\n"]))
-        sys.exit("Please make sure the AAPT binary is in the specified path.")
+        stdout_.write("".join(["Helper expected AAPT to be located in '", AAPT,
+                               "' but could not find it.\n"]))
+        sys.exit()
     except (PermissionError, OSError):
-        print(
+        stdout_.write(
             " ".join(["Helper could not launch AAPT. Please make sure the",
                       "following path is correct and points to an actual AAPT",
                       "binary:", AAPT, "To fix this issue you may need to",
@@ -29,24 +59,25 @@ class App:
     def __init__(self, apk_file):
 
         #basic info
+        self.host_path = apk_file
         self.app_name = ''
-        self.host_path = ''
 
-        self.display_name = ''
-        self.version_name = ''
-        self.version_code = ''
+        self.display_name = 'Unknown'
+        self.version_name = 'Unknown'
+        self.version_code = 'Unknown'
         self.is_game = False
 
         self.launchable_activity = ''
 
         # requirements
-        self.target_sdk = ''
-        self.min_sdk = ''
-        self.max_sdk = ''
-        self.used_permissions = []
-        self.used_features = []
-        self.supported_abis = []
-        self.host_path = apk_file
+        self.min_sdk = '0'
+        self.max_sdk = '0'
+        self.target_sdk = '0'
+        self.used_permissions = None
+        self.used_implied_features = None
+        self.used_not_required_features = None
+        self.used_features = None
+        self.supported_abis = None
 
         self.from_file()
 
@@ -57,15 +88,15 @@ class App:
                                     return_output=True, as_list=False)
 
         search_group = {
-            "version_name" : "(?<=versionName\\=)[!-z]*",
-            "version_code" : "(?<=versionCode\\=)[!-z]*",
-            "target_sdk" : "(?<=targetSdkVersion\\=)[!-z]*"
+            "version_name" : "(?:versionName\\=)([!-z]*)",
+            "version_code" : "(?:versionCode\\=)([!-z]*)",
+            "target_sdk" : "(?:targetSdkVersion\\=)([!-z]*)"
             }
 
         for key, value in search_group.items():
             extracted = re.search(value, dump)
             if extracted:
-                self.__dict__[key] = extracted.group().strip()
+                self.__dict__[key] = extracted.group(1).strip()
 
         # not much can be read from the app while on device
         # so lets get the app to host and check it out!
@@ -107,8 +138,10 @@ class App:
 
         findall_group = {
             "supported_textures" : "(?:supports\\-gl\\-texture\\:\\')([^\\']*)",
-            "used_permissions" : "(?:name\\=\\')([^\\']*)(?:.*maxSdkVersion\\=\\')?([^\\']*)",
-            "used_features" : "(?:uses\\-feature\\:\\ name\\=\\')([^\\']*)"
+            "used_permissions" : "(?:uses\\-permission\\:\\ name\\=\\')([^\\']*)(?:.*maxSdkVersion\\=\\')?([^\\']*)",
+            "used_implied_features" : "(?:uses\\-implied\\-feature\\:\\ name\\=\\')([^\\']*)(?:.*reason\\=\\')?([^\\']*)",
+            "used_not_required_features" : "(?:uses\\-feature\\-not\\-required\\:\\ name\\=\\')([^\\']*)",
+            "used_features" : "(?:uses\\-feature\\:\\ name\\=\\')([^\\']*)",
             }
 
         for key, value in search_group.items():
@@ -125,16 +158,31 @@ class App:
             self.supported_abis = self.supported_abis.replace("'", "").strip().split()
 
 
-    def can_be_installed(self, device):
-        """Check if specified device meets app's requirements."""
-        well_can_it = True
+    def check_compatibility(self, device):
+        """Check if specified device meets app's requirements.
+
+        Although certain features might not be available, apps installed
+        on devices not possessing the required features will probably work.
+        Such apps cannot be installed using Google Play Store (and possibly
+        other such services) though.
+        """
+        compatible = True
         reasons = []
 
         # check if device uses a supported Android version
         device_sdk = device.info("OS", "API Level")
         if int(self.min_sdk) > int(device_sdk):
-            well_can_it = False
-            reasons.append("API level of at least {} is required but the device has {}".format(self.min_sdk, device_sdk))
+            compatible = False
+            reasons.append(" ".join(["API level of at least", self.min_sdk,
+                                    "is required but the device has",
+                                    device_sdk])
+                          )
+        if int(self.max_sdk) and device_sdk > int(self.max_sdk):
+            compatible = False
+            reasons.append(" ".join(["API level of at most", self.max_sdk,
+                                    "is allowed but the device has",
+                                    device_sdk])
+                          )
 
         # check if device uses supported abis
         uses_one_of_abis = False
@@ -143,13 +191,17 @@ class App:
                 uses_one_of_abis = True
 
         if not uses_one_of_abis:
-            well_can_it = False
-            reasons.append("Device does not use supported abis {}".format(self.supported_abis))
+            compatible = False
+            reasons.append("".join(["Device does not use supported abis (",
+                                    self.supported_abis, ")"])
+                          )
 
         # check if all features are available
         for feature in self.used_features:
             if feature not in device.device_features:
-                well_can_it = False
-                reasons.append("Feature '{}' not available on device".format(feature))
+                compatible = False
+                reasons.append(" ".join(["Feature", feature,
+                                        "not available on device"])
+                              )
 
-        return (well_can_it, reasons)
+        return (compatible, reasons)
