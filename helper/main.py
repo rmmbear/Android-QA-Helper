@@ -100,12 +100,12 @@ def install_application(device, apk_file, install_location="automatic",
             "afterwards. This also makes installation with obb files",
             "impossible!\n"]))
     else:
-        can_be_installed = apk_file.can_be_installed(device)
-        if not can_be_installed[0]:
-            stdout_.write("This application cannot be installed, because:\n")
-            for reason in can_be_installed[1]:
+        is_compatible = apk_file.check_compatibility(device)
+        if not is_compatible[0]:
+            stdout_.write("WARNING: This apk and device are not compatible!\n")
+            for reason in is_compatible[1]:
                 stdout_.write(reason + "\n")
-            return False
+
 
     apk_filename = Path(apk_file.host_path).name
     destination = ("/data/local/tmp/helper_" + apk_filename).replace(" ", "_")
@@ -367,12 +367,12 @@ def _clean_uninstall(device, apk_file, check_packages=True, clear_data=False,
     if uninstall_log.lower() != "success":
         if device.status != "device":
             stdout_.write("ERROR: Device has been suddenly disconnected!\n")
-            return False
         else:
             stdout_.write("ERROR: Unexpected error!\n")
             for line in uninstall_log:
                 stdout_.write(line + "\n")
-            return False
+
+        return False
 
     stdout_.write("Done!\n")
     return True
@@ -446,13 +446,12 @@ def _clean_replace(device, remote, local, stdout_=sys.stdout):
 #4 - additional args required by internal function
 # Note: Device object is required for all functions as the first argument
 
-                  #1                   #2                 #3  #4
-CLEANER_OPTIONS = {"remove"           :(_clean_remove,     1, [False]),
-                   "remove_recursive" :(_clean_remove,     1, [True]),
-                   "replace"          :(_clean_replace,    2, []),
-                   "uninstall"        :(_clean_uninstall,  1, []),
-                   "clear_data"       :(_clean_uninstall,  1, [False,
-                                                               True])
+                  #1                   #2                #3  #4
+CLEANER_OPTIONS = {"remove"           :(_clean_remove,    1, [False]),
+                   "remove_recursive" :(_clean_remove,    1, [True]),
+                   "replace"          :(_clean_replace,   2, []),
+                   "uninstall"        :(_clean_uninstall, 1, []),
+                   "clear_data"       :(_clean_uninstall, 1, [False, True])
                   }
 
 
