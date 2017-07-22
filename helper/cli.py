@@ -10,13 +10,7 @@ import helper.device as device_
 
 PARSER = ArgumentParser(prog="helper", usage="%(prog)s [-d <serial>] [options]")
 
-HELP_STR = """Use with other commands to specify command target. To select a
-device, simply pass its serial number as a value to this command. To get
-serial numbers of connected devices, use the '--info' command. Device must be
-specified if you want to record, install or pull traces while there are
-multiple devices connected to your PC."""
-PARSER.add_argument("-d", "--device", nargs=1, dest="device", help=HELP_STR,
-                    metavar="serial_no")
+
 PARSER_GROUP = PARSER.add_mutually_exclusive_group()
 
 HELP_STR = """Install an application or set of applications on a device.
@@ -40,9 +34,13 @@ PARSER_GROUP.add_argument("-r", "--record", nargs="?", const=".", default=None,
 HELP_STR = """Pull the dalvik vm stack traces / anr log file to specified
 location. If a location is not specified, the file will be saved to helper's
 directory."""
-PARSER_GROUP.add_argument("-t", "--pull_traces", nargs="?", const=".",
+PARSER_GROUP.add_argument("-t", "--pull-traces", nargs="?", const=".",
                           default=None, dest="pull_traces", help=HELP_STR,
                           metavar="destination")
+
+HELP_STR = """Extract the .apk file of an application installed on device."""
+PARSER_GROUP.add_argument("-e", "--extract-apk", nargs=1, dest="extract_apk",
+                          help=HELP_STR, metavar="app.name")
 
 HELP_STR = """Clean various files from a device. By default, this command
 removes only helper-created files, but further behavior can be customized with
@@ -66,11 +64,19 @@ PARSER_GROUP.add_argument("--gui", action="store_true", dest="gui",
 PARSER_GROUP.add_argument("--device-dump", nargs="?", const=".", default=None,
                           dest="device_dump", help=SUPPRESS)
 
+HELP_STR = """Use with other commands to specify command target. To select a
+device, simply pass its serial number as a value to this command. To get
+serial numbers of connected devices, use the '--info' command. Device must be
+specified if you want to record, install or pull traces while there are
+multiple devices connected to your PC."""
+PARSER.add_argument("-d", "--device-serial", nargs=1, dest="device", help=HELP_STR,
+                    metavar="serial_no")
+
 
 PARSER_NO_ARGS = PARSER.parse_args([])
 
 
-def pick_device(stdout_=sys.stdout, limit_init=()):
+def pick_device(stdout_=sys.stdout):
     """Ask the user to pick a device from list of currently connected
     devices. If there are no devices to choose from, it will return the
     sole connected device or None, if there are no devices at all.
@@ -106,30 +112,68 @@ def pick_device(stdout_=sys.stdout, limit_init=()):
         return device_list[user_choice]
 
 
+def record(device, output):
+    if not Path(output).is_dir():
+        print("Provided path does not point to an existing directory!")
+        print(output)
+        return False
+
+    destination = main_.record(device, output)
+    if destination:
+        print("Recorded video was saved to:", destination, sep="\n")
+        return destination
+
+    return False
+
+
+def install(device, apk_list):
+    for filepath in apk_list:
+        if not Path(filepath).is_file():
+            print("ERROR: Provided path does not point to an existing file:")
+            print(filepath)
+            return False
+
+    main_.install(device, *apk_list)
+
+
+def pull_traces(device, output):
+    if not Path(output).is_dir():
+        print("Provided path does not point to an existing directory!")
+        print(output)
+        return False
+
+    destination = main_.pull_traces(device, output)
+    if destination:
+        print("Traces file was saved to:")
+        print(destination)
+        return True
+
+    return False
+
+
+def clean(device, config_file):
+    if not Path(config_file).is_file():
+        print("Provided path does not point to an existing config file:")
+        print(config_file)
+        return False
+
+    device.device_init()
+    main_.clean(device, config_file)
+
+
 def regular_commands(device, args):
     """Set of commands that should not be carried out on more than
     one device at a time.
     """
     device.device_init()
     if args.pull_traces:
-        if not Path(args.pull_traces).is_dir():
-            print("Provided path does not point to an existing directory!\n",
-                  str(Path(args.pull_traces).resolve()), sep="")
-            return False
+        return pull_traces(device, args.pull_traces)
 
-        destination = main_.pull_traces(device, args.pull_traces)
-        if destination:
-            print("Traces file was saved to:", destination, sep="\n")
+    if args.extract_apk:
+        device.extract_apk(args.extract_apk[0])
 
     if args.record:
-        if not Path(args.record).is_dir():
-            print("Provided path does not point to an existing directory!\n",
-                  str(Path(args.record).resolve()), sep="")
-            return False
-
-        destination = main_.record(device, args.record)
-        if destination:
-            print("Recorded video was saved to:", destination, sep="\n")
+        return record(device, args.record)
 
     # install was initially in the batch commands function
     # but since they are not set up for concurrent execution, it doesn't
@@ -139,13 +183,7 @@ def regular_commands(device, args):
     # script could be used
 
     if args.install:
-        for filepath in args.install:
-            if not Path(filepath).is_file():
-                print("ERROR: Provided path does not point to an existing file:")
-                print(filepath)
-                return False
-
-        main_.install(device, *args.install)
+        return install(device, args.install)
 
 
 def batch_commands(device_list, args):
@@ -163,12 +201,7 @@ def batch_commands(device_list, args):
             device.print_full_info()
 
         if args.clean:
-            if not Path(args.clean).is_file():
-                print("Provided path does not point to an existing config file:",
-                      str(Path(args.clean).resolve()), sep="\n")
-                return False
-            device.device_init()
-            main_.clean(device, args.clean)
+            return clean(device, args.clean)
 
         if args.device_dump:
             device.device_init()
@@ -204,7 +237,10 @@ def main(args=None):
     # ^-functionality not requiring initialized devices
     # v-the opposite
 
-    using_batch_commands = not (bool(args.pull_traces) or bool(args.record) or bool(args.install))
+    using_batch_commands = not (bool(args.pull_traces) or \
+                           bool(args.record) or \
+                           bool(args.install) or \
+                           bool(args.extract_apk))
 
     if not device_._get_devices():
         print("No devices found!")
@@ -246,5 +282,5 @@ def main(args=None):
 
     if using_batch_commands:
         return batch_commands(connected_devices, args)
-    else:
-        return regular_commands(chosen_device, args)
+
+    return regular_commands(chosen_device, args)
