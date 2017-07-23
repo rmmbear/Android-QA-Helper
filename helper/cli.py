@@ -267,6 +267,9 @@ def main(args=None):
 
     chosen_device = None
     connected_devices = device_.get_devices(initialize=False)
+    for device in connected_devices:
+        print("".join(["Device with serial id '", device.serial,
+                       "' connected\n"]))
 
     if args.device:
         desired_device = args.device[0]
