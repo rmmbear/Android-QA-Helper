@@ -24,7 +24,7 @@ KNOWN_COMPRESSION_NAMES = {}
 _load_known_compressions()
 
 
-def adb_command(*args, check_server=True, **kwargs):
+def adb_command(*args, check_server=True, stdout_=sys.stdout, **kwargs):
     """Execute an ADB command, and return -- or don't -- its result.
 
     If check_server is true, function will first make sure that an ADB
@@ -36,11 +36,11 @@ def adb_command(*args, check_server=True, **kwargs):
 
         return helper_.exe(ADB, *args, **kwargs)
     except FileNotFoundError:
-        print("".join(["Helper expected ADB to be located in '", ADB,
-                       "' but could not find it.\n"]))
-        sys.exit("Please make sure the ADB binary is in the specified path.")
+        stdout_.write("".join(["Helper expected ADB to be located in '", ADB,
+                               "' but could not find it.\n"]))
+        sys.exit()
     except (PermissionError, OSError):
-        print(
+        stdout_.write(
             " ".join(["Helper could not launch ADB. Please make sure the",
                       "following path is correct and points to an actual ADB",
                       "binary:", ADB, "To fix this issue you may need to edit",
@@ -128,13 +128,16 @@ class Device:
     def __init__(self, serial, status='offline', limit_init=()):
         """"""
         self.serial = serial
-        self.limit_init = limit_init
+        self._extracted_info_groups = []
 
         self.ext_storage = None
+        self.secondary_storage = None
         self.anr_trace_path = None
+
         self.installed_apps = ()
-        self.available_commands = ()
         self.device_features = ()
+        self.available_commands = ()
+
         self._info = OrderedDict()
 
         info = [
@@ -184,7 +187,7 @@ class Device:
         self._status = status
 
         if self._status == "device":
-            self.device_init()
+            self.device_init(limit_init)
 
 
     def __str__(self):
@@ -220,7 +223,7 @@ class Device:
 
 
     def info(self, index1, index2=None):
-        """"""
+        """Fetch the string value for the given info ."""
         info_container = self._info[index1]
         if not index2:
             if isinstance(info_container, list):
@@ -232,15 +235,19 @@ class Device:
         return ", ".join(info_container)
 
 
-    def device_init(self, limit_init=None):
+    def device_init(self, limit_init=(), force_init=True):
         """Gather all the information."""
         # TODO: Implement ability to re-do the initialization
-        if not limit_init:
-            limit_init = self.limit_init
         if self.status == "device":
             for info_source, info_specs in INFO_EXTRACTION_CONFIG.items():
-                if limit_init and info_source[-1] not in limit_init:
+                source_name = info_source[-1]
+
+                if not force_init and source_name in self._extracted_info_groups:
                     continue
+
+                if limit_init and source_name not in limit_init:
+                    continue
+
                 try:
                     args = info_source[0]
                 except IndexError:
@@ -259,16 +266,16 @@ class Device:
 
                         info_object.run(self, source_output)
 
-            if self.anr_trace_path:
-                self.anr_trace_path = self.anr_trace_path[0]
-            if self.ext_storage:
-                self.ext_storage = self.ext_storage[0]
+                self._extracted_info_groups.append(source_name)
 
-            if self.device_features:
-                new_list = []
-                for item in self.device_features:
-                    new_list.append(item.strip())
-                self.device_features = new_list
+            # This kinda defeats the [urpose of the whole info config thing...
+            if isinstance(self.ext_storage, list):
+                self.ext_storage = self.ext_storage[0]
+            if isinstance(self.secondary_storage, list):
+                self.secondary_storage = self.secondary_storage[0]
+            if isinstance(self.anr_trace_path, list):
+                self.anr_trace_path = self.anr_trace_path[0]
+
 
             self.initialized = True
 
@@ -279,7 +286,7 @@ class Device:
         the specified type and whether the current user has the
         specified permissions.
 
-        You can check for read, write and execute permissions by
+        You can check for read, write and execute acccess by
         setting the respective check_* arguments to True. Function will
         return True only if all specified permissions are available and
         if the path does not point to a symlink or symlink_ok is set to
@@ -439,12 +446,8 @@ class Device:
         else:
             app_name = app
 
-        if not Path(out_dir).is_dir():
-            stdout_.write("ERROR: Specified path is not an existing directory!\n")
-            return False
-
         if app_name not in self.installed_apps:
-            stdout_.write(app_name, "not in list of installed apps.\n")
+            stdout_.write(" ".join([app_name, "not in list of installed apps.\n"]))
             return False
 
         app_path = self.shell_command(
@@ -474,7 +477,7 @@ class Device:
     def launch_app(self, app, stdout_=sys.stdout):
         """Launch an app"""
 
-        intent = "".join([app.app_name, "/",app.launchable_activity])
+        intent = "".join([app.app_name, "/", app.launchable_activity])
 
         launch_log = self.shell_command("am", "start", "-n", intent,
                                         return_output=True, as_list=False)
@@ -855,7 +858,7 @@ INFO_EXTRACTION_CONFIG = {
         InfoSpec(
             extraction_commands=(
                 (re.search, ('(?<=SECONDARY_STORAGE=).*', '$source')),),
-            var_name="secondary_storage")
+            var_name="secondary_storage"),
     ),
     (("ls", "/system/bin"), (('as_list', True), ("return_output", True)), "available_commands") :(
         InfoSpec(
@@ -936,7 +939,7 @@ INFO_EXTRACTION_CONFIG = {
                 ('function', str, (u"\u2714",)),)),
         InfoSpec(
             extraction_commands=(
-                (re.findall, ('(?<=feature:).*', '$source')),),
+                (re.findall, ('((?<=feature:).*?)\r', '$source')),),
             var_name='device_features'),
     ),
     (("pm", "list", "packages"), (('as_list', False), ("return_output", True)), "installed_apps") :(
