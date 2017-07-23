@@ -373,8 +373,7 @@ class Device:
 
         # if an info source is a key in whitelist, only the asociated values
         # will be returned from that group
-        group_whitelist = {"device_features" : ("device_features"),
-                          }
+        group_whitelist = {}
         indent = indent * " "
         group_list = []
         grouped_vars = {}
@@ -395,9 +394,12 @@ class Device:
                     if info_variable.var_dict_1 not in group_list:
                         group_list.append(info_variable.var_dict_1)
 
-                    value = self.info(info_variable.var_dict_1, info_variable.var_name)
-                    if not value:
-                        value = "Unknown"
+                    try:
+                        value = self.info(info_variable.var_dict_1, info_variable.var_name)
+                        if not value:
+                            value = "Unknown"
+                    except KeyError:
+                        value = "Unavailable"
 
                     line = "".join([info_variable.var_name, " : ", value])
 
