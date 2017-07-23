@@ -1,7 +1,7 @@
 """Main module combining operations on apks and devices"""
 import sys
 from pathlib import Path
-from time import strftime, sleep
+from time import strftime
 
 import helper as helper_
 from helper import apk
@@ -190,57 +190,7 @@ def push_obb(device, obb_file, app_name, stdout_=sys.stdout):
     return False
 
 
-def record_start(device, name=None, stdout_=sys.stdout):
-    """Start recording on specified device. Path of the created video
-    is returned after the recording has stopped.
-
-    If a name is not given, generate a name from current date and time.
-    """
-    filename = "screenrecord_" + strftime("%Y.%m.%d_%H.%M.%S") + ".mp4"
-    if name:
-        filename = name
-    remote_recording = device.ext_storage + "/" + filename
-
-    try:
-        device.shell_command("screenrecord", "--verbose", remote_recording,
-                             stdout_=stdout_)
-    except KeyboardInterrupt:
-        pass
-    stdout_.write("\nRecording stopped.\n")
-    # for some reason on Windows the try block above is not enough
-    # an odd fix for an odd error
-    try:
-        # we're waiting for the video to be fully saved to device's storage
-        # there must be a better way of doing this...
-        # TODO: FIX THIS
-        sleep(1)
-    except KeyboardInterrupt:
-        sleep(1)
-    return remote_recording
-
-
-def record_copy(device, remote_recording, output, stdout_=sys.stdout):
-    """Start copying recorded video from device's storage to disk.
-    """
-    if not device.is_file(remote_recording):
-        if device.status != "device":
-            stdout_.write("ERROR: Device has been suddenly disconnected!\n")
-        else:
-            stdout_.write("ERROR: The file was not found on device!\n")
-        return False
-
-    filename = Path(remote_recording).name
-    filename = device.info("Product", "Model") + "_" + filename
-    output = str(Path(Path(output).resolve(), filename))
-
-    device.adb_command("pull", remote_recording, output, stdout_=stdout_)
-    if Path(output).is_file():
-        return output
-
-    return False
-
-
-def record(device, output=None, force=False, stdout_=sys.stdout):
+def record(device, output=".", name=None, silent=False, stdout_=sys.stdout):
     """Start recording device's screen.
     Recording can be stopped by either reaching the time limit, or
     pressing ctrl+c. After the recording has stopped, the helper
@@ -250,44 +200,60 @@ def record(device, output=None, force=False, stdout_=sys.stdout):
     # existence of "screenrecord" is dependent on Android version, but let's
     # look for command instead, just to be safe
     if not 'screenrecord' in device.available_commands:
-        android_ver = device.info("OS", "Version")
-        api_level = device.info("OS", "API Level")
         stdout_.write(
             " ".join(["This device's shell does not have the 'screenrecord'",
-                      "command. It is available on all devices with Android",
-                      "4.4 or higher (API level 19 or higher). Your device",
-                      "has Android", android_ver, "API level", api_level,
-                      "\n"]))
+                      "command. It should be available on all devices with",
+                      "Android 4.4 or higher (API level 19 or higher). Your",
+                      "device has Android", device.info("OS", "Version"),
+                      "(API level", device.info("OS", "API Level"), ")\n"]))
         return False
 
-    if not output:
-        output = str(Path().resolve())
-    else:
-        output = str(Path(output).resolve())
-
-    if not force:
+    if not silent:
         stdout_.write(
-            "".join(["Helper will record your device's screen (audio is not ",
-                     "captured). The recording will stop if 'ctrl+c' is",
-                     "pressed or if 3 minutes have elapsed. Recording will ",
-                     "be then saved to:\n", output, "\n"]))
+            " ".join(["Helper will record your device's screen (audio is not",
+                      "captured). Press 'ctrl + c' to stop recording.",
+                      "Recording will be automatically stopped after three",
+                      "minutes.\n"]))
         try:
             input("Press enter whenever you are ready to record.\n")
         except KeyboardInterrupt:
             stdout_.write("\nRecording canceled!\n")
             return False
 
-    remote_recording = record_start(device, stdout_=stdout_)
-    if not remote_recording:
-        stdout_.write("ERROR: Unexpected error! Could not record\n")
+    if name:
+        filename = name
+    else:
+        filename = "".join([device.info("Product", "Model"), "_screenrecord_",
+                            strftime("%Y.%m.%d_%H.%M.%S"), ".mp4"])
+
+    remote_recording = "".join([device.ext_storage + "/" + filename])
+
+    try:
+        device.shell_command("screenrecord", "--verbose", remote_recording,
+                             stdout_=stdout_)
+    except KeyboardInterrupt:
+        pass
+    stdout_.write("\nRecording stopped.\n")
+    # for some reason on Windows the try block above is not enough
+
+    # maybe now it's fine?
+    device.reconnect(stdout_=stdout_)
+
+    if not device.is_file(remote_recording):
+        if device.status != "device":
+            stdout_.write("ERROR: Device has been suddenly disconnected!\n")
+        else:
+            stdout_.write("ERROR: Recorded video was not found on device!\n")
         return False
 
-    copied = record_copy(device, remote_recording, output, stdout_=stdout_)
-    if not copied:
-        stdout_.write("ERROR: Could not copy recorded video!\n")
-        return False
+    output = str(Path(output) / Path(remote_recording).name)
 
-    return copied
+    device.adb_command("pull", remote_recording, output, stdout_=stdout_)
+    if Path(output).is_file():
+        return output
+
+    stdout_.write("ERROR: Could not copy recorded video!\n")
+    return False
 
 
 def pull_traces(device, output=None, stdout_=sys.stdout):
