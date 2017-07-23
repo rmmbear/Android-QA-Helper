@@ -28,18 +28,17 @@ directory that helper is in. To stop and save the recorded video, press
 the internal command and cannot be extended -- recording will be stopped
 automatically after reaching that limit. NOTE: Sound is not, and cannot be
 recorded."""
-PARSER_GROUP.add_argument("-r", "--record", nargs="?", const=".", default=None,
-                          dest="record", help=HELP_STR, metavar="destination")
+PARSER_GROUP.add_argument("-r", "--record", action="store_true",
+                          dest="record", help=HELP_STR)
 
 HELP_STR = """Pull the dalvik vm stack traces / anr log file to specified
 location. If a location is not specified, the file will be saved to helper's
 directory."""
-PARSER_GROUP.add_argument("-t", "--pull-traces", nargs="?", const=".",
-                          default=None, dest="pull_traces", help=HELP_STR,
-                          metavar="destination")
+PARSER_GROUP.add_argument("-t", "--pull-traces", action="store_true",
+                          dest="pull_traces", help=HELP_STR)
 
 HELP_STR = """Extract the .apk file of an application installed on device."""
-PARSER_GROUP.add_argument("-e", "--extract-apk", nargs=1, dest="extract_apk",
+PARSER_GROUP.add_argument("-e", "--extract-apk", nargs="+", dest="extract_apk",
                           help=HELP_STR, metavar="app.name")
 
 HELP_STR = """Clean various files from a device. By default, this command
@@ -61,7 +60,7 @@ PARSER_GROUP.add_argument("-v", "--version", action="store_true",
 # Hidden options
 PARSER_GROUP.add_argument("--gui", action="store_true", dest="gui",
                           help=SUPPRESS)
-PARSER_GROUP.add_argument("--device-dump", nargs="?", const=".", default=None,
+PARSER_GROUP.add_argument("--device-dump", action="store_true",
                           dest="device_dump", help=SUPPRESS)
 
 HELP_STR = """Use with other commands to specify command target. To select a
@@ -69,8 +68,14 @@ device, simply pass its serial number as a value to this command. To get
 serial numbers of connected devices, use the '--info' command. Device must be
 specified if you want to record, install or pull traces while there are
 multiple devices connected to your PC."""
-PARSER.add_argument("-d", "--device-serial", nargs=1, dest="device", help=HELP_STR,
-                    metavar="serial_no")
+PARSER.add_argument("-d", "--device-serial", nargs=1, dest="device",
+                    help=HELP_STR, metavar="serial_no")
+
+HELP_STR = """Specify the output directory for other commands. If no directory
+is chosen, then files created by other commands are saved in the same directory
+helper was launched from."""
+PARSER.add_argument("-o", "--output-dir", nargs=1,
+                    dest="output_dir", help=HELP_STR, metavar="directory")
 
 
 PARSER_NO_ARGS = PARSER.parse_args([])
@@ -81,6 +86,7 @@ def pick_device(stdout_=sys.stdout):
     devices. If there are no devices to choose from, it will return the
     sole connected device or None, if there are no devices at all.
     """
+    # TODO: fix pick_devices()
     raise NotImplementedError
     #device_list = get_devices(stdout_, initialize, limit_init)
     device_list = []
@@ -118,6 +124,7 @@ def record(device, output):
         print(output)
         return False
 
+    device.device_init(limit_init=('getprop', 'shell_environment', 'available_commands'))
     destination = main_.record(device, output)
     if destination:
         print("Recorded video was saved to:", destination, sep="\n")
@@ -133,6 +140,7 @@ def install(device, apk_list):
             print(filepath)
             return False
 
+    device.device_init(limit_init=('getprop', 'shell_environment', 'available_commands'))
     main_.install(device, *apk_list)
 
 
@@ -142,6 +150,7 @@ def pull_traces(device, output):
         print(output)
         return False
 
+    device.device_init(limit_init=('getprop', 'shell_environment'))
     destination = main_.pull_traces(device, output)
     if destination:
         print("Traces file was saved to:")
@@ -157,23 +166,24 @@ def clean(device, config_file):
         print(config_file)
         return False
 
-    device.device_init()
+    device.device_init(limit_init=('installed_apps', 'shell_environment'))
     main_.clean(device, config_file)
 
 
-def regular_commands(device, args):
+def regular_commands(device, args, output_dir="."):
     """Set of commands that should not be carried out on more than
     one device at a time.
     """
-    device.device_init()
     if args.pull_traces:
-        return pull_traces(device, args.pull_traces)
+        return pull_traces(device, output_dir)
 
     if args.extract_apk:
-        device.extract_apk(args.extract_apk[0])
+        device.device_init(limit_init=('getprop', 'installed_apps'))
+        for app_name in args.extract_apk:
+            device.extract_apk(app_name, output_dir)
 
     if args.record:
-        return record(device, args.record)
+        return record(device, output_dir)
 
     # install was initially in the batch commands function
     # but since they are not set up for concurrent execution, it doesn't
@@ -186,7 +196,7 @@ def regular_commands(device, args):
         return install(device, args.install)
 
 
-def batch_commands(device_list, args):
+def batch_commands(device_list, args, output_dir="."):
     """Set of commands that can be run on multiple devices, one after
     another.
     """
@@ -194,9 +204,15 @@ def batch_commands(device_list, args):
     # this would be nice,  but I don't see a simple method of doing
     # it in a standard stdout/cli fashion
     # This will have to be implemented inside GUI module
+    if args.device_dump:
+        print("Before continuing, please remember that ALL dumped files may",
+              "contain sensitive data. Please pay special attention to the",
+              "'getprop' file which almost certainly will contain data you do",
+              "not want people to see.")
+        input("Press enter to continue")
+
     for device in device_list:
         if args.info:
-            device.limit_init = ()
             device.device_init()
             device.print_full_info()
 
@@ -206,7 +222,7 @@ def batch_commands(device_list, args):
         if args.device_dump:
             device.device_init()
             from helper.tests import dump_devices
-            dump_devices(device, args.device_dump)
+            dump_devices(device, output_dir)
 
 
 def main(args=None):
@@ -227,11 +243,13 @@ def main(args=None):
         helper_gui.main()
         return
 
-    for output_path in (args.device_dump, args.pull_traces, args.record):
-        if output_path is not None:
-            if not Path(output_path).is_dir():
-                print("ERROR: The provided path does not point to an existing directory!")
-                return False
+    if args.output_dir:
+        if not Path(args.output_dir[0]).is_dir():
+            print("ERROR: The provided path does not point to an existing directory!")
+            return False
+        output_dir = args.output_dir[0]
+    else:
+        output_dir = "."
 
 
     # ^-functionality not requiring initialized devices
@@ -248,10 +266,7 @@ def main(args=None):
         device_.adb_command('wait-for-device')
 
     chosen_device = None
-    connected_devices = device_.get_devices(
-        initialize=False,
-        limit_init=('getprop', 'shell_environment', 'available_commands')
-        )
+    connected_devices = device_.get_devices(initialize=False)
 
     if args.device:
         desired_device = args.device[0]
@@ -273,14 +288,7 @@ def main(args=None):
               "unused devices.")
         return
 
-    if args.device_dump:
-        print("Before continuing, please remember that ALL dumped files may",
-              "contain sensitive data. Please pay special attention to the",
-              "'getprop' file which almost certainly will contain data you do",
-              "not want people to see.",)
-        input("Press enter to continue")
-
     if using_batch_commands:
-        return batch_commands(connected_devices, args)
+        return batch_commands(connected_devices, args, output_dir)
 
-    return regular_commands(chosen_device, args)
+    return regular_commands(chosen_device, args, output_dir)
