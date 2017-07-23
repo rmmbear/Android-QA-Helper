@@ -96,30 +96,21 @@ def _get_devices(stdout_=sys.stdout):
     return device_list
 
 
-def get_devices(stdout_=sys.stdout, initialize=True, limit_init=()):
+def get_devices(initialize=True, limit_init=()):
     """Return a list of device objects for currently connected devices.
     """
     device_list = []
 
-    for device_serial, device_status in _get_devices(stdout_=stdout_):
+    for device_serial, device_status in _get_devices():
         if device_status != "device":
             # device suddenly disconnected or usb debugging not authorized
-            stdout_.write(" ".join(["Device with serial ID", device_serial,
-                                    "could not be reached! Got status:",
-                                    device_status, "\n"]))
             continue
 
-        stdout_.write("".join(["Device with serial id '", device_serial,
-                               "' connected\n"]))
         if initialize:
             device = Device(device_serial, device_status, limit_init)
         else:
             device = Device(device_serial, 'delayed_initialization', limit_init)
         device_list.append(device)
-
-    if not device_list:
-        stdout_.write(
-            "ERROR: No devices found! Check USB connection and try again.\n")
     return device_list
 
 
@@ -235,9 +226,8 @@ class Device:
         return ", ".join(info_container)
 
 
-    def device_init(self, limit_init=(), force_init=True):
+    def device_init(self, limit_init=(), force_init=False):
         """Gather all the information."""
-        # TODO: Implement ability to re-do the initialization
         if self.status == "device":
             for info_source, info_specs in INFO_EXTRACTION_CONFIG.items():
                 source_name = info_source[-1]
@@ -376,43 +366,90 @@ class Device:
         return True
 
 
-    def get_full_info_string(self, indent=4):
+    def full_info_string(self, indent=4):
         """Return a formatted string containing all device info"""
-        info_string = []
+        # ensure all required info is available
+        self.device_init()
 
+        # if an info source is a key in whitelist, only the asociated values
+        # will be returned from that group
+        group_whitelist = {"device_features" : ("device_features"),
+                          }
         indent = indent * " "
+        group_list = []
+        grouped_vars = {}
+        ungrouped_vars = []
 
-        for info_category in self._info:
-            info_string.append(info_category + ": ")
+        full_info_string = "-----Android QA Helper v.{}-----".format(
+            helper_.VERSION)
 
-            if isinstance(self._info[info_category], list):
-                info_string.append(
-                    indent + ("\n" + indent).join(self._info[info_category]))
-                continue
-            else:
-                for info_name, prop in self._info[info_category].items():
-                    if not prop:
-                        prop = "Unknown"
+        for info_category, variables_list in INFO_EXTRACTION_CONFIG.items():
+            info_source = info_category[-1]
+
+            for info_variable in variables_list:
+                if info_source in group_whitelist and \
+                info_variable.var_name not in group_whitelist[info_source]:
+                    continue
+
+                if info_variable.var_dict_2 == "_info":
+                    if info_variable.var_dict_1 not in group_list:
+                        group_list.append(info_variable.var_dict_1)
+
+                    value = self.info(info_variable.var_dict_1, info_variable.var_name)
+                    if not value:
+                        value = "Unknown"
+
+                    line = "".join([info_variable.var_name, " : ", value])
+
+                    if info_variable.var_dict_1 not in grouped_vars:
+                        grouped_vars[info_variable.var_dict_1] = []
+
+                    if line in grouped_vars[info_variable.var_dict_1]:
+                        continue
+
+                    grouped_vars[info_variable.var_dict_1].append(line)
+                elif info_variable.var_dict_1 == "_info":
+                    value = self.info(info_variable.var_name)
+                    if not value:
+                        value = "Unknown"
+
+                    line = "".join([info_variable.var_name, " : ", value])
+                    ungrouped_vars.append(line)
+                else:
+                    if not self.__dict__[info_variable.var_name]:
+                        value = "Unknown"
                     else:
-                        prop = ", ".join(prop)
-                    prop_line = [indent, info_name, ": "]
-                    prop_line.append(prop)
+                        value = self.__dict__[info_variable.var_name]
+                        if isinstance(value, (list, tuple)):
+                            value = ", ".join(value)
+                        else:
+                            value = str(value)
 
-                    info_string.append("".join(prop_line))
-
-        return "\n".join(info_string)
-
-
-    def print_full_info(self, stdout_=sys.stdout):
-        """Print all information from device._info onto screen."""
-        stdout_.write(self.get_full_info_string() + "\n")
+                    line = "".join([info_variable.var_name, " : ", value])
+                    ungrouped_vars.append(line)
 
 
-    def print_basic_info(self, stdout_=sys.stdout):
-        """Print basic device information to console.
-        Prints: manufacturer, model, OS version and available texture
+        for group in group_list:
+            full_info_string = "".join([full_info_string, "\n", group, ":\n"])
+            for value in grouped_vars[group]:
+                full_info_string = "".join([full_info_string, indent, value, "\n"])
+
+        full_info_string += "\n"
+
+        for value in ungrouped_vars:
+            full_info_string = "".join([full_info_string, value, "\n"])
+
+        return full_info_string
+
+
+    def basic_info_string(self):
+        """Return formatted string containing basic device information.
+        contains: manufacturer, model, OS version and available texture
         compression types.
         """
+        # ensure all required data is available
+        self.device_init(limit_init=("getprop", "surfaceflinger_dump"))
+
         model = self.info("Product", "Model")
         if not model:
             model = "Unknown model"
@@ -425,13 +462,11 @@ class Device:
         if os_ver is None:
             os_ver = "Unknown OS version"
 
-        line1 = " - ".join([manufacturer, model, os_ver]) + "\n"
-        line2 = ("Texture compression types: "
-                 + self.info("GPU", "Texture Types")
-                 + "\n")
+        line1 = " - ".join([manufacturer, model, os_ver])
+        line2 = "".join(["Texture compression types: ",
+                         self.info("GPU", "Texture Types")])
 
-        stdout_.write(line1)
-        stdout_.write(line2)
+        return "\n".join([line1, line2])
 
 
     def extract_apk(self, app, out_dir=".", stdout_=sys.stdout):
