@@ -11,6 +11,7 @@ import sys
 import queue
 import threading
 from time import sleep, strftime
+from pathlib import Path
 
 from PyQt5 import QtWidgets, QtCore
 
@@ -75,7 +76,7 @@ class DeviceTab(QtWidgets.QFrame):
         # recording
         self.ui.record_button.clicked.connect(self.record)
         self.ui.record_button.clicked.connect(self.switch_to_console)
-        self.recording_stopped.connect(self._copy_recording)
+        #self.recording_stopped.connect(self._copy_recording)
 
         # traces
         self.ui.traces_button.clicked.connect(self.pull_traces)
@@ -115,9 +116,10 @@ class DeviceTab(QtWidgets.QFrame):
 
 
     def write_device_info(self):
-        text = self.device.get_full_info_string()
-        print([text])
+        #text = self.device.get_full_info_string()
+        #print([text])
         #self.ui.device_info_tab.append(text)
+        pass
 
 
     def enable_buttons(self):
@@ -135,60 +137,46 @@ class DeviceTab(QtWidgets.QFrame):
 
 
     def _record(self, lock):
-        recording_name = self.recording_job[1]
+        filename = "".join([self.device.info("Product", "Model"),
+                            "_screenrecord_",
+                            strftime("%Y.%m.%d_%H.%M.%S"), ".mp4"])
         record_ = threading.Thread(
-            target=main_.record_start, args=(self.device, recording_name),
-            kwargs={"stdout_":self.stdout_container}, daemon=True)
+            target=main_.record, args=(self.device,),
+            kwargs={"name":filename, "silent":True,},
+            daemon=True)
+
         record_.start()
         sleep(0.2) # wait before enabling buttons
         # TODO: let the thread know that everything is setup and buttons can be enabled
         self.ui.record_button.setEnabled(True)
+
         while not lock.acquire(False):
-            if not record_.is_alive():
-                self.ui.record_button.clicked.disconnect(self.recording_job[2])
-                self.ui.record_button.setEnabled(False)
-                # make sure the file is saved ()
-                sleep(1)
-                self.recording_stopped.emit()
-                return False
-            sleep(0.1)
-        self.ui.record_button.clicked.disconnect(self.recording_job[2])
+            sleep(0.3)
+
+        self.ui.record_button.clicked.disconnect(self.recording_job[1])
         self.ui.record_button.setEnabled(False)
-        self.device.reconnect()
         self.connection_reset.emit()
+        if Path(filename).is_file:
+            self.stdout_container.write("File saved to {} I guess?".format(Path(filename).resolve()))
         self.recording_stopped.emit()
-
-
-    def _copy_recording_(self):
-        filename = self.recording_job[1]
-        remote_recording = self.device.ext_storage + "/" + filename
-        copied = main_.record_copy(self.device, remote_recording, "./",
-                                   stdout_=self.stdout_container)
-        if not copied:
-            self.stdout_container.write("Could not copy recorded clip!")
-        else:
-            self.stdout_container.write("Clip copied to:\n" + copied)
-
-        self.ui.record_button.clicked.connect(self.record)
-        self.recording_job = None
-        self.recording_ended.emit()
         self.enable_buttons()
 
-
-    def _copy_recording(self):
-        threading.Thread(target=self._copy_recording_).start()
 
 
     def record(self):
         self.disable_buttons()
         self.stdout_container.write("Started recording")
+
         recording_lock = threading.Lock()
-        filename = "screenrecord_" + strftime("%Y.%m.%d_%H.%M.%S") + ".mp4"
         self.recording_job = (
-            threading.Thread(target=self._record, args=(recording_lock,)),
-            filename, recording_lock.release)
+            threading.Thread(target=self._record, args=(recording_lock,),
+                             daemon=True),
+            recording_lock.release)
+        # TODO: the 'recording_job' is a dirty hack
+        # it is here because the disconnect all function for some reason does
+        # not actually disconnect anything
         self.ui.record_button.clicked.disconnect(self.record)
-        self.ui.record_button.clicked.connect(self.recording_job[2])
+        self.ui.record_button.clicked.connect(self.recording_job[1])
         recording_lock.acquire()
         self.recording_job[0].start()
 
@@ -335,16 +323,14 @@ class MainWin(QtWidgets.QMainWindow):
 
     def _scan_devices(self):
         # list of serial ids of connected devices
-        connected_serials = {device.serial: device for device in device_.get_devices(stdout_=self.stdout_container, initialize=False)}
-
-        # TODO: this code replaces existing device tabs with identical tab every time it is fired
-        # whoops
+        connected_serials = {device.serial: device for device in device_.get_devices(initialize=False)}
 
         for device_serial in self.gui_devices:
             # device known and tab initialized -- show the tab if hidden (index below 0)
             if device_serial in connected_serials:
                 if self.ui.device_container.indexOf(self.gui_devices[device_serial]['tab']) < 0:
                     self.device_connected.emit(self.gui_devices[device_serial]['device'])
+
                 connected_serials.pop(device_serial)
             # tab's device not connected, hide the tab if shown (index above 0)
             elif self.ui.device_container.indexOf(self.gui_devices[device_serial]['tab']) >= 0:
@@ -363,6 +349,7 @@ class MainWin(QtWidgets.QMainWindow):
 
 
     def add_new_device(self, device):
+        """Create and add a new device tab to tab widget."""
         device.device_init()
         model = device.info("Product", "Model")
         if model is None:
@@ -372,9 +359,8 @@ class MainWin(QtWidgets.QMainWindow):
             manufacturer = "Unknown manufacturer"
 
         tab_name = " ".join([manufacturer, "--", model])
-        #self.stdout_container.write(" ".join(["Initializing connection with",
-        #                                      tab_name]))
-        print(tab_name, "found, adding new tab")
+        self.stdout_container.write(" ".join(["Initializing connection with",
+                                              tab_name]))
 
         new_tab = DeviceTab(device)
         self.gui_devices[device.serial] = {"tab":new_tab, "name":tab_name, 'device':device}
@@ -421,8 +407,8 @@ class MainWin(QtWidgets.QMainWindow):
         # spam prevention
         if text in blacklist:
             return False
-        if text == self.last_console_line:
-            return False
+        #if text == self.last_console_line:
+        #    return False
 
         self.last_console_line = text
         text = "".join(["[", strftime("%H:%M:%S"), "] ", text])
