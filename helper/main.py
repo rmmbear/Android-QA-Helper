@@ -82,7 +82,7 @@ def install_with_obbs(device, apk_file, obb_list, stdout_=sys.stdout):
 
 
 def install_application(device, apk_file, install_location="automatic",
-                        stdout_=sys.stdout):
+                        installer_name="android_helper", stdout_=sys.stdout):
     """Install an application from a local apk file."""
     possible_install_locations = {"automatic":"", "external":"-s",
                                   "internal":"-f"}
@@ -117,30 +117,32 @@ def install_application(device, apk_file, install_location="automatic",
         stdout_.write("ERROR: Could not copy apk file to device\n")
         return False
 
-    available_packages = device.shell_command("pm", "list", "packages",
-                                              return_output=True,
-                                              as_list=False)
-    if apk_file.app_name in available_packages:
+    device.device_init(limit_init=("system_apps", "thirdparty_apps"), force_init=True)
+
+    if apk_file.app_name in device.thirdparty_apps:
         stdout_.write(" ".join(["WARNING: Different version of the app",
                                 "already installed\n"]))
         if not _clean_uninstall(device, apk_file, stdout_=stdout_):
             stdout_.write("ERROR: Could not uninstall the app!\n")
             return False
+    elif apk_file.app_name in device.system_apps:
+        stdout_.write(" ".join(["WARNING: This app already exists on device as a system app!\n"]))
+        stdout_.write(" ".join(["         System apps can only be upgraded.\n"]))
+
 
     stdout_.write("Installing {}...\n".format(apk_file.display_name))
     stdout_.flush()
 
     destination = '"{}"'.format(destination)
-    device.shell_command("pm", "install", "-i", "com.android.vending",
+    device.shell_command("pm", "install", "-r", "-i", installer_name,
                          possible_install_locations[install_location],
                          destination, stdout_=stdout_)
     device.shell_command("rm", destination, stdout_=stdout_)
 
-    available_packages = device.shell_command("pm", "list", "packages",
-                                              return_output=True,
-                                              as_list=False)
+    device.device_init(limit_init=("system_apps", "thirdparty_apps"), force_init=True)
 
-    if apk_file.app_name not in available_packages:
+    # TODO: detect installation failure for system apps
+    if apk_file.app_name not in device.thirdparty_apps:
         stdout_.write("ERROR: App could not be installed!\n")
         return False
 

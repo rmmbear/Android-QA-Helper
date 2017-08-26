@@ -466,11 +466,17 @@ INFO_EXTRACTION_CONFIG = {
                 (re.findall, ('((?<=feature:).*?)\r', '$source')),),
             var_name='device_features'),
     ),
-    (("pm", "list", "packages"), (('as_list', False), ("return_output", True)), "installed_apps") :(
+    (("pm", "list", "packages", "-s"), (('as_list', False), ("return_output", True)), "system_apps") :(
         InfoSpec(
             extraction_commands=(
                 (re.findall, ('((?<=package:).*?)\r', '$source')),),
-            var_name='installed_apps', resolve_existing_values='replace'),
+            var_name='system_apps', resolve_existing_values='replace'),
+    ),
+    (("pm", "list", "packages", "-3"), (('as_list', False), ("return_output", True)), "thirdparty_apps") :(
+        InfoSpec(
+            extraction_commands=(
+                (re.findall, ('((?<=package:).*?)\r', '$source')),),
+            var_name='thirdparty_apps', resolve_existing_values='replace'),
     ),
     (("wm", "size"), (('as_list', False), ("return_output", True)), "screen_size") :(
         InfoSpec(
