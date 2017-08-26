@@ -90,7 +90,8 @@ class App:
         search_group = {
             "version_name" : "(?:versionName\\=)([!-z]*)",
             "version_code" : "(?:versionCode\\=)([!-z]*)",
-            "target_sdk" : "(?:targetSdkVersion\\=)([!-z]*)"
+            "target_sdk" : "(?:targetSdkVersion\\=)([!-z]*)",
+            "device_path" : "(?:codePath\\=)([!-z]*)",
             }
 
         for key, value in search_group.items():
@@ -107,7 +108,8 @@ class App:
 
             if apk_path:
                 self.device_path = apk_path.group().strip()
-                local_path = "./" + device.info("Product", "Model") + Path(self.device_path).name
+                local_path = "".join(["./", device.info("Product", "Model"),
+                                      Path(self.device_path).name])
                 device.adb_command("pull", self.device_path, local_path)
                 self.host_path = local_path
                 self.from_file()
@@ -168,20 +170,23 @@ class App:
         """
         compatible = True
         reasons = []
+        # Ensure the necessary data is available
+        device.device_init(limit_init=("device_features",
+                                       "surfaceflinger_dump", "getprop"))
 
         # check if device uses a supported Android version
         device_sdk = device.info("OS", "API Level")
         if int(self.min_sdk) > int(device_sdk):
             compatible = False
             reasons.append(" ".join(["API level of at least", self.min_sdk,
-                                    "is required but the device has",
-                                    device_sdk])
+                                     "is required but the device has",
+                                     device_sdk])
                           )
         if int(self.max_sdk) and device_sdk > int(self.max_sdk):
             compatible = False
             reasons.append(" ".join(["API level of at most", self.max_sdk,
-                                    "is allowed but the device has",
-                                    device_sdk])
+                                     "is allowed but the device has",
+                                     device_sdk])
                           )
 
         # check if device uses supported abis
@@ -192,8 +197,8 @@ class App:
 
         if not uses_one_of_abis:
             compatible = False
-            reasons.append("".join(["Device does not use supported abis (",
-                                    self.supported_abis, ")"])
+            reasons.append(" ".join(["Device does not use supported abis",
+                                    str(self.supported_abis)])
                           )
 
         # check if all features are available
@@ -201,7 +206,7 @@ class App:
             if feature not in device.device_features:
                 compatible = False
                 reasons.append(" ".join(["Feature", feature,
-                                        "not available on device"])
+                                         "not available on device"])
                               )
 
         return (compatible, reasons)
