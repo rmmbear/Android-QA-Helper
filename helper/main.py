@@ -199,15 +199,36 @@ def record(device, output=".", name=None, silent=False, stdout_=sys.stdout):
     confirms that the recording has been saved to device's storage and
     copies it to drive.
     """
-    # existence of "screenrecord" is dependent on Android version, but let's
-    # look for command instead, just to be safe
-    if not 'screenrecord' in device.available_commands:
+    # existence of "screenrecord" can depend on manufacturer and
+    # version of Android
+    #
+    # Sony devices have a custom screen recording function available to
+    # regular users from their device - hold the power button and it should
+    # appear alongside reset and shutdown options
+
+    device.device_init(limit_init=("available_commands"))
+
+    if 'screenrecord' not in device.available_commands:
         stdout_.write(
             " ".join(["This device's shell does not have the 'screenrecord'",
-                      "command. It should be available on all devices with",
-                      "Android 4.4 or higher (API level 19 or higher). Your",
-                      "device has Android", device.info("OS", "Version"),
-                      "(API level", device.info("OS", "API Level"), ")\n"]))
+                      "command."]))
+        if int(device.info("OS", "API Level")) < 19:
+            stdout_.write(
+                " ".join(["The command was introduced with API level 19 (",
+                          "Android version 4.4.4) and your device has API level",
+                          device.info("OS", "API Level"), "(Android version",
+                          device.info("OS", "Version"), ").\n"]))
+        else:
+            stdout_.write(
+                " ".join(["Your device's manufacturer opted to not",
+                          "include it on device.\n"]))
+
+        stdout_.write(
+            " ".join(["Note that you can also record your device's screen",
+                      "using Google Play Games. Certain devices (Sony Xperias",
+                      "for example) have built-in apps allowing you to record",
+                      "your screen. Please refer to your device's manual for",
+                      "more information.\n"]))
         return False
 
     if not silent:
@@ -236,9 +257,8 @@ def record(device, output=".", name=None, silent=False, stdout_=sys.stdout):
     except KeyboardInterrupt:
         pass
     stdout_.write("\nRecording stopped.\n")
-    # for some reason on Windows the try block above is not enough
 
-    # maybe now it's fine?
+
     device.reconnect(stdout_=stdout_)
 
     if not device.is_file(remote_recording):
@@ -252,7 +272,7 @@ def record(device, output=".", name=None, silent=False, stdout_=sys.stdout):
 
     device.adb_command("pull", remote_recording, output, stdout_=stdout_)
     if Path(output).is_file():
-        return output
+        return str(Path(output).resolve())
 
     stdout_.write("ERROR: Could not copy recorded video!\n")
     return False
