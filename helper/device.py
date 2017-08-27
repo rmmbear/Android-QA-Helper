@@ -3,6 +3,7 @@ import re
 import sys
 from pathlib import Path
 from collections import OrderedDict
+from time import sleep
 
 import helper as helper_
 import helper.apk as apk_
@@ -176,7 +177,7 @@ class Device:
             if self.serial in device_specs:
                 self._status = device_specs[1]
             else:
-                self._status = "Offline"
+                self._status = "offline"
 
         return self._status
 
@@ -226,7 +227,7 @@ class Device:
 
                 self._extracted_info_groups.append(source_name)
 
-            # This kinda defeats the [urpose of the whole info config thing...
+            # This kinda defeats the purpose of the whole info config thing...
             if isinstance(self.ext_storage, list):
                 self.ext_storage = self.ext_storage[0]
             if isinstance(self.secondary_storage, list):
@@ -322,12 +323,28 @@ class Device:
 
         Return true when device comes back online.
         """
-        self.adb_command("reconnect")
+        reconnect_status = self.adb_command("reconnect", return_output=True,
+                                            as_list=False)
+        if reconnect_status.strip().lower() != "done":
+            # I don't even know if there is a chance for unexpected output here
+            stdout_.write("ERROR: ")
+            stdout_.write(reconnect_status + "\n")
+            return False
+
+        # TODO: If you wait long enough, all problems will just disappear, right?
+        sleep(0.7)
+
+        if self.status == "unauthorized":
+            stdout_.write(
+                " ".join(["Connection with this device had to be reset,",
+                          "to continue you must grant debugging permission",
+                          "again.\n"]))
         reconnect_status = self.adb_command("wait-for-device",
                                             return_output=True, as_list=False)
         if reconnect_status:
             # I have not seen the 'wait-for-<status>' command output anything ever
             # so this is a precaution in case it ever will
+            stdout_.write("ERROR: ")
             stdout_.write(reconnect_status + "\n")
             return False
 
