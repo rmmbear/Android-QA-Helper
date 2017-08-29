@@ -468,7 +468,9 @@ class Device:
         else:
             app_name = app
 
-        if app_name not in self.installed_apps:
+        self.device_init(limit_init=("thirdparty_apps", "system_apps"))
+
+        if app_name not in self.system_apps and app_name not in self.thirdparty_apps:
             stdout_.write(" ".join([app_name, "not in list of installed apps.\n"]))
             return False
 
@@ -483,7 +485,7 @@ class Device:
 
         app_path = package_line.group()
 
-        filename = Path(app_path).name
+        filename = "".join([app_name, "(", Path(app_path).stem, ").apk"])
         out_file = Path(out_dir, filename)
 
         stdout_.write("Copying {}'s apk file...\n".format(app_name))
@@ -492,7 +494,7 @@ class Device:
         if out_file.is_file():
             return str(out_file.resolve())
 
-        stdout_.write("ERROR: The apk file could not be saved locally!\n")
+        stdout_.write("ERROR: The apk file could not be copied!\n")
         return False
 
 
