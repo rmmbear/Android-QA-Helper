@@ -1,41 +1,60 @@
 """"""
 import sys
 from pathlib import Path
-from argparse import ArgumentParser, SUPPRESS
+from argparse import ArgumentParser
 
 import helper as helper_
 import helper.main as main_
 import helper.device as device_
 
 
-
-
-OPTIONS = ArgumentParser("options", add_help=False)
-HELP_DETAIL = """Specify command target by passing a device's serial number.
-Device must be specified if you want to record, install or pull traces while
-there are multiple devices connected to your PC."""
-OPTIONS.add_argument("-d", "--device", default="", help=HELP_DETAIL, metavar="device")
-
-HELP_DETAIL = """Specify the output directory. If no directory is chosen, then
-files are saved in the same directory helper was launched from."""
-OPTIONS.add_argument("-o", "--output", default=".", help=HELP_DETAIL, metavar="directory")
-
-
 HELPER_CLI_DESC = """{:.80}
 """.format(helper_.VERSION_STRING)
 
-PARSER = ArgumentParser(prog="helper", description=HELPER_CLI_DESC, parents=[OPTIONS])
-
+PARSER = ArgumentParser(prog="helper", description=HELPER_CLI_DESC)
+PARSER.add_argument("-v", "--version", action="version",
+                    version=helper_.VERSION_STRING)
 COMMANDS = PARSER.add_subparsers(title="Commands", dest="command", metavar="")
 
+### Gneral-use optional arguments
+HELP_DETAIL = """Specify command target by passing a device's serial number.
+Device must be specified if you want to record, install or pull traces while
+there are multiple devices connected to your PC."""
+OPT_DEV = ArgumentParser("device", add_help=False)
+OPT_DEV.add_argument("-d", "--device", default="", metavar="device",
+                     help=HELP_DETAIL)
 
+HELP_DETAIL = """Specify the output directory. If no directory is chosen, then
+files are saved in the same directory helper was launched from."""
+OPT_OUT = ArgumentParser("output", add_help=False)
+OPT_OUT.add_argument("-o", "--output", default=".", metavar="directory",
+                     help=HELP_DETAIL)
+
+### Helper Commands definitions
 HELP_GENERAL = """Install one or more apps on a device."""
 HELP_DETAIL = """ Valid input for this commands is either: single .apk file,
 .apk file with one or more .obb files, multiple .apk files. If another version
 of installed app is already on device, it and all its data will be removed
 before installing the new version."""
-COMMANDS.add_parser("install", help=HELP_GENERAL, parents=[OPTIONS]).add_argument(
-    "install", nargs="+", help=HELP_DETAIL, metavar="file")
+CMD = COMMANDS.add_parser("install", parents=[OPT_DEV, OPT_OUT], aliases=["i"],
+                          help=HELP_GENERAL, epilog=HELP_DETAIL)
+# TODO: Write help for install's 'file' argument
+HELP_ARGUMENT = """"""
+CMD.add_argument("install", nargs="+", metavar="files", help=HELP_ARGUMENT)
+
+HELP_GENERAL = """Clean various files from a device. """
+HELP_DETAIL = """By default, this command
+removes only helper-created files, but further behavior can be customized with
+cleaner config file. Currently available options are: removing files and
+directories, clearing app data, uninstalling apps and replacing files on device
+with local versions. For configuration example, see the config file itself: {}.
+""".format(helper_.CLEANER_CONFIG)
+CMD = COMMANDS.add_parser("clean", parents=[OPT_DEV, OPT_OUT], aliases="c",
+                          help=HELP_GENERAL, epilog=HELP_DETAIL)
+# TODO: Write help for cleaner's 'config' argument
+HELP_ARGUMENT = """"""
+CMD.add_argument("clean", nargs="?", default=helper_.CLEANER_CONFIG,
+                 metavar="config", help=HELP_ARGUMENT)
 
 HELP_GENERAL = """Record the screen of your device."""
 HELP_DETAIL = """To stop and save the recorded video, press
@@ -43,50 +62,51 @@ HELP_DETAIL = """To stop and save the recorded video, press
 the internal command and cannot be extended -- recording will be stopped
 automatically after reaching that limit. NOTE: Sound is not, and cannot be
 recorded."""
-COMMANDS.add_parser("record", help=HELP_GENERAL, parents=[OPTIONS]).add_argument(
-    "record", action="store_true", help=HELP_DETAIL)
+CMD = COMMANDS.add_parser("record", parents=[OPT_DEV, OPT_OUT], aliases="r",
+                          help=HELP_GENERAL, epilog=HELP_DETAIL)
 
 HELP_GENERAL = """Pull the dalvik vm stack traces (aka ANR log)."""
+# TODO: Write detailed help for traces
 HELP_DETAIL = """"""
-COMMANDS.add_parser("traces", help=HELP_GENERAL, parents=[OPTIONS]).add_argument(
-    "pull-traces", action="store_true", help=HELP_DETAIL)
+CMD = COMMANDS.add_parser("traces", parents=[OPT_DEV, OPT_OUT], aliases="t",
+                          help=HELP_GENERAL, epilog=HELP_DETAIL)
 
-HELP_GENERAL = """Extract the .apk file of an application installed on device."""
+HELP_GENERAL = """Extract the .apk file of an installed application."""
+# TODO: Write detailed help for extract-apk
 HELP_DETAIL = """"""
-COMMANDS.add_parser("extract-apk", help=HELP_GENERAL, parents=[OPTIONS]).add_argument(
-    "extract-apk", nargs="+", help=HELP_DETAIL, metavar="app.name")
+CMD = COMMANDS.add_parser("extract-apk", parents=[OPT_DEV, OPT_OUT],
+                          aliases="x", help=HELP_GENERAL, epilog=HELP_DETAIL)
+# TODO: Write help for extract-apk's 'app-name' argument
+HELP_ARGUMENT = """"""
+CMD.add_argument("app-name", nargs="+", metavar="app name", help=HELP_ARGUMENT)
 
-HELP_GENERAL = """Clean various files from a device."""
-HELP_DETAIL = """By default, this command
-removes only helper-created files, but further behavior can be customized with
-cleaner config file. Currently available options are: removing files and
-directories, clearing app data, uninstalling apps and replacing files on device
-with local versions. For configuration example, see the config file itself: {}.
-""".format(helper_.CLEANER_CONFIG)
-COMMANDS.add_parser("clean", help=HELP_GENERAL, parents=[OPTIONS]).add_argument(
-    "clean", nargs="?", const=helper_.CLEANER_CONFIG, default=None,
-    help=HELP_DETAIL, metavar="config")
 
 HELP_GENERAL = """Show status of all connected devices."""
+# TODO: Write detailed help for scan
 HELP_DETAIL = """"""
-COMMANDS.add_parser("scan", help=HELP_GENERAL).add_argument(
-    "scan", action="store_true", help=HELP_DETAIL)
+CMD = COMMANDS.add_parser("scan", aliases="s", help=HELP_GENERAL,
+                          epilog=HELP_DETAIL)
 
 HELP_GENERAL = """Show status and detailed information on connected devices."""
+# TODO: Write detailed help for scan-detail
 HELP_DETAIL = """"""
-COMMANDS.add_parser("scan-detail", help=HELP_GENERAL, parents=[OPTIONS]
-    ).add_argument("scan-detail", action="store_true", help=HELP_DETAIL)
+CMD = COMMANDS.add_parser("scan-detail", parents=[OPT_DEV], aliases=["sd"],
+                          help=HELP_GENERAL, epilog=HELP_DETAIL)
 
-HELP_GENERAL = """Dump all available information to file for all connected devices."""
+HELP_GENERAL = """Dump all available device information to file."""
+# TODO: Write detailed help for dump
 HELP_DETAIL = """"""
-COMMANDS.add_parser("dump", help=HELP_GENERAL, parents=[OPTIONS]).add_argument(
-    "dump", action="store_true", help=HELP_DETAIL)
+CMD = COMMANDS.add_parser("dump", parents=[OPT_DEV, OPT_OUT], aliases="d",
+                          help=HELP_GENERAL, epilog=HELP_DETAIL)
 
-PARSER.add_argument("-v", "--version", action="version", version=helper_.VERSION_STRING)
+### Hidden commands
+COMMANDS.add_parser("gui")
+COMMANDS.add_parser("helper-dump")
 
-# Hidden options
-COMMANDS.add_parser("gui", help=SUPPRESS).add_argument("gui", action="store_true", help=SUPPRESS)
-COMMANDS.add_parser("helper-dump", parents=[OPTIONS], help=SUPPRESS).add_argument("helper-dump", action="store_true", help=SUPPRESS)
+# Example of caring too much about aesthetics
+for group in  PARSER._action_groups:
+    if group.title == 'optional arguments':
+        group.title = None
 
 PARSER_NO_ARGS = PARSER.parse_args([])
 
@@ -129,7 +149,6 @@ def pick_device(stdout_=sys.stdout):
 
 
 def record(device, args):
-    device.device_init(limit_init=('getprop', 'shell_environment', 'available_commands'))
     destination = main_.record(device, args.output)
     if destination:
         print("Recorded video was saved to:", destination, sep="\n")
@@ -145,12 +164,10 @@ def install(device, args):
             print(filepath)
             return False
 
-    device.device_init(limit_init=('getprop', 'shell_environment', 'available_commands'))
     main_.install(device, *args.install)
 
 
 def pull_traces(device, args):
-    device.device_init(limit_init=('getprop', 'shell_environment'))
     destination = main_.pull_traces(device, args.output)
     if destination:
         print("Traces file was saved to:")
@@ -167,7 +184,6 @@ def clean(device, args):
         print(config_file)
         return False
 
-    device.device_init(limit_init=('installed_apps', 'shell_environment'))
     main_.clean(device, config_file)
 
 def extract_apk():
@@ -182,11 +198,11 @@ def info():
 def detailed_info():
     pass
 
-REGULAR_COMMANDS = {"pull-traces":pull_traces,
-                    "record":record,
-                    "install":install}
+REGULAR_COMMANDS = {"pull-traces":pull_traces, "t":pull_traces,
+                    "record":record, "r":record,
+                    "install":install, "i":install}
 
-BATCH_COMMANDS = {"clean":clean}
+BATCH_COMMANDS = {"clean":clean, "c":clean}
 
 def regular_commands(device, args):
     """Set of commands that should not be carried out on more than
@@ -219,24 +235,20 @@ def batch_commands(device_list, args):
         except KeyError:
             raise NotImplementedError("The '{}' function is not yet implemented".format(args.command))
 
-def main(args=None):
+def main(args=None, wait=True):
     """Parse and execute input commands."""
     args = PARSER.parse_args(args)
-
-    print([args])
-    print([args.command])
 
     if args == PARSER_NO_ARGS:
         PARSER.parse_args(["-h"])
         return False
 
-    if hasattr(args, "gui"):
+    if args.command == "gui":
         from helper.GUI import helper_gui
-        helper_gui.main()
-        return
+        sys.exit(helper_gui.main())
+
 
     if hasattr(args, "output"):
-
         if not Path(args.output[0]).is_dir():
             print("ERROR: The provided path does not point to an existing directory!")
             return False
@@ -245,8 +257,7 @@ def main(args=None):
     # ^-functionality not requiring initialized devices
     # v-the opposite
 
-    using_batch_commands = args.command not in ("pull-traces", "record", "install", "extract-apk")
-
+    using_batch_commands = args.command not in REGULAR_COMMANDS
 
     print("Waiting for any device to come online...")
     device_.adb_command('wait-for-device')
@@ -256,29 +267,31 @@ def main(args=None):
     for device in connected_devices:
         print("".join(["Device with serial id '", device.serial,
                        "' connected\n"]))
+    try:
+        if args.device:
+            for device in connected_devices:
+                if device.serial == args.device:
+                    chosen_device = [device]
 
-    if args.device:
-        desired_device = args.device[0]
-        for device in connected_devices:
-            if device.serial == desired_device:
-                chosen_device = [device]
+            if not chosen_device:
+                print("Device with serial number", str(args.device),
+                      "was not found by Helper!")
+                return
+    except AttributeError:
+        # Target device cannot be specified in the used command, ignore
+        pass
 
+    if not using_batch_commands:
         if not chosen_device:
-            print("Device with serial number", desired_device,
-                  "was not found by Helper!")
-            return
+            if len(connected_devices) == 1:
+                chosen_device = connected_devices[0]
+            else:
+                print(device_._get_devices())
+                print("This command cannot be carried out with multiple devices",
+                      "- please specify a serial number with '-d' or disconnect",
+                      "unused devices.")
+                return
 
-    if not chosen_device and len(connected_devices) == 1:
-        chosen_device = connected_devices[0]
+        return regular_commands(chosen_device, args)
 
-    if not chosen_device and not using_batch_commands:
-        print(device_._get_devices())
-        print("This command cannot be carried out with multiple devices",
-              "- please specify a serial number with '-d' or disconnect",
-              "unused devices.")
-        return
-
-    if using_batch_commands:
-        return batch_commands(connected_devices, args)
-
-    return regular_commands(chosen_device, args)
+    return batch_commands(connected_devices, args)
