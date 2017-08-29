@@ -106,17 +106,6 @@ def install_application(device, apk_file, install_location="automatic",
             for reason in is_compatible[1]:
                 stdout_.write(reason + "\n")
 
-
-    apk_filename = Path(apk_file.host_path).name
-    destination = ("/data/local/tmp/helper_" + apk_filename).replace(" ", "_")
-
-    stdout_.write("Copying the apk file to device...\n")
-    device.adb_command("push", apk_file.host_path, destination, stdout_=stdout_)
-
-    if not device.is_file(destination):
-        stdout_.write("ERROR: Could not copy apk file to device\n")
-        return False
-
     device.device_init(limit_init=("system_apps", "thirdparty_apps"), force_init=True)
 
     if apk_file.app_name in device.thirdparty_apps:
@@ -129,6 +118,16 @@ def install_application(device, apk_file, install_location="automatic",
         stdout_.write(" ".join(["WARNING: This app already exists on device as a system app!\n"]))
         stdout_.write(" ".join(["         System apps can only be upgraded.\n"]))
 
+
+    apk_filename = Path(apk_file.host_path).name
+    destination = ("/data/local/tmp/helper_" + apk_filename).replace(" ", "_")
+
+    stdout_.write("Copying the apk file to device...\n")
+    device.adb_command("push", apk_file.host_path, destination, stdout_=stdout_)
+
+    if not device.is_file(destination):
+        stdout_.write("ERROR: Could not copy apk file to device\n")
+        return False
 
     stdout_.write("Installing {}...\n".format(apk_file.display_name))
     stdout_.flush()
