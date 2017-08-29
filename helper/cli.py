@@ -78,7 +78,7 @@ CMD = COMMANDS.add_parser("extract-apk", parents=[OPT_DEV, OPT_OUT],
                           aliases="x", help=HELP_GENERAL, epilog=HELP_DETAIL)
 # TODO: Write help for extract-apk's 'app-name' argument
 HELP_ARGUMENT = """"""
-CMD.add_argument("app-name", nargs="+", metavar="app name", help=HELP_ARGUMENT)
+CMD.add_argument("extract_apk", nargs="+", metavar="app name", help=HELP_ARGUMENT)
 
 
 HELP_GENERAL = """Show status of all connected devices."""
@@ -90,8 +90,9 @@ CMD = COMMANDS.add_parser("scan", aliases="s", help=HELP_GENERAL,
 HELP_GENERAL = """Show status and detailed information on connected devices."""
 # TODO: Write detailed help for scan-detail
 HELP_DETAIL = """"""
-CMD = COMMANDS.add_parser("scan-detail", parents=[OPT_DEV], aliases=["sd"],
-                          help=HELP_GENERAL, epilog=HELP_DETAIL)
+CMD = COMMANDS.add_parser("detailed-scan", parents=[OPT_DEV, OPT_OUT],
+                          aliases=["ds"], help=HELP_GENERAL,
+                          epilog=HELP_DETAIL)
 
 HELP_GENERAL = """Dump all available device information to file."""
 # TODO: Write detailed help for dump
@@ -186,23 +187,43 @@ def clean(device, args):
 
     main_.clean(device, config_file)
 
-def extract_apk():
-    pass
+
+def extract_apk(device, args):
+    for app_name in args.extract_apk:
+        out = device.extract_apk(app_name, args.output)
+        if out:
+            print("Package saved to", out)
 
 def scan():
     pass
 
-def info():
+
+def info(device, args):
     pass
 
-def detailed_info():
-    pass
+
+def detailed_scan(device, args):
+    device.device_init(limit_init=["getprop"])
+    print("Preparing report for", device.info("Product", "Manufacturer"),
+          device.info("Product", "Model"), "...")
+
+    device.device_init()
+    filename = "".join([device.info("Product", "Manufacturer"), "_",
+                         device.info("Product", "Model"), "_", "REPORT"])
+    with (Path(args.output) / filename).open(mode="w") as device_report:
+        device_report.write(device.full_info_string())
+
+    print("Report saved to", str((Path(args.output) / filename).resolve()))
+
 
 REGULAR_COMMANDS = {"pull-traces":pull_traces, "t":pull_traces,
                     "record":record, "r":record,
-                    "install":install, "i":install}
+                    "install":install, "i":install,
+                    "extract-apk":extract_apk, "x":extract_apk,}
 
-BATCH_COMMANDS = {"clean":clean, "c":clean}
+BATCH_COMMANDS = {"clean":clean, "c":clean,
+                  "detailed-scan":detailed_scan, "ds":detailed_scan}
+
 
 def regular_commands(device, args):
     """Set of commands that should not be carried out on more than
@@ -222,7 +243,7 @@ def batch_commands(device_list, args):
     # this would be nice,  but I don't see a simple method of doing
     # it in a standard stdout/cli fashion
     # This will have to be implemented inside GUI module
-    if args.command == "device-dump":
+    if args.command == "helper-dump":
         print("Before continuing, please remember that ALL dumped files may",
               "contain sensitive data. Please pay special attention to the",
               "'getprop' file which almost certainly will contain data you do",
@@ -235,7 +256,8 @@ def batch_commands(device_list, args):
         except KeyError:
             raise NotImplementedError("The '{}' function is not yet implemented".format(args.command))
 
-def main(args=None, wait=True):
+
+def main(args=None):
     """Parse and execute input commands."""
     args = PARSER.parse_args(args)
 
@@ -247,12 +269,10 @@ def main(args=None, wait=True):
         from helper.GUI import helper_gui
         sys.exit(helper_gui.main())
 
-
     if hasattr(args, "output"):
         if not Path(args.output[0]).is_dir():
             print("ERROR: The provided path does not point to an existing directory!")
             return False
-
 
     # ^-functionality not requiring initialized devices
     # v-the opposite
