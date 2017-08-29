@@ -8,11 +8,12 @@ For changelog and Windows binaries see releases page: https://github.com/rmmbear
 - ADB (can be found in platform-tools from Android SDK)
 - AAPT (can be found in build-tools from Android SDK)
 
+# Getting AAPT and ADB
 Both ADB and AAPT are required for this program to work. To get them, you can do one of two things:
 - Download the whole Android SDK suite and get their packages using the 'Android SDK manager'
 - Download the packages directly from Google's Android repository
 
-While the first option is pretty straight-forward, it may be quite an overkill to install the whole SDK, when you only need two files. To download the packages directly go to https://dl-ssl.google.com/android/repository/repository-11.xml the link points to an xml tree, which contains an overview of the whole (publicly available) Android repository (this file is what the Android SDK manager uses internally to find new packages and updates).
+While the first option is pretty straight-forward, it may be quite an overkill to install the whole SDK when you only need two files. To download the packages directly go to https://dl-ssl.google.com/android/repository/repository-11.xml the link points to an xml tree, which contains an overview of the whole (publicly available) Android repository (this file is what the Android SDK manager uses internally to find new packages and updates).
 
 To download the platform-tools package, search for ```<sdk:url>platform-tools```, find the package corresponding to your platform, copy the url and replace the last part of the page's url with it. At the time of writing, this would be https://dl-ssl.google.com/android/repository/platform-tools_r25.0.3-linux.zip .
 Do the same for build-tools: search for ```<sdk:url>build-tools```, find your platform, replace the last part of the page's url with the found url and download (at the time of writing: https://dl-ssl.google.com/android/repository/build-tools_r25.0.2-linux.zip).
@@ -24,20 +25,23 @@ In the root directory of the project there should be two directories: "adb" and 
 
 # Usage:
 From the root of the project:```python -m helper <option>```. You can use ```--help``` to see the list of available options.
-If you're using the frozen code package on windows, you must call the 'helper.exe' from command line, since helper is a command-line only utility (for now). 
+If you're using the frozen code package on windows, you must call the 'helper.exe' from command line, since helper is a command-line only utility.
 
 # GUI:
-The current GUI prototype can be accessed with ```helper --gui```
+The current GUI prototype can be accessed with ```helper gui```
 It currently has the following functionality:
 - Automatic device detection
 - Recording (press button in a device tab to start recording, press it again to stop)
 - Installing (only through drag & drop, the 'install' button currently does nothing)
 - Cleaning (press 'clean' button WARNING: this may be destructive and there currently is no confirmation dialog)
-- Pulling traces file / anr log (just press the 'pull traces' button)
-
+- Pulling traces file / anr log
 
 # Current plans:
-- Finish GUI
-- Clean up the code some more
-- Extend cleaning to support user-defined commands *-- not for 1.0*
-- Plan new functionality (screenshots? functions enabling doze/standby for testing? recovering apks of installed apps from asec directory?) *-- not for 1.0*
+- Hook up all of the existing functionality to GUI
+- Surface all available control otions of main functions in CLI
+- Expand the breadth of gatered data
+- Optimize all the regex used in gathering data
+- Expand testing beyond device compatibility
+- Expand functionality:
+  - Add option to view and save logcat logs (for times when you just want to quickly record a log and forward it to someone, the Android Monitor will always be better for other uses)
+  - Add option to manipulate apps installed on device (clearing data, extracting apks, displaying basic info, moving between storage spaces)
