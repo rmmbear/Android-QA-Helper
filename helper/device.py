@@ -54,13 +54,20 @@ def _get_devices(stdout_=sys.stdout):
                 return []
 
     for device_line in device_specs:
-        device = device_line.split()
-        if len(device) != 2:
-            stdout_.write(device_line)
+        if not device_line.strip():
             continue
-        device_serial = device[0]
-        device_status = device[1]
-        device_list.append((device_serial.strip(), device_status.strip()))
+
+        device = device_line.split(maxsplit=1)
+        if device[1] not in ("device", "unauthorized", "offline"):
+            if not "no permission" in device[1]:
+                stdout_.write(" ".join(["ERROR: helper received unexpected",
+                                        "output while scanning for devices:\n"]
+                                      )
+                             )
+                stdout_.write("".join(["      ", device_line + "\n"]))
+                device[1] = "unknown error"
+
+        device_list.append((device[0].strip(), device[1].strip()))
 
     return device_list
 
@@ -94,7 +101,8 @@ class Device:
         self.secondary_storage = None
         self.anr_trace_path = None
 
-        self.installed_apps = ()
+        self.thirdparty_apps = ()
+        self.system_apps = ()
         self.device_features = ()
         self.available_commands = ()
 
@@ -150,10 +158,6 @@ class Device:
             self.device_init(limit_init)
 
 
-    def __str__(self):
-        """Return device's serial number."""
-        return self.serial
-
 
     def adb_command(self, *args, **kwargs):
         """Same as adb_command(*args), but specific to the given device.
@@ -173,11 +177,11 @@ class Device:
         """Device's current state, as announced by adb. Return offline
         if device was not found by adb.
         """
+        self._status = "offline"
         for device_specs in _get_devices():
-            if self.serial in device_specs:
+            if self.serial == device_specs[0]:
                 self._status = device_specs[1]
-            else:
-                self._status = "offline"
+                break
 
         return self._status
 
