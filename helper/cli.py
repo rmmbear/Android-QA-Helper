@@ -194,13 +194,6 @@ def extract_apk(device, args):
         if out:
             print("Package saved to", out)
 
-def scan():
-    pass
-
-
-def info(device, args):
-    pass
-
 
 def detailed_scan(device, args):
     device.device_init(limit_init=["getprop"])
@@ -209,11 +202,15 @@ def detailed_scan(device, args):
 
     device.device_init()
     filename = "".join([device.info("Product", "Manufacturer"), "_",
-                         device.info("Product", "Model"), "_", "REPORT"])
+                        device.info("Product", "Model"), "_", "REPORT"])
     with (Path(args.output) / filename).open(mode="w") as device_report:
         device_report.write(device.full_info_string())
 
     print("Report saved to", str((Path(args.output) / filename).resolve()))
+
+
+def dump(device, args):
+    pass
 
 
 REGULAR_COMMANDS = {"pull-traces":pull_traces, "t":pull_traces,
@@ -278,15 +275,36 @@ def main(args=None):
     # v-the opposite
 
     using_batch_commands = args.command not in REGULAR_COMMANDS
-
-    print("Waiting for any device to come online...")
-    device_.adb_command('wait-for-device')
+    if not args.command in ("scan", "s"):
+        print("Waiting for any device to come online...")
+        device_.adb_command('wait-for-device')
 
     chosen_device = None
     connected_devices = device_.get_devices(initialize=False)
-    for device in connected_devices:
-        print("".join(["Device with serial id '", device.serial,
-                       "' connected\n"]))
+
+    if args.command in ("scan", "s"):
+        if connected_devices:
+            format_str = "{:13}{:15}{:10}{}"
+            print(format_str.format("Serial", "Manufacturer", "Model", "Status"))
+            for device in connected_devices:
+                device.device_init(limit_init=("getprop"))
+                print(format_str.format(
+                    device.serial, device.info("Product", "Manufacturer"),
+                    device.info("Product", "Model"), device._status))
+            print()
+
+        unauthorized_devices = device_._get_devices()
+        for device in unauthorized_devices:
+            if device[1] == "device":
+                unauthorized_devices.remove(device)
+
+        if unauthorized_devices:
+            print("The following devices could not be initialized:")
+            for serial, status in unauthorized_devices:
+                print(serial, ":", status)
+            print()
+        return
+
     try:
         if args.device:
             for device in connected_devices:
@@ -306,7 +324,6 @@ def main(args=None):
             if len(connected_devices) == 1:
                 chosen_device = connected_devices[0]
             else:
-                print(device_._get_devices())
                 print("This command cannot be carried out with multiple devices",
                       "- please specify a serial number with '-d' or disconnect",
                       "unused devices.")
