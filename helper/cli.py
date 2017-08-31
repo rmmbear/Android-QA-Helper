@@ -196,6 +196,10 @@ def extract_apk(device, args):
 
 
 def detailed_scan(device, args):
+    pass
+
+
+def dump(device, args):
     device.device_init(limit_init=["getprop"])
     print("Preparing report for", device.info("Product", "Manufacturer"),
           device.info("Product", "Model"), "...")
@@ -209,17 +213,13 @@ def detailed_scan(device, args):
     print("Report saved to", str((Path(args.output) / filename).resolve()))
 
 
-def dump(device, args):
-    pass
-
-
 REGULAR_COMMANDS = {"pull-traces":pull_traces, "t":pull_traces,
                     "record":record, "r":record,
                     "install":install, "i":install,
                     "extract-apk":extract_apk, "x":extract_apk,}
 
 BATCH_COMMANDS = {"clean":clean, "c":clean,
-                  "detailed-scan":detailed_scan, "ds":detailed_scan}
+                  "dump":dump, "d":dump}
 
 
 def regular_commands(device, args):
