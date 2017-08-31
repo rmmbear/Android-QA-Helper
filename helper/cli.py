@@ -169,6 +169,7 @@ def install(device, args):
 
 
 def pull_traces(device, args):
+    """"""
     destination = main_.pull_traces(device, args.output)
     if destination:
         print("Traces file was saved to:")
@@ -178,14 +179,16 @@ def pull_traces(device, args):
     return False
 
 
-def clean(device, args):
+def clean(device_list, args):
+    """Remove device as set in cleaner config. Batch command"""
     config_file = args.clean
     if not Path(config_file).is_file():
         print("Provided path does not point to an existing config file:")
         print(config_file)
         return False
 
-    main_.clean(device, config_file)
+    for device in device_list:
+        main_.clean(device, config_file)
 
 
 def extract_apk(device, args):
@@ -236,18 +239,20 @@ def detailed_scan(device_list, args):
     scan_other()
 
 
-def dump(device, args):
-    device.device_init(limit_init=["getprop"])
-    print("Preparing report for", device.info("Product", "Manufacturer"),
-          device.info("Product", "Model"), "...")
+def dump(device_list, args):
+    for device in device_list:
+        device.device_init(limit_init=["getprop"])
+        print("Preparing report for", device.info("Product", "Manufacturer"),
+              device.info("Product", "Model"), "...")
 
-    device.device_init()
-    filename = "".join([device.info("Product", "Manufacturer"), "_",
-                        device.info("Product", "Model"), "_", "REPORT"])
-    with (Path(args.output) / filename).open(mode="w") as device_report:
-        device_report.write(device.full_info_string())
+        device.device_init()
+        filename = "".join([device.info("Product", "Manufacturer"), "_",
+                            device.info("Product", "Model"), "_", "REPORT"])
+        with (Path(args.output) / filename).open(mode="w") as device_report:
+            device_report.write(device.full_info_string())
 
-    print("Report saved to", str((Path(args.output) / filename).resolve()))
+        print("Report saved to", str((Path(args.output) / filename).resolve()))
+        print()
 
 
 REGULAR_COMMANDS = {"pull-traces":pull_traces, "t":pull_traces,
