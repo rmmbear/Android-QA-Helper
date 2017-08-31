@@ -195,8 +195,45 @@ def extract_apk(device, args):
             print("Package saved to", out)
 
 
-def detailed_scan(device, args):
-    pass
+def scan_connected(device_list):
+    """"""
+    format_str = "{:13}{:15}{:10}{}"
+    print(format_str.format("Serial", "Manufacturer", "Model", "Status"))
+
+    for device in device_list:
+        device.device_init(limit_init=("getprop"))
+        print(format_str.format(
+            device.serial, device.info("Product", "Manufacturer"),
+            device.info("Product", "Model"), device._status))
+    print()
+
+
+def scan_other():
+    """"""
+    other_devices = device_._get_devices()
+    for device in other_devices:
+        if device[1] == "device":
+            other_devices.remove(device)
+
+    if other_devices:
+        print("The following devices could not be initialized:")
+        for serial, status in other_devices:
+            print(serial, ":", status)
+        print()
+
+
+def scan_all(device_list, args):
+    """"""
+    if device_list:
+        scan_connected(device_list)
+    scan_other()
+
+
+def detailed_scan(device_list, args):
+    """"""
+    for device in device_list:
+        pass
+    scan_other()
 
 
 def dump(device, args):
@@ -219,39 +256,8 @@ REGULAR_COMMANDS = {"pull-traces":pull_traces, "t":pull_traces,
                     "extract-apk":extract_apk, "x":extract_apk,}
 
 BATCH_COMMANDS = {"clean":clean, "c":clean,
-                  "dump":dump, "d":dump}
-
-
-def regular_commands(device, args):
-    """Set of commands that should not be carried out on more than
-    one device at a time.
-    """
-    try:
-        REGULAR_COMMANDS[args.command](device, args)
-    except KeyError:
-        raise NotImplementedError("The '{}' function is not yet implemented".format(args.command))
-
-
-def batch_commands(device_list, args):
-    """Set of commands that can be run on multiple devices, one after
-    another.
-    """
-    # TODO: work out how to run the below commands concurrently
-    # this would be nice,  but I don't see a simple method of doing
-    # it in a standard stdout/cli fashion
-    # This will have to be implemented inside GUI module
-    if args.command == "helper-dump":
-        print("Before continuing, please remember that ALL dumped files may",
-              "contain sensitive data. Please pay special attention to the",
-              "'getprop' file which almost certainly will contain data you do",
-              "not want people to see.")
-        input("Press enter to continue")
-
-    for device in device_list:
-        try:
-            BATCH_COMMANDS[args.command](device, args)
-        except KeyError:
-            raise NotImplementedError("The '{}' function is not yet implemented".format(args.command))
+                  "dump":dump, "d":dump,
+                  "scan":scan_all, "s":scan_all}
 
 
 def main(args=None):
@@ -282,29 +288,6 @@ def main(args=None):
     chosen_device = None
     connected_devices = device_.get_devices(initialize=False)
 
-    if args.command in ("scan", "s"):
-        if connected_devices:
-            format_str = "{:13}{:15}{:10}{}"
-            print(format_str.format("Serial", "Manufacturer", "Model", "Status"))
-            for device in connected_devices:
-                device.device_init(limit_init=("getprop"))
-                print(format_str.format(
-                    device.serial, device.info("Product", "Manufacturer"),
-                    device.info("Product", "Model"), device._status))
-            print()
-
-        unauthorized_devices = device_._get_devices()
-        for device in unauthorized_devices:
-            if device[1] == "device":
-                unauthorized_devices.remove(device)
-
-        if unauthorized_devices:
-            print("The following devices could not be initialized:")
-            for serial, status in unauthorized_devices:
-                print(serial, ":", status)
-            print()
-        return
-
     try:
         if args.device:
             for device in connected_devices:
@@ -329,6 +312,12 @@ def main(args=None):
                       "unused devices.")
                 return
 
-        return regular_commands(chosen_device, args)
+        try:
+            return REGULAR_COMMANDS[args.command](chosen_device, args)
+        except KeyError:
+            raise NotImplementedError("The '{}' function is not yet implemented".format(args.command))
 
-    return batch_commands(connected_devices, args)
+    try:
+        return BATCH_COMMANDS[args.command](connected_devices, args)
+    except KeyError:
+        raise NotImplementedError("The '{}' function is not yet implemented".format(args.command))
