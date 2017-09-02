@@ -106,7 +106,8 @@ def install_application(device, apk_file, install_location="automatic",
             for reason in is_compatible[1]:
                 stdout_.write(reason + "\n")
 
-    device.device_init(limit_init=("system_apps", "thirdparty_apps"), force_init=True)
+    device.device_init(limit_init=("system_apps", "thirdparty_apps"),
+                       force_init=True)
 
     if apk_file.app_name in device.thirdparty_apps:
         stdout_.write(" ".join(["WARNING: Different version of the app",
@@ -152,6 +153,8 @@ def install_application(device, apk_file, install_location="automatic",
 def prepare_obb_dir(device, app_name):
     """Prepare the obb directory for installation."""
     # pipe the stdout to suppress unnecessary errors
+    device.device_init(limit_init=("shell_environment"))
+
     obb_folder = device.ext_storage + "/Android/obb"
     device.shell_command("mkdir", obb_folder, return_output=True)
     device.shell_command(
@@ -168,6 +171,7 @@ def push_obb(device, obb_file, app_name, stdout_=sys.stdout):
     This is done in two steps because attempts to 'adb push' it directly
     into obb folder may fail on some devices.
     """
+    device.device_init(limit_init=("shell_environment"))
     obb_name = str(Path(obb_file).name)
     obb_target = "".join([device.ext_storage, "/Android/obb/", app_name, "/",
                           obb_name])
@@ -205,7 +209,7 @@ def record(device, output=".", name=None, silent=False, stdout_=sys.stdout):
     # regular users from their device - hold the power button and it should
     # appear alongside reset and shutdown options
 
-    device.device_init(limit_init=("available_commands"))
+    device.device_init(limit_init=("available_commands", "shell_environment"))
 
     if 'screenrecord' not in device.available_commands:
         stdout_.write(
@@ -283,6 +287,8 @@ def pull_traces(device, output=None, stdout_=sys.stdout):
         output = Path().resolve()
     else:
         output = Path(output).resolve()
+
+    device.device_init(limit_init=("getprop", "shell_environment"))
 
     anr_filename = "".join([device.info("Product", "Model"), "_anr_",
                             strftime("%Y.%m.%d_%H.%M.%S"), ".txt"])
