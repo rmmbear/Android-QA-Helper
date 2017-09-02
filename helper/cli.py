@@ -41,6 +41,9 @@ CMD = COMMANDS.add_parser("install", parents=[OPT_DEV, OPT_OUT], aliases=["i"],
 # TODO: Write help for install's 'file' argument
 HELP_ARGUMENT = """"""
 CMD.add_argument("install", nargs="+", metavar="files", help=HELP_ARGUMENT)
+CMD.add_argument("--keep-data", action="store_true")
+CMD.add_argument("--location", choices=["internal", "external"],
+                 default="automatic")
 
 HELP_GENERAL = """Clean various files from a device. """
 HELP_DETAIL = """By default, this command
@@ -235,7 +238,8 @@ def scan_all(device_list, args):
 def detailed_scan(device_list, args):
     """"""
     for device in device_list:
-        pass
+        print(device.detailed_info_string())
+        print()
     scan_other()
 
 
@@ -255,14 +259,15 @@ def dump(device_list, args):
         print()
 
 
-REGULAR_COMMANDS = {"pull-traces":pull_traces, "t":pull_traces,
+REGULAR_COMMANDS = {"traces":pull_traces, "t":pull_traces,
                     "record":record, "r":record,
                     "install":install, "i":install,
                     "extract-apk":extract_apk, "x":extract_apk,}
 
 BATCH_COMMANDS = {"clean":clean, "c":clean,
                   "dump":dump, "d":dump,
-                  "scan":scan_all, "s":scan_all}
+                  "scan":scan_all, "s":scan_all,
+                  "detailed-scan":detailed_scan, "ds":detailed_scan}
 
 
 def main(args=None):

@@ -11,6 +11,38 @@ from helper.extract_device_info import INFO_EXTRACTION_CONFIG
 
 ADB = helper_.ADB
 
+# The following variable represents what information is surfaced to the
+# user in the detailed-scan
+SURFACED_INFO = (("Product", (
+                     "Model",
+                     "Manufacturer",
+                     "Device")),
+                 ("OS", (
+                     "Version",
+                     "API Level",
+                     "Build ID",)),
+                 ("RAM", ("Total")),
+                 ("CPU", (
+                     "Chipset and Type",
+                     "Cores",
+                     "Architecture",
+                     "Max Frequency",
+                     "Available ABIs")),
+                 ("GPU", (
+                     "Model",
+                     "GL Version",
+                     "Texture Types")),
+                 ("Display", (
+                     "Resolution",
+                     "Density")),
+                 ("Notable Features", (
+                     "Bluetooth",
+                     "Bluetooth Low Energy",
+                     "InfraRed",
+                     "NFC")),
+                )
+
+
 def adb_command(*args, check_server=True, stdout_=sys.stdout, **kwargs):
     """Execute an ADB command, and return -- or don't -- its result.
 
@@ -59,7 +91,7 @@ def _get_devices(stdout_=sys.stdout):
 
         device = device_line.split(maxsplit=1)
         if device[1] not in ("device", "unauthorized", "offline"):
-            if not "no permission" in device[1]:
+            if not "no permissions" in device[1]:
                 stdout_.write(" ".join(["ERROR: helper received unexpected",
                                         "output while scanning for devices:\n"]
                                       )
@@ -108,43 +140,7 @@ class Device:
 
         self._info = OrderedDict()
 
-        info = [
-            ("Product", [
-                "Model",
-                "Name",
-                "Manufacturer",
-                "Brand",
-                "Device"]),
-            ("OS", [
-                "Version",
-                "API Level",
-                "Build ID",
-                "Build Fingerprint"]),
-            ("RAM", [
-                "Total"]),
-            ("CPU", [
-                "Chipset and Type",
-                "Cores",
-                "Architecture",
-                "Max Frequency",
-                "Available ABIs"]),
-            ("GPU", [
-                "Model",
-                "GL Version",
-                "Texture Types"]),
-            ("Display", [
-                "Resolution",
-                "Density",
-                "X-DPI",
-                "Y-DPI"]),
-            ("Notable Features", [
-                "Bluetooth",
-                "Bluetooth Low Energy",
-                "InfraRed",
-                "NFC"]),
-            ]
-
-        for pair in info:
+        for pair in SURFACED_INFO:
             props = OrderedDict()
             for prop in pair[1]:
                 props[prop] = list()
@@ -362,7 +358,10 @@ class Device:
 
         # if an info source is a key in whitelist, only the asociated values
         # will be returned from that group
-        group_whitelist = {}
+        # which means that group can be blacklisted by simply not specyfing any
+        # values with it
+        group_whitelist = {"device_features":("device_features")}
+
         indent = indent * " "
         group_list = []
         grouped_vars = {}
@@ -431,6 +430,19 @@ class Device:
             full_info_string = "".join([full_info_string, value, "\n"])
 
         return full_info_string
+
+    def detailed_info_string(self, indent=4):
+        """"""
+        info = ""
+        self.device_init(limit_init=())
+
+        for category_name, value_names_list in SURFACED_INFO:
+            info = "".join([info, "\n", category_name, ":"])
+            for value_name in value_names_list:
+                info = "".join([info, "\n", indent*" ", value_name, " : ",
+                                self.info(category_name, value_name)])
+
+        return info
 
 
     def basic_info_string(self):
