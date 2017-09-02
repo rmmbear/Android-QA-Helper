@@ -238,6 +238,9 @@ def scan_all(device_list, args):
 def detailed_scan(device_list, args):
     """"""
     for device in device_list:
+        device.device_init(limit_init=["getprop"])
+        print("Collecting info from", device.info("Product", "Manufacturer"),
+              device.info("Product", "Model"), "...")
         print(device.detailed_info_string())
         print()
     scan_other()
