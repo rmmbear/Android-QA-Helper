@@ -21,7 +21,7 @@ SURFACED_INFO = (("Product", (
                      "Version",
                      "API Level",
                      "Build ID",)),
-                 ("RAM", ("Total")),
+                 ("RAM", ("Total", )),
                  ("CPU", (
                      "Chipset and Type",
                      "Cores",
