@@ -182,17 +182,23 @@ class Device:
         return self._status
 
 
-    def info(self, index1, index2=None):
-        """Fetch the string value for the given info ."""
-        info_container = self._info[index1]
-        if not index2:
-            if isinstance(info_container, list):
-                return "\n".join(info_container)
+    def info(self, index1, index2=None, nonexistent_ok=False):
+        """Fetch the string value for the given info variable."""
+        try:
+            info_container = self._info[index1]
+            if not index2:
+                if isinstance(info_container, list):
+                    return "\n".join(info_container)
 
-            return info_container
+                return info_container
 
-        info_container = info_container[index2]
-        return ", ".join(info_container)
+            info_container = info_container[index2]
+            return ", ".join(info_container)
+        except KeyError:
+            if nonexistent_ok:
+                return "Unavailable"
+            else:
+                raise
 
 
     def device_init(self, limit_init=(), force_init=False):
@@ -367,6 +373,8 @@ class Device:
         grouped_vars = {}
         ungrouped_vars = []
 
+        # TODO: Look into simplifying this mess
+
         full_info_string = "-----Android QA Helper v.{}-----".format(
             helper_.VERSION)
 
@@ -382,12 +390,10 @@ class Device:
                     if info_variable.var_dict_1 not in group_list:
                         group_list.append(info_variable.var_dict_1)
 
-                    try:
-                        value = self.info(info_variable.var_dict_1, info_variable.var_name)
-                        if not value:
-                            value = "Unknown"
-                    except KeyError:
-                        value = "Unavailable"
+                    value = self.info(info_variable.var_dict_1,
+                                      info_variable.var_name, True)
+                    if not value:
+                        value = "Unknown"
 
                     line = "".join([info_variable.var_name, " : ", value])
 
@@ -399,17 +405,22 @@ class Device:
 
                     grouped_vars[info_variable.var_dict_1].append(line)
                 elif info_variable.var_dict_1 == "_info":
-                    value = self.info(info_variable.var_name)
+                    value = self.info(info_variable.var_name,
+                                      nonexistent_ok=True)
                     if not value:
                         value = "Unknown"
 
                     line = "".join([info_variable.var_name, " : ", value])
                     ungrouped_vars.append(line)
                 else:
-                    if not self.__dict__[info_variable.var_name]:
+                    try:
+                        value = self.__dict__[info_variable.var_name]
+                    except KeyError:
+                        value = "Unavailable"
+
+                    if not value:
                         value = "Unknown"
                     else:
-                        value = self.__dict__[info_variable.var_name]
                         if isinstance(value, (list, tuple)):
                             value = ", ".join(value)
                         else:
@@ -417,7 +428,6 @@ class Device:
 
                     line = "".join([info_variable.var_name, " : ", value])
                     ungrouped_vars.append(line)
-
 
         for group in group_list:
             full_info_string = "".join([full_info_string, "\n", group, ":\n"])
@@ -431,6 +441,7 @@ class Device:
 
         return full_info_string
 
+
     def detailed_info_string(self, indent=4):
         """"""
         info = ""
@@ -440,7 +451,8 @@ class Device:
             info = "".join([info, "\n", category_name, ":"])
             for value_name in value_names_list:
                 info = "".join([info, "\n", indent*" ", value_name, " : ",
-                                self.info(category_name, value_name)])
+                                self.info(category_name, value_name,
+                                          nonexistent_ok=True)])
 
         return info
 
