@@ -105,7 +105,7 @@ CMD = COMMANDS.add_parser("dump", parents=[OPT_DEV, OPT_OUT], aliases="d",
 
 ### Hidden commands
 COMMANDS.add_parser("gui")
-COMMANDS.add_parser("helper-dump")
+COMMANDS.add_parser("debug-dump", parents=[OPT_OUT])
 
 # Example of caring too much about aesthetics
 for group in  PARSER._action_groups:
@@ -262,6 +262,18 @@ def dump(device_list, args):
         print()
 
 
+def debug_dump(device_list, args):
+    print("Before continuing, please remember that ALL dumped files may",
+          "contain sensitive data. Use caution.")
+    input("Press enter to continue")
+
+    from helper.tests import dump_devices
+
+    for device in device_list:
+        device.device_init()
+        dump_devices(device, args.output)
+
+
 REGULAR_COMMANDS = {"traces":pull_traces, "t":pull_traces,
                     "record":record, "r":record,
                     "install":install, "i":install,
@@ -270,7 +282,8 @@ REGULAR_COMMANDS = {"traces":pull_traces, "t":pull_traces,
 BATCH_COMMANDS = {"clean":clean, "c":clean,
                   "dump":dump, "d":dump,
                   "scan":scan_all, "s":scan_all,
-                  "detailed-scan":detailed_scan, "ds":detailed_scan}
+                  "detailed-scan":detailed_scan, "ds":detailed_scan,
+                  "debug-dump":debug_dump}
 
 
 def main(args=None):
