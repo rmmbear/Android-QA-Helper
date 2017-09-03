@@ -83,16 +83,16 @@ def install(device, *items, stdout_=sys.stdout):
         device.shell_command("mkdir", obb_folder, return_output=True)
         device.shell_command("mkdir", obb_folder + "/" + apk_file.app_name,
                              return_output=True)
-        device.shell_command("rm", "-r", obb_folder + "/" + apk_file.app_name,
-                             return_output=True)
+        device.shell_command("rm", "".join([obb_folder, "/", apk_file.app_name,
+                                            "/", "*.obb"]), return_output=True)
 
         for obb_file in obb_list:
             if not push_obb(device, obb_file, apk_file.app_name, stdout_=stdout_):
                 stdout_.write("ERROR: Failed to copy " + obb_file + "\n")
                 return False
 
-        stdout_.write("".join(["\nSuccesfully copied obb files for",
-                               apk_file.app_name, "!\n"]))
+        stdout_.write(" ".join(["\nSuccesfully copied obb files for",
+                                apk_file.display_name, "!\n"]))
 
 
 def install_app(device, apk_file, install_location="automatic",
@@ -137,7 +137,7 @@ def install_app(device, apk_file, install_location="automatic",
         return False
 
     stdout_.write(" ".join(["Installing", apk_file.display_name, "...\n"]))
-    stdout_.write(" ".join(["Please check your device, as it may promptly ask",
+    stdout_.write(" ".join(["Please check your device, as it may now ask",
                             "you to confirm the installation.\n"]))
 
     destination = '"{}"'.format(destination)
@@ -159,28 +159,24 @@ def install_app(device, apk_file, install_location="automatic",
 
 
 def push_obb(device, obb_file, app_name, stdout_=sys.stdout):
-    """Push <obb_file> to /mnt/sdcard/Android/obb/<your.app.name> on
-    <Device>.
-
-    File is copied to primary storage, and from there to the obb folder.
-    This is done in two steps because attempts to 'adb push' it directly
-    into obb folder may fail on some devices.
+    """Push <obb-file> to <shared-storage>/Android/obb/<package-name>/
+    on <Device>.
     """
     device.device_init(limit_init=("shell_environment"))
 
     obb_name = str(Path(obb_file).name)
-    obb_target = "".join([device.ext_storage, "/Android/obb/", app_name, "/",
-                          obb_name])
+    obb_target_file = "".join([device.ext_storage, "/Android/obb/", app_name,
+                               "/", obb_name])
 
     #pushing obb in two steps - some devices block adb push directly to obb folder
     device.adb_command("push", obb_file, device.ext_storage + "/" + obb_name,
                        stdout_=stdout_)
     device.shell_command("mv",
                          "".join(['"', device.ext_storage, "/", obb_name, '"']),
-                         "".join(['"', obb_target, '"']),
+                         "".join(['"', obb_target_file, '"']),
                          stdout_=stdout_)
 
-    if device.is_file(obb_target):
+    if device.is_file(obb_target_file):
         return True
 
     if device.status != "device":
