@@ -48,7 +48,7 @@ def install(device, *items, stdout_=sys.stdout):
     if installed:
         if installed > 1:
             stdout_.write(
-                " ".join(["\nSuccesfully installed", installed,
+                " ".join(["\nSuccesfully installed", str(installed),
                           "out of", str(len(apk_list)), "provided apks:\n"]))
         else:
             stdout_.write("\nSuccesfully installed ")
