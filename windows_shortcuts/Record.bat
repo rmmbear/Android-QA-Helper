@@ -7,7 +7,7 @@ set root=%_root:~0,-1%
 set helper="%root%\helper\helper.exe"
 
 echo.
-call %helper% -r %userprofile%\Desktop
+call %helper% record %userprofile%\Desktop
 echo.
 
 pause

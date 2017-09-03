@@ -7,7 +7,7 @@ set root=%_root:~0,-1%
 set helper="%root%\helper\helper.exe"
 
 echo.
-call %helper% -c
+call %helper% clean
 echo.
 
 pause

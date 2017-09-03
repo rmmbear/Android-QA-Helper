@@ -7,7 +7,7 @@ set root=%_root:~0,-1%
 set helper="%root%\helper\helper.exe"
 
 echo.
-call %helper% -n
+call %helper% detailed-scan
 echo.
 
 pause
