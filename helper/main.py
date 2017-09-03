@@ -4,7 +4,7 @@ from pathlib import Path
 from time import strftime
 
 import helper as helper_
-from helper import apk
+from helper import apk as apk_
 
 def install(device, *items, stdout_=sys.stdout):
     """Install apps.
@@ -16,89 +16,94 @@ def install(device, *items, stdout_=sys.stdout):
 
     for item in items:
         if item[-3:].lower() == "apk":
-            apk_list.append(apk.App(item))
+            apk_list.append(apk_.App(item))
 
         if item[-3:].lower() == "obb":
             obb_list.append(item)
 
     if len(apk_list) > 1 and obb_list:
-        stdout_.write(" ".join(["APK ambiguity! Only one apk file can be",
-                                "installed when also pushing obb files!\n"]))
+        stdout_.write("ERROR: APK ambiguity!")
+        stdout_.write(
+            "Please specify only one apk for installation with obb files!\n")
         return False
 
     # TODO: Accommodate for situations where aapt is not available
     # TODO: Add ability to pick install location
 
     if not apk_list:
-        stdout_.write("No APK found among provided files, aborting!\n")
+        stdout_.write("ERROR: No APKs found among provided files, aborting!\n")
         return False
 
-    if not obb_list:
-        install_apks_only(device, apk_list, stdout_=stdout_)
-    else:
-        install_with_obbs(device, apk_list[0], obb_list, stdout_=stdout_)
+    install_failure = []
 
-
-def install_apks_only(device, apk_list, stdout_=sys.stdout):
-    """"""
-    app_failure = []
-
+    # Take care of apk files(s)
     for apk_file in apk_list:
-        stdout_.write(" ".join(["\nINSTALLING:", apk_file.app_name, "\n"]))
-        stdout_.write("Your device may ask you to confirm this!\n")
+        stdout_.write("".join(["\nINSTALLING: ", apk_file.app_name, "\n"]))
 
-        if not install_application(device, apk_file, stdout_=stdout_):
-            app_failure.append(apk_file.app_name)
+        if not install_app(device, apk_file, stdout_=stdout_):
+            install_failure.append(apk_file.app_name)
 
-    if len(apk_list) > 1:
-        stdout_.write(
-            " ".join(["\nInstalled", str(len(apk_list) - len(app_failure)),
-                      "out of", str(len(apk_list)), "provided apks.\n"]))
-        if app_failure:
+    installed = len(apk_list) - len(install_failure)
+
+    if installed:
+        if installed > 1:
+            stdout_.write(
+                " ".join(["\nSuccesfully installed", installed,
+                          "out of", str(len(apk_list)), "provided apks:\n"]))
+        else:
+            stdout_.write("\nSuccesfully installed ")
+
+        for apk_file in apk_list:
+            if apk_file.app_name not in install_failure:
+                stdout_.write("".join([apk_file.app_name, "\n"]))
+
+    if install_failure:
+        if len(install_failure) > 1:
             stdout_.write("The following apks could not be installed:\n")
-            for app_name in app_failure:
-                stdout_.write("".join([app_name, "\n"]))
+        else:
+            stdout_.write("\nCould not install ")
 
+        for app_name in install_failure:
+            stdout_.write("".join([app_name, "\n"]))
 
-def install_with_obbs(device, apk_file, obb_list, stdout_=sys.stdout):
-    """"""
-    stdout_.write(" ".join(["\n", "INSTALLING:", apk_file.app_name, "\n"]))
-    stdout_.write("Your device may ask you to confirm this!\n")
+        return
 
-    if not install_application(device, apk_file, stdout_=stdout_):
-        return False
-
-    if apk_file.app_name.startswith("Unknown"):
-        stdout_.write("ERROR: Unknown app name, cannot push obb files!\n")
-        return False
-
-    stdout_.write(" ".join(["\nCOPYING OBB FILES FOR:", apk_file.app_name, "\n"]))
-    prepare_obb_dir(device, apk_file.app_name)
-    for obb_file in obb_list:
-        if not push_obb(device, obb_file, apk_file.app_name, stdout_=stdout_):
-            stdout_.write("ERROR: Failed to copy " + obb_file + "\n")
+    # take care of obb file(s)
+    if obb_list:
+        apk_file = apk_list[0]
+        if apk_file.app_name.startswith("Unknown"):
+            stdout_.write("ERROR: Unknown app name, cannot push obb files!\n")
             return False
-    stdout_.write("\nSuccesfully installed {}!\n".format(apk_file.app_name))
+
+        stdout_.write("\nCopying obb files...\n")
+        device.device_init(limit_init=("shell_environment"))
+
+        # Prepare the target directory
+        obb_folder = device.ext_storage + "/Android/obb"
+        device.shell_command("mkdir", obb_folder, return_output=True)
+        device.shell_command("mkdir", obb_folder + "/" + apk_file.app_name,
+                             return_output=True)
+        device.shell_command("rm", "-r", obb_folder + "/" + apk_file.app_name,
+                             return_output=True)
+
+        for obb_file in obb_list:
+            if not push_obb(device, obb_file, apk_file.app_name, stdout_=stdout_):
+                stdout_.write("ERROR: Failed to copy " + obb_file + "\n")
+                return False
+
+        stdout_.write("".join(["\nSuccesfully copied obb files for",
+                               apk_file.app_name, "!\n"]))
 
 
-def install_application(device, apk_file, install_location="automatic",
-                        installer_name="android_helper", stdout_=sys.stdout):
+def install_app(device, apk_file, install_location="automatic",
+                installer_name="android_helper", stdout_=sys.stdout):
     """Install an application from a local apk file."""
     possible_install_locations = {"automatic":"", "external":"-s",
                                   "internal":"-f"}
 
-    if install_location not in possible_install_locations:
-        raise ValueError(" ".join(["Function received", install_location,
-                                   "but knows only the following install",
-                                   "locations: 'automatic', 'external',",
-                                   "'internal'"]))
-
     if apk_file.app_name.startswith("Unknown"):
-        stdout_.write("WARNING: This app does not appear to be a valid .apk archive\n")
-        stdout_.write(" ".join([
-            "Helper will attempt to install it, but cannot verify its status",
-            "afterwards. This also makes installation with obb files",
-            "impossible!\n"]))
+        stdout_.write(
+            "WARNING: This app does not appear to be a valid .apk archive\n")
     else:
         is_compatible = apk_file.check_compatibility(device)
         if not is_compatible[0]:
@@ -116,9 +121,10 @@ def install_application(device, apk_file, install_location="automatic",
             stdout_.write("ERROR: Could not uninstall the app!\n")
             return False
     elif apk_file.app_name in device.system_apps:
-        stdout_.write(" ".join(["WARNING: This app already exists on device as a system app!\n"]))
-        stdout_.write(" ".join(["         System apps can only be upgraded.\n"]))
-
+        stdout_.write(
+            "WARNING: This app already exists on device as a system app!\n")
+        stdout_.write(
+            "         System apps can only be upgraded to newer versions.\n")
 
     apk_filename = Path(apk_file.host_path).name
     destination = ("/data/local/tmp/helper_" + apk_filename).replace(" ", "_")
@@ -130,8 +136,9 @@ def install_application(device, apk_file, install_location="automatic",
         stdout_.write("ERROR: Could not copy apk file to device\n")
         return False
 
-    stdout_.write("Installing {}...\n".format(apk_file.display_name))
-    stdout_.flush()
+    stdout_.write(" ".join(["Installing", apk_file.display_name, "...\n"]))
+    stdout_.write(" ".join(["Please check your device, as it may promptly ask",
+                            "you to confirm the installation.\n"]))
 
     destination = '"{}"'.format(destination)
     device.shell_command("pm", "install", "-r", "-i", installer_name,
@@ -139,7 +146,8 @@ def install_application(device, apk_file, install_location="automatic",
                          destination, stdout_=stdout_)
     device.shell_command("rm", destination, stdout_=stdout_)
 
-    device.device_init(limit_init=("system_apps", "thirdparty_apps"), force_init=True)
+    device.device_init(limit_init=("system_apps", "thirdparty_apps"),
+                       force_init=True)
 
     # TODO: detect installation failure for system apps
     if apk_file.app_name not in device.thirdparty_apps:
@@ -148,19 +156,6 @@ def install_application(device, apk_file, install_location="automatic",
 
     stdout_.write("Installation completed!\n")
     return True
-
-
-def prepare_obb_dir(device, app_name):
-    """Prepare the obb directory for installation."""
-    # pipe the stdout to suppress unnecessary errors
-    device.device_init(limit_init=("shell_environment"))
-
-    obb_folder = device.ext_storage + "/Android/obb"
-    device.shell_command("mkdir", obb_folder, return_output=True)
-    device.shell_command(
-        "rm", "-r", obb_folder + "/" + app_name, return_output=True)
-    device.shell_command(
-        "mkdir", obb_folder + "/" + app_name, return_output=True)
 
 
 def push_obb(device, obb_file, app_name, stdout_=sys.stdout):
@@ -172,11 +167,12 @@ def push_obb(device, obb_file, app_name, stdout_=sys.stdout):
     into obb folder may fail on some devices.
     """
     device.device_init(limit_init=("shell_environment"))
+
     obb_name = str(Path(obb_file).name)
     obb_target = "".join([device.ext_storage, "/Android/obb/", app_name, "/",
                           obb_name])
 
-    #pushing obb in two steps to circumvent write protection
+    #pushing obb in two steps - some devices block adb push directly to obb folder
     device.adb_command("push", obb_file, device.ext_storage + "/" + obb_name,
                        stdout_=stdout_)
     device.shell_command("mv",
