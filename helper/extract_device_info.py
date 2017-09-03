@@ -490,4 +490,7 @@ INFO_EXTRACTION_CONFIG = {
                 (re.search, ("(?<=Physical density:).*", '$source')),),
             var_name='Density', var_dict_1='Display', var_dict_2='_info', resolve_existing_values='drop'),
     ),
+    (("cat", "/system/build.prop"), (('as_list', False), ("return_output", True)), "build.prop") :(
+        # this is here only to be picked up during debug helper device dumps
+    ),
 }
