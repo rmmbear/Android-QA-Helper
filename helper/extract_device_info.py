@@ -223,40 +223,40 @@ INFO_EXTRACTION_CONFIG = {
     (("getprop",), (("as_list", False), ("return_output", True)), "getprop") : (
         InfoSpec(
             extraction_commands=(
-                (re.search, ('(?<=\\[ro\\.product\\.name\\]: \\[).*(?=\\])', '$source')),),
-            var_name='Name', var_dict_1='Product', var_dict_2='_info'),
-        InfoSpec(
-            extraction_commands=(
                 (re.search, ('(?<=\\[ro\\.product\\.model\\]: \\[).*(?=\\])', '$source')),),
             var_name='Model', var_dict_1='Product', var_dict_2='_info'),
-        InfoSpec(
-            extraction_commands=(
-                (re.search, ('(?<=\\[ro\\.product\\.brand\\]: \\[).*(?=\\])', '$source')),),
-            var_name='Brand', var_dict_1='Product', var_dict_2='_info'),
-        InfoSpec(
-            extraction_commands=(
-                (re.search, ('(?<=\\[ro\\.product\\.device\\]: \\[).*(?=\\])', '$source')),),
-            var_name='Device', var_dict_1='Product', var_dict_2='_info'),
         InfoSpec(
             extraction_commands=(
                 (re.search, ('(?<=\\[ro\\.product\\.manufacturer\\]: \\[).*(?=\\])', '$source')),),
             var_name='Manufacturer', var_dict_1='Product', var_dict_2='_info'),
         InfoSpec(
             extraction_commands=(
+                (re.search, ('(?<=\\[ro\\.product\\.device\\]: \\[).*(?=\\])', '$source')),),
+            var_name='Device', var_dict_1='Product', var_dict_2='_info'),
+        InfoSpec(
+            extraction_commands=(
+                (re.search, ('(?<=\\[ro\\.product\\.name\\]: \\[).*(?=\\])', '$source')),),
+            var_name='Name', var_dict_1='Product', var_dict_2='_info'),
+        InfoSpec(
+            extraction_commands=(
+                (re.search, ('(?<=\\[ro\\.product\\.brand\\]: \\[).*(?=\\])', '$source')),),
+            var_name='Brand', var_dict_1='Product', var_dict_2='_info'),
+        InfoSpec(
+            extraction_commands=(
                 (re.search, ('(?<=\\[ro\\.sf\\.lcd_density\\]: \\[).*(?=\\])', '$source')),),
             var_name='Density', var_dict_1='Display', var_dict_2='_info'),
         InfoSpec(
             extraction_commands=(
-                (re.search, ('(?<=\\[ro\\.build\\.id\\]: \\[).*(?=\\])', '$source')),),
-            var_name='Build ID', var_dict_1='OS', var_dict_2='_info'),
+                (re.search, ('(?<=\\[ro\\.build\\.version\\.release\\]: \\[).*(?=\\])', '$source')),),
+            var_name='Version', var_dict_1='OS', var_dict_2='_info'),
         InfoSpec(
             extraction_commands=(
                 (re.search, ('(?<=\\[ro\\.build\\.version\\.sdk\\]: \\[).*(?=\\])', '$source')),),
             var_name='API Level', var_dict_1='OS', var_dict_2='_info'),
         InfoSpec(
             extraction_commands=(
-                (re.search, ('(?<=\\[ro\\.build\\.version\\.release\\]: \\[).*(?=\\])', '$source')),),
-            var_name='Version', var_dict_1='OS', var_dict_2='_info'),
+                (re.search, ('(?<=\\[ro\\.build\\.id\\]: \\[).*(?=\\])', '$source')),),
+            var_name='Build ID', var_dict_1='OS', var_dict_2='_info'),
         InfoSpec(
             extraction_commands=(
                 (re.search, ('(?<=\\[ro\\.build\\.fingerprint\\]: \\[).*(?=\\])', '$source')),),
@@ -289,6 +289,14 @@ INFO_EXTRACTION_CONFIG = {
             extraction_commands=(
                 (re.search, ('(?<=\\[dalvik\\.vm\\.stack\\-trace\\-file\\]: \\[).*(?=\\])', '$source')),),
             var_name='anr_trace_path'),
+        InfoSpec(
+            extraction_commands=(
+                (re.search, ('(?<=\\[internal\\_sd\\_path\\]: \\[).*(?=\\])', '$source')),),
+            var_name='internal_sd_path', resolve_existing_values='drop'),
+        InfoSpec(
+            extraction_commands=(
+                (re.search, ('(?<=\\[external\\_sd\\_path\\]: \\[).*(?=\\])', '$source')),),
+            var_name='external_sd_path', resolve_existing_values='drop'),
     ),
     (("dumpsys", "SurfaceFlinger"), (("as_list", False), ("return_output", True)), "surfaceflinger_dump"): (
         InfoSpec(
@@ -342,6 +350,12 @@ INFO_EXTRACTION_CONFIG = {
             var_name='Chipset and Type', var_dict_1='CPU', var_dict_2='_info', resolve_multiple_values='drop',
             post_extraction_commands=(
                 ('method', 'strip', (' :\t',)),)),
+        InfoSpec(
+            extraction_commands=(
+                (re.search, ('(?<=Features).*', '$source')),),
+            var_name='CPU Features', var_dict_1='CPU', var_dict_2='_info', resolve_multiple_values='drop',
+            post_extraction_commands=(
+                ('method', 'strip', (' :\t',)),)),
 
     ),
     (("cat", "/sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_max_freq"), (("as_list", False), ("return_output", True)), "cpu_freq"): (
@@ -374,15 +388,15 @@ INFO_EXTRACTION_CONFIG = {
                 ('function', str, ('$extracted',)),
                 ('method', '__add__', (' MB',)))),
     ),
-    (("printenv",), (('as_list', False), ("return_output", True)), "shell_environment") :(
+    (("printenv",), (("as_list", False), ("return_output", True)), "shell_environment") :(
         InfoSpec(
             extraction_commands=(
-                (re.search, ('(?<=EXTERNAL_STORAGE=).*', '$source')),),
-            var_name="ext_storage"),
+                (re.search, ("(?<=EXTERNAL_STORAGE=).*", "$source")),),
+            var_name="internal_sd_path", resolve_existing_values="drop"),
         InfoSpec(
             extraction_commands=(
-                (re.search, ('(?<=SECONDARY_STORAGE=).*', '$source')),),
-            var_name="secondary_storage"),
+                (re.search, ("(?<=SECONDARY_STORAGE=).*", "$source")),),
+            var_name="external_sd_path", resolve_existing_values="drop"),
     ),
     (("ls", "/system/bin"), (('as_list', True), ("return_output", True)), "available_commands") :(
         InfoSpec(
@@ -491,6 +505,9 @@ INFO_EXTRACTION_CONFIG = {
             var_name='Density', var_dict_1='Display', var_dict_2='_info', resolve_existing_values='drop'),
     ),
     (("cat", "/system/build.prop"), (('as_list', False), ("return_output", True)), "build.prop") :(
+        # this is here only to be picked up during debug helper device dumps
+    ),
+    (("dumpsys"), (('as_list', False), ("return_output", True)), "dumpsys_services") :(
         # this is here only to be picked up during debug helper device dumps
     ),
 }
