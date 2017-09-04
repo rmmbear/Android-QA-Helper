@@ -129,8 +129,8 @@ class Device:
         self.serial = serial
         self._extracted_info_groups = []
 
-        self.ext_storage = None
-        self.secondary_storage = None
+        self.internal_sd_path = None
+        self.external_sd_path = None
         self.anr_trace_path = None
 
         self.thirdparty_apps = ()
@@ -234,10 +234,10 @@ class Device:
                 self._extracted_info_groups.append(source_name)
 
             # This kinda defeats the purpose of the whole info config thing...
-            if isinstance(self.ext_storage, list):
-                self.ext_storage = self.ext_storage[0]
-            if isinstance(self.secondary_storage, list):
-                self.secondary_storage = self.secondary_storage[0]
+            if isinstance(self.internal_sd_path, list):
+                self.internal_sd_path = self.internal_sd_path[0]
+            if isinstance(self.external_sd_path, list):
+                self.external_sd_path = self.external_sd_path[0]
             if isinstance(self.anr_trace_path, list):
                 self.anr_trace_path = self.anr_trace_path[0]
 

@@ -79,7 +79,7 @@ def install(device, *items, stdout_=sys.stdout):
         device.device_init(limit_init=("shell_environment"))
 
         # Prepare the target directory
-        obb_folder = device.ext_storage + "/Android/obb"
+        obb_folder = device.internal_sd_path + "/Android/obb"
         device.shell_command("mkdir", obb_folder, return_output=True)
         device.shell_command("mkdir", obb_folder + "/" + apk_file.app_name,
                              return_output=True)
@@ -165,14 +165,14 @@ def push_obb(device, obb_file, app_name, stdout_=sys.stdout):
     device.device_init(limit_init=("shell_environment"))
 
     obb_name = str(Path(obb_file).name)
-    obb_target_file = "".join([device.ext_storage, "/Android/obb/", app_name,
+    obb_target_file = "".join([device.internal_sd_path, "/Android/obb/", app_name,
                                "/", obb_name])
 
     #pushing obb in two steps - some devices block adb push directly to obb folder
-    device.adb_command("push", obb_file, device.ext_storage + "/" + obb_name,
+    device.adb_command("push", obb_file, device.internal_sd_path + "/" + obb_name,
                        stdout_=stdout_)
     device.shell_command("mv",
-                         "".join(['"', device.ext_storage, "/", obb_name, '"']),
+                         "".join(['"', device.internal_sd_path, "/", obb_name, '"']),
                          "".join(['"', obb_target_file, '"']),
                          stdout_=stdout_)
 
@@ -244,7 +244,7 @@ def record(device, output=".", name=None, silent=False, stdout_=sys.stdout):
         filename = "".join([device.info("Product", "Model"), "_screenrecord_",
                             strftime("%Y.%m.%d_%H.%M.%S"), ".mp4"])
 
-    remote_recording = "".join([device.ext_storage + "/" + filename])
+    remote_recording = "".join([device.internal_sd_path + "/" + filename])
 
     try:
         device.shell_command("screenrecord", "--verbose", remote_recording,
@@ -284,7 +284,7 @@ def pull_traces(device, output=None, stdout_=sys.stdout):
 
     anr_filename = "".join([device.info("Product", "Model"), "_anr_",
                             strftime("%Y.%m.%d_%H.%M.%S"), ".txt"])
-    remote_anr_file = "".join([device.ext_storage, "/", anr_filename])
+    remote_anr_file = "".join([device.internal_sd_path, "/", anr_filename])
     device.shell_command("cat", device.anr_trace_path, ">", remote_anr_file)
 
     if not device.is_file(remote_anr_file):
