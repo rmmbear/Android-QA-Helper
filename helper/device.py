@@ -245,8 +245,8 @@ class Device:
             self.initialized = True
 
 
-    def is_type(self, file_path, file_type, check_read=True, check_write=False,
-                check_execute=False, symlink_ok=False):
+    def is_type(self, file_path, file_type, check_read=False, check_write=False,
+                check_execute=False, symlink_ok=True, silent=True):
         """Check whether a path points to an existing file that matches
         the specified type and whether the current user has the
         specified permissions.
@@ -270,38 +270,47 @@ class Device:
         if check_execute:
             permissions += "x"
 
-        out = self.shell_command(
-            'if [ -{} "{}" ];'.format(file_type, file_path), "then echo 0;",
-            "else echo 1;", "fi", return_output=True, as_list=False).strip()
-
-        if out not in ["0", "1"]:
-            print("Got unexpected output while checking for '", file_type,
-                  "' type of file", file_path)
-            print("Output:", [out])
+        # check if the file exists
+        exists = self.shell_command(
+            'if [ -e "{}" ];'.format(file_path), "then echo 1;",
+            "else echo 0;", "fi", return_output=True, as_list=False).strip()
+        exists = bool(int(exists))
+        if not exists:
+            if not silent:
+                print("file does not exist")
             return False
 
-        if out == '1':
+        # check if the file is a symlink
+        symlink = self.shell_command(
+            'if [ -L "{}" ];'.format(file_path), "then echo 1;",
+            "else echo 0;", "fi", return_output=True, as_list=False).strip()
+        symlink = bool(int(symlink))
+        if symlink and not symlink_ok:
+            if not silent:
+                print("file is a symlink")
             return False
 
+        # check if the file is the specified type
+        is_type = self.shell_command(
+            'if [ -{} "{}" ];'.format(file_type, file_path), "then echo 1;",
+            "else echo 0;", "fi", return_output=True, as_list=False).strip()
+        is_type = bool(int(is_type))
+        if not is_type:
+            if not silent:
+                print("file is not of type '{}'".format(file_type))
+            return False
+
+        # check if the shell user has specified permission to the file
         for permission in permissions:
-            out = self.shell_command(
+            has_permission = self.shell_command(
                 'if [ -{} "{}" ];'.format(permission, file_path),
-                "then echo 0;", "else echo 1;", "fi", return_output=True,
+                "then echo 1;", "else echo 0;", "fi", return_output=True,
                 as_list=False).strip()
-
-            if out not in ["0", "1"]:
-                print("Got unexpected output while checking for '",
-                      permission, "' permission in file", file_path)
-                print("Output:", [out])
-
-            if out == '1':
+            has_permission = bool(int(has_permission))
+            if not has_permission:
+                if not silent:
+                    print("file has no '{}' permisson".format(permission))
                 return False
-
-        out = self.shell_command('if [ -L "{}" ];'.format(file_path),
-                                 "then echo 0;", "else echo 1;", "fi",
-                                 return_output=True, as_list=False).strip()
-        if not (out == '1' or symlink_ok):
-            return False
 
         return True
 
