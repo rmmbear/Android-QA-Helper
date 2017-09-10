@@ -78,7 +78,7 @@ class App:
         self.used_not_required_features = ()
         self.used_features = ()
         self.supported_abis = ()
-        self.supported_textures = ()
+        self.supported_texture_compressions = ()
 
         self.from_file()
 
@@ -140,7 +140,7 @@ class App:
             }
 
         findall_group = {
-            "supported_textures" : "(?:supports\\-gl\\-texture\\:\\')([^\\']*)",
+            "supported_texture_compressions" : "(?:supports\\-gl\\-texture\\:\\')([^\\']*)",
             "used_permissions" : "(?:uses\\-permission\\:\\ name\\=\\')([^\\']*)(?:.*maxSdkVersion\\=\\')?([^\\']*)",
             "used_implied_features" : "(?:uses\\-implied\\-feature\\:\\ name\\=\\')([^\\']*)(?:.*reason\\=\\')?([^\\']*)",
             "used_not_required_features" : "(?:uses\\-feature\\-not\\-required\\:\\ name\\=\\')([^\\']*)",
@@ -195,20 +195,34 @@ class App:
                                      "is allowed but the device has",
                                      device_sdk]))
 
-        # check if device uses supported abis
+        # check if device uses one of supported abis
         if self.supported_abis:
             device_abis = device._info["CPU"]["Available ABIs"]
-            unique_abis = set(list(device_abis) + list(self.supported_abis))
-            all_abis = list(device_abis) + list(self.supported_abis)
-            uses_one_of_abis = len(unique_abis) < len(all_abis)
+            unique_abis = set(list(device_abis) + self.supported_abis)
+            all_abis = list(device_abis) + self.supported_abis
+
             # if len(unique_abis) == len(all_abis), then there is
             # no overlap between device's and app's abis
-
-            if not uses_one_of_abis:
+            if not len(unique_abis) < len(all_abis):
                 compatible = False
                 reasons.append(
                     " ".join(["Device does not use supported abis",
                               str(self.supported_abis)]))
+
+        # check if device uses one of supported texture compressions
+        if self.supported_texture_compressions:
+            unique_textures = set(list(device.gles_extensions) \
+                                  + self.supported_texture_compressions)
+            all_textures = list(device.gles_extensions) \
+                           + self.supported_texture_compressions
+
+            # just like with abis
+            if not len(unique_textures) < len(all_textures):
+                compatible = False
+                reasons.append(
+                    " ".join(["Device does not use supported texture",
+                              "compressions",
+                              str(self.supported_texture_compressions)]))
 
         # check if all features are available
         for feature in self.used_features:
@@ -217,7 +231,7 @@ class App:
                 reasons.append(" ".join(["Feature", feature,
                                          "not available on device"]))
 
-        for feature in self.used_implied_features:
+        for feature, implied_reason in self.used_implied_features:
             if feature not in device.device_features:
                 compatible = False
                 reasons.append(" ".join(["Feature", feature,
