@@ -73,11 +73,11 @@ class App:
         self.min_sdk = '0'
         self.max_sdk = '0'
         self.target_sdk = '0'
-        self.used_permissions = None
-        self.used_implied_features = None
-        self.used_not_required_features = None
-        self.used_features = None
-        self.supported_abis = None
+        self.used_permissions = ()
+        self.used_implied_features = ()
+        self.used_not_required_features = ()
+        self.used_features = ()
+        self.supported_abis = ()
 
         self.from_file()
 
@@ -163,10 +163,16 @@ class App:
     def check_compatibility(self, device):
         """Check if specified device meets app's requirements.
 
-        Although certain features might not be available, apps installed
-        on devices not possessing the required features will probably work.
-        Such apps cannot be installed using Google Play Store (and possibly
-        other such services) though.
+        Apps installed on devices not supporting their ABIs or texture
+        compressions will most likely crash on launch.
+
+        If a device's Android version is below the app's minimum, the
+        installation will be blocked by package manager.
+
+        Apps may malfunction if installed on a device without features
+        specified by the app. Depending on the feature, this could mean
+        the app crashing or certain functionality being inaccessible by
+        the user.
         """
         compatible = True
         reasons = []
@@ -180,33 +186,33 @@ class App:
             compatible = False
             reasons.append(" ".join(["API level of at least", self.min_sdk,
                                      "is required but the device has",
-                                     device_sdk])
-                          )
+                                     device_sdk]))
+
         if int(self.max_sdk) and device_sdk > int(self.max_sdk):
             compatible = False
             reasons.append(" ".join(["API level of at most", self.max_sdk,
                                      "is allowed but the device has",
-                                     device_sdk])
-                          )
+                                     device_sdk]))
 
         # check if device uses supported abis
-        uses_one_of_abis = False
-        for abi in self.supported_abis:
-            if abi in device.info("CPU", "Available ABIs"):
-                uses_one_of_abis = True
+        if self.supported_abis:
+            device_abis = device._info["CPU"]["Available ABIs"]
+            unique_abis = set(list(device_abis) + list(self.supported_abis))
+            all_abis = list(device_abis) + list(self.supported_abis)
+            uses_one_of_abis = len(unique_abis) < len(all_abis)
+            # if len(unique_abis) == len(all_abis), then there is
+            # no overlap between device's and app's abis
 
         if not uses_one_of_abis:
             compatible = False
             reasons.append(" ".join(["Device does not use supported abis",
-                                    str(self.supported_abis)])
-                          )
+                                     str(self.supported_abis)]))
 
         # check if all features are available
         for feature in self.used_features:
             if feature not in device.device_features:
                 compatible = False
                 reasons.append(" ".join(["Feature", feature,
-                                         "not available on device"])
-                              )
+                                         "not available on device"]))
 
         return (compatible, reasons)
