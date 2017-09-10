@@ -78,6 +78,7 @@ class App:
         self.used_not_required_features = ()
         self.used_features = ()
         self.supported_abis = ()
+        self.supported_textures = ()
 
         self.from_file()
 
@@ -203,13 +204,20 @@ class App:
             # if len(unique_abis) == len(all_abis), then there is
             # no overlap between device's and app's abis
 
-        if not uses_one_of_abis:
-            compatible = False
-            reasons.append(" ".join(["Device does not use supported abis",
-                                     str(self.supported_abis)]))
+            if not uses_one_of_abis:
+                compatible = False
+                reasons.append(
+                    " ".join(["Device does not use supported abis",
+                              str(self.supported_abis)]))
 
         # check if all features are available
         for feature in self.used_features:
+            if feature not in device.device_features:
+                compatible = False
+                reasons.append(" ".join(["Feature", feature,
+                                         "not available on device"]))
+
+        for feature in self.used_implied_features:
             if feature not in device.device_features:
                 compatible = False
                 reasons.append(" ".join(["Feature", feature,
