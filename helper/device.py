@@ -30,16 +30,13 @@ SURFACED_INFO = (("Product", (
                      "Available ABIs")),
                  ("GPU", (
                      "Model",
+                     "Vendor",
                      "GL Version",
                      "Texture Types")),
                  ("Display", (
                      "Resolution",
                      "Density")),
-                 ("Notable Features", (
-                     "Bluetooth",
-                     "Bluetooth Low Energy",
-                     "InfraRed",
-                     "NFC")),
+                 ("Notable Features", ("$all",)),
                 )
 
 
@@ -245,8 +242,8 @@ class Device:
             self.initialized = True
 
 
-    def is_type(self, file_path, file_type, check_read=False, check_write=False,
-                check_execute=False, symlink_ok=True, silent=True):
+    def is_type(self, file_path, file_type, check_read=False,
+                check_write=False, check_execute=False, symlink_ok=True):
         """Check whether a path points to an existing file that matches
         the specified type and whether the current user has the
         specified permissions.
@@ -254,10 +251,10 @@ class Device:
         You can check for read, write and execute acccess by
         setting the respective check_* arguments to True. Function will
         return True only if all specified permissions are available and
-        if the path does not point to a symlink or symlink_ok is set to
-        True.
+        if the file is of specified type.
 
-        check_read is True by default.
+        Symbolic links are accepted by default.
+        None of the permissions are tested by default.
         """
         if not file_path:
             file_path = "."
@@ -276,8 +273,6 @@ class Device:
             "else echo 0;", "fi", return_output=True, as_list=False).strip()
         exists = bool(int(exists))
         if not exists:
-            if not silent:
-                print("file does not exist")
             return False
 
         # check if the file is a symlink
@@ -286,8 +281,6 @@ class Device:
             "else echo 0;", "fi", return_output=True, as_list=False).strip()
         symlink = bool(int(symlink))
         if symlink and not symlink_ok:
-            if not silent:
-                print("file is a symlink")
             return False
 
         # check if the file is the specified type
@@ -296,8 +289,6 @@ class Device:
             "else echo 0;", "fi", return_output=True, as_list=False).strip()
         is_type = bool(int(is_type))
         if not is_type:
-            if not silent:
-                print("file is not of type '{}'".format(file_type))
             return False
 
         # check if the shell user has specified permission to the file
@@ -308,8 +299,6 @@ class Device:
                 as_list=False).strip()
             has_permission = bool(int(has_permission))
             if not has_permission:
-                if not silent:
-                    print("file has no '{}' permisson".format(permission))
                 return False
 
         return True
