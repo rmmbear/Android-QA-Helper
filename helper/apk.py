@@ -36,6 +36,35 @@ android.permission.WRITE_CALL_LOG
 android.permission.WRITE_CONTACTS
 android.permission.WRITE_EXTERNAL_STORAGE""".splitlines()
 
+#API Level: Android Version, Version Code, Human Readable Name
+API_LEVEL_MATRIX = {
+    26 : ("8.0",    "O",                "Oreo"),
+    25 : ("7.1",    "N_MR1",            "Nougat"),
+    24 : ("7.0",    "N",                "Nougat"),
+    23 : ("6.0",    "M",                "Marshmallow"),
+    22 : ("5.1",    "LOLLIPOP_MR1",     "Lollipop"),
+    21 : ("5.0",    "LOLLIPOP",         "Lollipop"),
+    20 : ("4.4W",   "KITKAT_WATCH",     "KitKat Watch"),
+    19 : ("4.4",    "KITKAT",           "KitKat"),
+    18 : ("4.3",    "JELLY_BEAN_MR2",   "Jelly Bean"),
+    17 : ("4.2",    "JELLY_BEAN_MR1",   "Jelly Bean"),
+    16 : ("4.1",    "JELLY_BEAN",       "Jelly Bean"),
+    15 : ("4.0.3",  "ICE_CREAM_SANDWICH_MR1", "Ice Cream Sandwich"),
+    14 : ("4.0",    "ICE_CREAM_SANDWICH", "Ice Cream Sandwich"),
+    13 : ("3.2",    "HONEYCOMB_MR2",    "Honeycomb"),
+    12 : ("3.1",    "HONEYCOMB_MR1",    "Honeycomb"),
+    11 : ("3.0",    "HONEYCOMB",        "Honeycomb"),
+    10 : ("2.3.3",  "GINGERBREAD_MR1",  "Gingerbread"),
+    9  : ("2.3",    "GINGERBREAD",      "Gingerbread"),
+    8  : ("2.2",    "FROYO",            "Froyo"),
+    7  : ("2.1",    "ECLAIR_MR1",       "Eclair"),
+    6  : ("2.0.1",  "ECLAIR_0_1",       "Eclair"),
+    5  : ("2.0",    "ECLAIR",           "Eclair"),
+    4  : ("1.6",    "DONUT",            "Donut"),
+    3  : ("1.5",    "CUPCAKE",          "Cupcake"),
+    2  : ("1.1",    "BASE_1_1",         "Base"),
+    1  : ("1.0",    "BASE",             "Base")}
+
 
 def aapt_command(*args, stdout_=sys.stdout, **kwargs):
     """Execute an AAPT command, and return -- or don't -- its result."""
@@ -75,7 +104,7 @@ class App:
         self.target_sdk = '0'
         self.used_permissions = ()
         self.used_implied_features = ()
-        self.used_not_required_features = ()
+        self.used_optional_features = ()
         self.used_features = ()
         self.supported_abis = ()
         self.supported_texture_compressions = ()
@@ -141,9 +170,9 @@ class App:
 
         findall_group = {
             "supported_texture_compressions" : "(?:supports\\-gl\\-texture\\:\\')([^\\']*)",
-            "used_permissions" : "(?:uses\\-permission\\:\\ name\\=\\')([^\\']*)(?:.*maxSdkVersion\\=\\')?([^\\']*)",
+            "used_permissions" : "(?:uses\\-permission\\:\\ name\\=\\')([^\\']*)",
             "used_implied_features" : "(?:uses\\-implied\\-feature\\:\\ name\\=\\')([^\\']*)(?:.*reason\\=\\')?([^\\']*)",
-            "used_not_required_features" : "(?:uses\\-feature\\-not\\-required\\:\\ name\\=\\')([^\\']*)",
+            "used_optional_features" : "(?:uses\\-feature\\-not\\-required\\:\\ name\\=\\')([^\\']*)",
             "used_features" : "(?:uses\\-feature\\:\\ name\\=\\')([^\\']*)",
             }
 
@@ -159,6 +188,9 @@ class App:
 
         if self.supported_abis:
             self.supported_abis = self.supported_abis.replace("'", "").strip().split()
+
+        if self.used_implied_features:
+            self.used_implied_features = {feature : reason for feature, reason in self.used_implied_features}
 
 
     def check_compatibility(self, device):
@@ -231,10 +263,47 @@ class App:
                 reasons.append(" ".join(["Feature", feature,
                                          "not available on device"]))
 
-        for feature, implied_reason in self.used_implied_features:
-            if feature not in device.device_features:
-                compatible = False
-                reasons.append(" ".join(["Feature", feature,
-                                         "not available on device"]))
-
         return (compatible, reasons)
+
+    def get_report(self, extended=False, indent=4):
+        line1 = "".join([self.display_name, " v.", self.version_name, " (", self.version_code, ")"])
+        line2 = "".join(["App ID: ", self.app_name])
+
+        if not extended:
+            return line1 + "\n" + line2
+
+        lines = "\n".join([line1, line2])
+
+        target_version = API_LEVEL_MATRIX[int(self.target_sdk)][0]
+        target_version_name = API_LEVEL_MATRIX[int(self.target_sdk)][2]
+        lines = "".join([lines, "\nTargeted Android version: ", target_version,
+                         " (", target_version_name, ", API Level ",
+                         self.target_sdk, ")"])
+
+        lowest_version = API_LEVEL_MATRIX[int(self.min_sdk)][0]
+        lowest_version_name = API_LEVEL_MATRIX[int(self.min_sdk)][2]
+        lines = "".join([lines, "\nLowest supported version: ", lowest_version,
+                         " (", lowest_version_name, ", API Level ",
+                         self.min_sdk, ")"])
+
+        lines = "".join([lines, "\nSupported CPU ABIs: ",
+                         ", ".join(self.supported_abis)])
+
+        lines = "".join([lines, "\nUsed texture compressions:\n"])
+        for compression in self.supported_texture_compressions:
+            lines = "".join([lines, indent*" ", compression, "\n"])
+
+
+        lines = "".join([lines, "\nRequired features:\n"])
+        for compression in self.used_features:
+            lines = "".join([lines, indent*" ", compression, "\n"])
+
+        lines = "".join([lines, "\nOptional features:\n"])
+        for compression in self.used_optional_features:
+            lines = "".join([lines, indent*" ", compression, "\n"])
+
+        lines = "".join([lines, "\nRequired permissions:\n"])
+        for compression in self.used_permissions:
+            lines = "".join([lines, indent*" ", compression, "\n"])
+
+        return lines
