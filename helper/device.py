@@ -36,7 +36,6 @@ SURFACED_INFO = (("Product", (
                  ("Display", (
                      "Resolution",
                      "Density")),
-                 ("Notable Features", ("$all",)),
                 )
 
 
@@ -119,6 +118,18 @@ def get_devices(initialize=True, limit_init=()):
     return device_list
 
 
+class DeviceError(Exception):
+    """Base class for all device errors."""
+
+    def __init__(self, message, device):
+        super().__init__(message)
+        self.device = device
+
+
+class DeviceOfflineError(DeviceError):
+    """Device is offline."""
+
+
 class Device:
     """Class representing a physical Android device."""
     def __init__(self, serial, status='offline', limit_init=()):
@@ -147,22 +158,36 @@ class Device:
         self.initialized = False
         self._status = status
 
-        if self._status == "device":
-            self.device_init(limit_init)
-
+        self.device_init(limit_init)
 
 
     def adb_command(self, *args, **kwargs):
         """Same as adb_command(*args), but specific to the given device.
         """
-        return adb_command("-s", self.serial, *args, **kwargs)
+        if self.status != "device":
+            raise DeviceOfflineError("Called adb command while device {} was offline".format(self.serial), self.serial)
+
+        command_output = adb_command("-s", self.serial, *args, **kwargs)
+
+        if self.status != "device":
+            raise DeviceOfflineError("Device {} became offline after adb command".format(self.serial), self.serial)
+
+        return command_output
 
 
     def shell_command(self, *args, **kwargs):
         """Same as adb_command(["shell", *args]), but specific to the
         given device.
         """
-        return adb_command("-s", self.serial, "shell", *args, **kwargs)
+        if self.status != "device":
+            raise DeviceOfflineError("Called adb command while device {} was offline".format(self.serial), self.serial)
+
+        command_output = adb_command("-s", self.serial, "shell", *args, **kwargs)
+
+        if self.status != "device":
+            raise DeviceOfflineError("Device {} became offline after adb command".format(self.serial), self.serial)
+
+        return command_output
 
 
     @property
@@ -237,7 +262,6 @@ class Device:
                 self.external_sd_path = self.external_sd_path[0]
             if isinstance(self.anr_trace_path, list):
                 self.anr_trace_path = self.anr_trace_path[0]
-
 
             self.initialized = True
 
@@ -355,16 +379,20 @@ class Device:
         return True
 
 
-    def full_info_string(self, indent=4):
+    def full_info_string(self, initialize=True, indent=4):
         """Return a formatted string containing all device info"""
         # ensure all required info is available
-        self.device_init()
+
+        if initialize:
+            self.device_init()
 
         # if an info source is a key in whitelist, only the asociated values
         # will be returned from that group
         # which means that group can be blacklisted by simply not specyfing any
         # values with it
-        group_whitelist = {"device_features":("device_features")}
+        group_whitelist = {"device_features":("device_features",),
+                           "system_apps":(),
+                          }
 
         indent = indent * " "
         group_list = []
@@ -440,10 +468,11 @@ class Device:
         return full_info_string
 
 
-    def detailed_info_string(self, indent=4):
+    def detailed_info_string(self, initialize=True, indent=4):
         """"""
         info = ""
-        self.device_init(limit_init=())
+        if initialize:
+            self.device_init(limit_init=())
 
         for category_name, value_names_list in SURFACED_INFO:
             info = "".join([info, "\n", category_name, ":"])

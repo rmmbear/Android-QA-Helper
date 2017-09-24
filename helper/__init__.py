@@ -23,9 +23,9 @@ from pathlib import Path
 
 # Program meta-info
 VERSION = "0.14"
-VERSION_DATE = "12-09-2017"
-VERSION_STRING = "".join(["Android Helper v", VERSION, ":", VERSION_DATE,
-                          ": Copyright (c) 2017 rmmbear"])
+VERSION_DATE = "23-09-2017"
+VERSION_STRING = "".join(["Android Helper v", VERSION, ":", VERSION_DATE])
+COPYRIGHT_STRING = "Copyright (c) 2017 rmmbear"
 SOURCE_STRING = "Check the source code at https://github.com/rmmbear/Android-QA-Helper"
 
 # Global config variables
@@ -252,3 +252,5 @@ COMPRESSION_DEFINITIONS = str(COMPRESSION_DEFINITIONS)
 
 if EDITED_CONFIG:
     _save_config(CONFIG)
+
+del EDITED_CONFIG, HELPER_CONFIG_VARS
