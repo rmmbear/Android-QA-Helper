@@ -301,7 +301,11 @@ INFO_EXTRACTION_CONFIG = {
     (("dumpsys", "SurfaceFlinger"), (("as_list", False), ("return_output", True)), "surfaceflinger_dump"): (
         InfoSpec(
             extraction_commands=(
-                (re.search, ('(?<=GLES: ).*(?=\\,)', '$source')),),
+                (re.search, ('(?:GLES\\:\\ )(.*?)(?:\\,)', '$source'), (('$group', 1),)),),
+            var_name='Vendor', var_dict_1='GPU', var_dict_2='_info'),
+        InfoSpec(
+            extraction_commands=(
+                (re.search, ('(?:GLES\\:\\ .*?\\,)(.*?)(?:\\,)', '$source'), (('$group', 1),)),),
             var_name='Model', var_dict_1='GPU', var_dict_2='_info'),
         InfoSpec(
             extraction_commands=(
@@ -356,7 +360,6 @@ INFO_EXTRACTION_CONFIG = {
             var_name='CPU Features', var_dict_1='CPU', var_dict_2='_info', resolve_multiple_values='drop',
             post_extraction_commands=(
                 ('method', 'strip', (' :\t',)),)),
-
     ),
     (("cat", "/sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_max_freq"), (("as_list", False), ("return_output", True)), "cpu_freq"): (
         InfoSpec(
@@ -376,6 +379,10 @@ INFO_EXTRACTION_CONFIG = {
             post_extraction_commands=(
                 ('function', lambda x: int(x) + 1, ('$extracted',)),
                 ('function', str, ('$extracted',)))),
+    ),
+    (("cat", "/proc/version"), (("as_list", False), ("return_output", True)), "kernel_version"): (
+        InfoSpec(
+            var_name='Kernel Version', var_dict_1='OS', var_dict_2='_info',),
     ),
     (("cat", "/proc/meminfo"), (("as_list", False), ("return_output", True)), "meminfo") : (
         InfoSpec(
@@ -507,7 +514,7 @@ INFO_EXTRACTION_CONFIG = {
     (("cat", "/system/build.prop"), (('as_list', False), ("return_output", True)), "build.prop") :(
         # this is here only to be picked up during debug helper device dumps
     ),
-    (("dumpsys"), (('as_list', False), ("return_output", True)), "dumpsys_services") :(
+    (("dumpsys",), (('as_list', False), ("return_output", True)), "dumpsys_services") :(
         # this is here only to be picked up during debug helper device dumps
     ),
 }
