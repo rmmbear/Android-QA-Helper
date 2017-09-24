@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Created by: PyQt5 UI code generator 5.8.1
+# Created by: PyQt5 UI code generator 5.9
 #
 # WARNING! All changes made in this file will be lost!
 
@@ -9,8 +9,7 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
         MainWindow.setObjectName("MainWindow")
-        MainWindow.resize(550, 650)
-        MainWindow.setMinimumSize(QtCore.QSize(525, 500))
+        MainWindow.resize(550, 400)
         MainWindow.setStyleSheet("")
         self.centralwidget = QtWidgets.QWidget(MainWindow)
         self.centralwidget.setObjectName("centralwidget")
@@ -23,7 +22,7 @@ class Ui_MainWindow(object):
         self.empty_tab = QtWidgets.QWidget()
         self.empty_tab.setObjectName("empty_tab")
         self._2 = QtWidgets.QGridLayout(self.empty_tab)
-        self._2.setContentsMargins(0, 0, 0, 0)
+        self._2.setContentsMargins(6, -1, 6, -1)
         self._2.setObjectName("_2")
         spacerItem = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
         self._2.addItem(spacerItem, 3, 3, 1, 1)
@@ -38,7 +37,6 @@ class Ui_MainWindow(object):
         self._2.addItem(spacerItem2, 1, 2, 1, 1)
         self.status_console = QtWidgets.QTextBrowser(self.empty_tab)
         self.status_console.setFocusPolicy(QtCore.Qt.NoFocus)
-        self.status_console.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
         self.status_console.setObjectName("status_console")
         self._2.addWidget(self.status_console, 6, 1, 1, 3)
         spacerItem3 = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)

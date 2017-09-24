@@ -23,8 +23,8 @@ from pathlib import Path
 
 # Program meta-info
 VERSION = "0.14"
-VERSION_DATE = "23-09-2017"
-VERSION_STRING = "".join(["Android Helper v", VERSION, ":", VERSION_DATE])
+VERSION_DATE = "24-09-2017"
+VERSION_STRING = "".join(["Android Helper v", VERSION, " : ", VERSION_DATE])
 COPYRIGHT_STRING = "Copyright (c) 2017 rmmbear"
 SOURCE_STRING = "Check the source code at https://github.com/rmmbear/Android-QA-Helper"
 

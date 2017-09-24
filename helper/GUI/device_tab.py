@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Created by: PyQt5 UI code generator 5.8.1
+# Created by: PyQt5 UI code generator 5.9
 #
 # WARNING! All changes made in this file will be lost!
 
@@ -9,9 +9,10 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 class Ui_Form(object):
     def setupUi(self, Form):
         Form.setObjectName("Form")
-        Form.resize(525, 640)
+        Form.resize(550, 400)
         self.horizontalLayout = QtWidgets.QHBoxLayout(Form)
         self.horizontalLayout.setContentsMargins(0, 0, 0, 0)
+        self.horizontalLayout.setSpacing(6)
         self.horizontalLayout.setObjectName("horizontalLayout")
         self.control_panel = QtWidgets.QFrame(Form)
         sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Preferred)
@@ -19,7 +20,6 @@ class Ui_Form(object):
         sizePolicy.setVerticalStretch(0)
         sizePolicy.setHeightForWidth(self.control_panel.sizePolicy().hasHeightForWidth())
         self.control_panel.setSizePolicy(sizePolicy)
-        self.control_panel.setMinimumSize(QtCore.QSize(90, 0))
         self.control_panel.setObjectName("control_panel")
         self.verticalLayout = QtWidgets.QVBoxLayout(self.control_panel)
         self.verticalLayout.setObjectName("verticalLayout")
@@ -44,25 +44,26 @@ class Ui_Form(object):
         self.horizontalLayout.addWidget(self.control_panel)
         self.device_display = QtWidgets.QTabWidget(Form)
         self.device_display.setFocusPolicy(QtCore.Qt.NoFocus)
-        self.device_display.setTabPosition(QtWidgets.QTabWidget.East)
+        self.device_display.setTabPosition(QtWidgets.QTabWidget.North)
         self.device_display.setObjectName("device_display")
         self.device_info_tab = QtWidgets.QWidget()
         self.device_info_tab.setObjectName("device_info_tab")
         self.verticalLayout_3 = QtWidgets.QVBoxLayout(self.device_info_tab)
-        self.verticalLayout_3.setContentsMargins(0, 0, 0, 0)
+        self.verticalLayout_3.setContentsMargins(3, 3, 3, 3)
         self.verticalLayout_3.setObjectName("verticalLayout_3")
         self.treeWidget = QtWidgets.QTreeWidget(self.device_info_tab)
         self.treeWidget.setAlternatingRowColors(True)
         self.treeWidget.setSelectionMode(QtWidgets.QAbstractItemView.ExtendedSelection)
         self.treeWidget.setAnimated(True)
         self.treeWidget.setObjectName("treeWidget")
+        self.treeWidget.header().setVisible(False)
         self.treeWidget.header().setCascadingSectionResizes(True)
         self.verticalLayout_3.addWidget(self.treeWidget)
         self.device_display.addTab(self.device_info_tab, "")
         self.installed_apps = QtWidgets.QWidget()
         self.installed_apps.setObjectName("installed_apps")
         self.verticalLayout_4 = QtWidgets.QVBoxLayout(self.installed_apps)
-        self.verticalLayout_4.setContentsMargins(0, 0, 0, 0)
+        self.verticalLayout_4.setContentsMargins(3, 3, 3, 3)
         self.verticalLayout_4.setObjectName("verticalLayout_4")
         spacerItem1 = QtWidgets.QSpacerItem(20, 40, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
         self.verticalLayout_4.addItem(spacerItem1)
@@ -70,7 +71,7 @@ class Ui_Form(object):
         self.device_console_tab = QtWidgets.QWidget()
         self.device_console_tab.setObjectName("device_console_tab")
         self.verticalLayout_2 = QtWidgets.QVBoxLayout(self.device_console_tab)
-        self.verticalLayout_2.setContentsMargins(0, 0, 0, 0)
+        self.verticalLayout_2.setContentsMargins(3, 3, 3, 3)
         self.verticalLayout_2.setObjectName("verticalLayout_2")
         self.device_console = QtWidgets.QTextBrowser(self.device_console_tab)
         self.device_console.setTextInteractionFlags(QtCore.Qt.LinksAccessibleByKeyboard|QtCore.Qt.LinksAccessibleByMouse|QtCore.Qt.TextBrowserInteraction|QtCore.Qt.TextSelectableByKeyboard|QtCore.Qt.TextSelectableByMouse)
@@ -80,7 +81,6 @@ class Ui_Form(object):
         self.horizontalLayout.addWidget(self.device_display)
 
         self.retranslateUi(Form)
-        self.device_display.setCurrentIndex(1)
         QtCore.QMetaObject.connectSlotsByName(Form)
 
     def retranslateUi(self, Form):
