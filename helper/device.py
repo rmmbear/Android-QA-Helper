@@ -158,7 +158,8 @@ class Device:
         self.initialized = False
         self._status = status
 
-        self.device_init(limit_init)
+        if self._status == "device":
+            self.device_init(limit_init)
 
 
     def adb_command(self, *args, **kwargs):
