@@ -8,100 +8,120 @@ import helper.main as main_
 import helper.device as device_
 
 
-HELPER_CLI_DESC = """{:.80}
-""".format(helper_.VERSION_STRING)
+HELPER_CLI_DESC = helper_.VERSION_STRING
 
 PARSER = ArgumentParser(prog="helper", description=HELPER_CLI_DESC)
 PARSER.add_argument("-v", "--version", action="version",
-                    version=helper_.VERSION_STRING)
+                    version="".join([helper_.VERSION_STRING, " : ",
+                                     helper_.COPYRIGHT_STRING]))
 COMMANDS = PARSER.add_subparsers(title="Commands", dest="command", metavar="")
 
 ### Gneral-use optional arguments
-HELP_DETAIL = """Specify command target by passing a device's serial number.
-Device must be specified if you want to record, install or pull traces while
-there are multiple devices connected to your PC."""
+HELP_DEVICE = """Specify command target by passing a device's serial number.
+This value must be given if there are multiple devices connected."""
 OPT_DEV = ArgumentParser("device", add_help=False)
 OPT_DEV.add_argument("-d", "--device", default="", metavar="device",
-                     help=HELP_DETAIL)
+                     help=HELP_DEVICE)
 
-HELP_DETAIL = """Specify the output directory. If no directory is chosen, then
-files are saved in the same directory helper was launched from."""
+HELP_OUTPUT = """Specify the output directory. If no directory is chosen, the
+files will be saved in the same directory helper was launched from."""
 OPT_OUT = ArgumentParser("output", add_help=False)
 OPT_OUT.add_argument("-o", "--output", default=".", metavar="directory",
-                     help=HELP_DETAIL)
+                     help=HELP_OUTPUT)
+
 
 ### Helper Commands definitions
-HELP_GENERAL = """Install one or more apps on a device."""
-HELP_DETAIL = """ Valid input for this commands is either: single .apk file,
-.apk file with one or more .obb files, multiple .apk files. If another version
-of installed app is already on device, it and all its data will be removed
-before installing the new version."""
+HELP_INSTALL = """Install one or more apps on a device."""
+HELP_INSTALL_DETAIL = """If another version of the app being installed is
+already on the device, helper will attempt to remove it and all its data first
+before replacing them. Note that system apps can only be replaced with newer
+versions and the '--replace_system_apps' option must be specified."""
 CMD = COMMANDS.add_parser("install", parents=[OPT_DEV, OPT_OUT], aliases=["i"],
-                          help=HELP_GENERAL, epilog=HELP_DETAIL)
-# TODO: Write help for install's 'file' argument
-HELP_ARGUMENT = """"""
-CMD.add_argument("install", nargs="+", metavar="files", help=HELP_ARGUMENT)
-CMD.add_argument("--keep-data", action="store_true")
+                          help=HELP_INSTALL, epilog=HELP_INSTALL_DETAIL)
+HELP_INSTALL_FILES = """.apk file(s) or one apk and its obb expansion
+file(s)."""
+CMD.add_argument("install", nargs="+", metavar="files",
+                 help=HELP_INSTALL_FILES)
+HELP_INSTALL_KEEP = """Keep data and cache directories when replacing apps.
+"""
+CMD.add_argument("--keep-data", action="store_true", help=HELP_INSTALL_KEEP)
+HELP_INSTALL_LOCATION = """Set the install location to either internal or
+external SD card. By default it is set to 'automatic', which lets the device
+decide the location based on available storage space and install location set
+in app's AndroidManifest.xml."""
 CMD.add_argument("--location", choices=["internal", "external"],
-                 default="automatic")
+                 default="automatic", help=HELP_INSTALL_LOCATION)
 
-HELP_GENERAL = """Clean various files from a device. """
-HELP_DETAIL = """By default, this command
-removes only helper-created files, but further behavior can be customized with
-cleaner config file. Currently available options are: removing files and
-directories, clearing app data, uninstalling apps and replacing files on device
-with local versions. For configuration example, see the config file itself: {}.
+
+HELP_CLEAN = """Clean various files from a device. """
+HELP_CLEAN_DETAIL = """By default, this command removes only helper-created
+files but its behavior can be customized with cleaner config file. Currently
+available options are: removing files and directories, clearing app data,
+uninstalling apps and replacing files on device with local versions. For
+configuration example, see the default config file: {}.
 """.format(helper_.CLEANER_CONFIG)
 CMD = COMMANDS.add_parser("clean", parents=[OPT_DEV, OPT_OUT], aliases="c",
-                          help=HELP_GENERAL, epilog=HELP_DETAIL)
-# TODO: Write help for cleaner's 'config' argument
-HELP_ARGUMENT = """"""
+                          help=HELP_CLEAN, epilog=HELP_CLEAN_DETAIL)
+HELP_CLEAN_CONFIG = """Path to a valid cleaner config file. For example of a
+valid config, see the default file in this program's root directory."""
 CMD.add_argument("clean", nargs="?", default=helper_.CLEANER_CONFIG,
-                 metavar="config", help=HELP_ARGUMENT)
+                 metavar="config", help=HELP_CLEAN_CONFIG)
 
-HELP_GENERAL = """Record the screen of your device."""
-HELP_DETAIL = """To stop and save the recorded video, press
-'ctrl+c'. Videos have a hard time-limit of three minutes -- this is imposed by
-the internal command and cannot be extended -- recording will be stopped
-automatically after reaching that limit. NOTE: Sound is not, and cannot be
-recorded."""
+
+HELP_RECORD = """Record the screen of your device."""
+HELP_RECORD_DETAIL = """To stop and save the recorded video, press 'ctrl+c'.
+Videos have a hard time-limit of three minutes--this is imposed by the internal
+command and cannot be extended--recording will be stopped automatically after
+reaching that limit. NOTE: Sound is not, and cannot be recorded."""
 CMD = COMMANDS.add_parser("record", parents=[OPT_DEV, OPT_OUT], aliases="r",
-                          help=HELP_GENERAL, epilog=HELP_DETAIL)
+                          help=HELP_RECORD, epilog=HELP_RECORD_DETAIL)
 
-HELP_GENERAL = """Pull the dalvik vm stack traces (aka ANR log)."""
-# TODO: Write detailed help for traces
-HELP_DETAIL = """"""
+
+# TODO: Write a more detailed description of the traces function
+# It's pretty straightforward, so I don't know if there's anything else
+# worth mentioning?
+HELP_TRACES = """Save the dalvik vm stack traces (aka ANR log) to a file."""
 CMD = COMMANDS.add_parser("traces", parents=[OPT_DEV, OPT_OUT], aliases="t",
-                          help=HELP_GENERAL, epilog=HELP_DETAIL)
+                          help=HELP_TRACES, epilog=HELP_TRACES)
 
-HELP_GENERAL = """Extract the .apk file of an installed application."""
-# TODO: Write detailed help for extract-apk
-HELP_DETAIL = """"""
+
+HELP_EXTRACT = """Extract the .apk file of an installed application."""
+# TODO: Update detailed description after implementing obb extraction
+HELP_EXTRACT_DETAIL = """Extract the .apk file from device's storage. On some
+devices the archives cannot be extracted. In general, if it is possible to
+extract third part apps, it should be also possible to the same with system
+apps. Note: app's expansion files cannot yet be extracted."""
 CMD = COMMANDS.add_parser("extract-apk", parents=[OPT_DEV, OPT_OUT],
-                          aliases="x", help=HELP_GENERAL, epilog=HELP_DETAIL)
-# TODO: Write help for extract-apk's 'app-name' argument
-HELP_ARGUMENT = """"""
-CMD.add_argument("extract_apk", nargs="+", metavar="app name", help=HELP_ARGUMENT)
+                          aliases="x", help=HELP_EXTRACT,
+                          epilog=HELP_EXTRACT_DETAIL)
+HELP_EXTRACT_NAME = """Package ID of an installed app. For example:
+android.com.browser."""
+CMD.add_argument("extract_apk", nargs="+", metavar="app name",
+                 help=HELP_EXTRACT_NAME)
 
 
-HELP_GENERAL = """Show status of all connected devices."""
-# TODO: Write detailed help for scan
-HELP_DETAIL = """"""
-CMD = COMMANDS.add_parser("scan", aliases="s", help=HELP_GENERAL,
-                          epilog=HELP_DETAIL)
+HELP_SCAN = """Show status of all connected devices."""
+HELP_SCAN_DETAIL = """Scan shows serial number, manufacturer, model and
+connection status of all devices connected. If a connection with device could
+not be established, only its serial and connection status is shown."""
+CMD = COMMANDS.add_parser("scan", aliases="s", help=HELP_SCAN,
+                          epilog=HELP_SCAN_DETAIL)
 
-HELP_GENERAL = """Show status and detailed information on connected devices."""
-# TODO: Write detailed help for scan-detail
-HELP_DETAIL = """"""
+
+HELP_DSCAN = """Show status and detailed information of connected devices."""
+HELP_DSCAN_DETAIL = """Detailed scan displays all info from normal scan as well as
+amount of available RAM, version of the OS and basic specifications of the GPU,
+CPU and display."""
 CMD = COMMANDS.add_parser("detailed-scan", parents=[OPT_DEV, OPT_OUT],
-                          aliases=["ds"], help=HELP_GENERAL,
-                          epilog=HELP_DETAIL)
+                          aliases=["ds"], help=HELP_DSCAN,
+                          epilog=HELP_DSCAN_DETAIL)
 
-HELP_GENERAL = """Dump all available device information to file."""
-# TODO: Write detailed help for dump
-HELP_DETAIL = """"""
-CMD = COMMANDS.add_parser("dump", parents=[OPT_DEV, OPT_OUT], aliases="d",
-                          help=HELP_GENERAL, epilog=HELP_DETAIL)
+# TODO: Write a more detailed description of the dump function
+# It's pretty straightforward, so I don't know if there's anything else
+# worth mentioning?
+HELP_DUMP = """Dump all available device information to file."""
+CMD = COMMANDS.add_parser("dump", parents=[OPT_DEV, OPT_OUT],
+                          help=HELP_DUMP, epilog=HELP_DUMP)
 
 ### Hidden commands
 COMMANDS.add_parser("gui")
@@ -313,6 +333,7 @@ def main(args=None):
 
     chosen_device = None
     connected_devices = device_.get_devices(initialize=False)
+    print("yeah")
 
     try:
         if args.device:
