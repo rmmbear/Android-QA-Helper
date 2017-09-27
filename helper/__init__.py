@@ -23,7 +23,7 @@ from pathlib import Path
 
 # Program meta-info
 VERSION = "0.14"
-VERSION_DATE = "24-09-2017"
+VERSION_DATE = "27-09-2017"
 VERSION_STRING = "".join(["Android Helper v", VERSION, " : ", VERSION_DATE])
 COPYRIGHT_STRING = "Copyright (c) 2017 rmmbear"
 SOURCE_STRING = "Check the source code at https://github.com/rmmbear/Android-QA-Helper"
@@ -40,9 +40,78 @@ ABI_TO_ARCH = {"armeabi"    :"32bit (ARM)",
 ADB_VERSION = "Unknown"
 ADB_REVISION = "Unknown"
 AAPT_VERSION = "Unknown"
-AAPT_AVAILABLE = True
+AAPT_AVAILABLE = False
 EDITED_CONFIG = False
 HELPER_CONFIG_VARS = ["ADB", "AAPT"]
+DEFAULT_CLEANER_CONFIG = """# lines starting with '#' will be ignored
+#
+# categories:
+# 'remove'          - Specify a file or directory to be removed. Dirs
+#                     cannot be removed. Accepts wildcards (*).
+# 'remove_recursive'- Specify a directory for deletion. Directory and
+#                     ALL its contents -- including sub-directories --
+#                     will be removed.
+# 'clear_data'      - Clear application data of the specified package.
+#                     Package can be specified by name or .apk file.
+# 'uninstall'       - Remove an app, by specifying its name or path to
+#                     local apk file. Some apps cannot be removed.
+# 'replace'         - Replace specified remote file with a local file.
+#                     If the remote file does not exist, the local will
+#                     still be placed in the remote path. Must provide
+#                     two -- no more, no less -- semicolon delimited
+#                     files.
+#
+#
+# Example usage:
+# remove : /mnt/sdcard/Screenshots/*   - Remove all Screenshots
+#
+# remove_recursive : /mnt/sdcard/DCIM  - Remove the whole DCIM directory
+#
+# uninstall : com.android.browser      - Remove a package by its name
+# uninstall : /home/user/some.apk      - Remove a package by its apk
+#
+# clear_data : com.android.browser     - Clear application data (name)
+# clear_data : /home/user/some.apk     - Clear application data (local
+#                                                                  file)
+#
+#                                | semicolon as delimiter
+#                                v
+# replace : /mnt/sdcard/somefile ; /home/user/Desktop/someotherfile
+#            ^                      ^
+#            | remote file          | local file
+#
+
+# remove files left by helper
+remove : /mnt/sdcard/*_screenrecord_*.mp4
+remove : /mnt/sdcard/*_anr_*.txt
+remove : /data/local/tmp/helper_*
+"""
+DEFAULT_COMPRESSION_IDENTIFIERS = """# lines starting with '#' will be ignored
+# this file lists known common texture compression types
+# you can extend it by adding a human-readable name and the
+# extension string the two must be delimited with '='
+#
+# for reference on GLES extensions, see:
+# https://www.khronos.org/registry/OpenGL/index_es.php
+#
+
+ATC = GL_AMD_compressed_ATC_texture
+ATC = GL_ATI_compressed_texture_atitc
+ATC = GL_ATI_texture_compression_atitc
+ETC1 = GL_OES_compressed_ETC1_RGB8_texture
+ETC2 = GL_OES_compressed_ETC2_RGB8_texture
+DXTC = GL_EXT_texture_compression_s3tc
+DXT1 = GL_EXT_texture_compression_dxt1
+PVRTC = GL_IMG_texture_compression_pvrtc
+PVRTC2 = GL_IMG_texture_compression_pvrtc2
+3DC = GL_AMD_compressed_3DC_texture
+LATC = GL_EXT_texture_compression_latc
+LATC = GL_NV_texture_compression_latc
+ASTC = GL_OES_texture_compression_astc
+ASTC - HDR = GL_KHR_texture_compression_astc_hdr
+ASTC - LDR = GL_KHR_texture_compression_astc_ldr
+ASTC - sliced 3D = GL_KHR_texture_compression_astc_sliced_3d
+"""
 
 
 def _get_script_dir():
@@ -236,8 +305,14 @@ def _save_config(config):
 Path(ADB).parent.mkdir(exist_ok=True)
 Path(AAPT).parent.mkdir(exist_ok=True)
 Path(CONFIG).touch(exist_ok=True)
-Path(CLEANER_CONFIG).touch(exist_ok=True)
-Path(COMPRESSION_DEFINITIONS).touch(exist_ok=True)
+if not Path(COMPRESSION_DEFINITIONS).is_file():
+    with Path(COMPRESSION_DEFINITIONS).open(mode="w", encoding="utf-8") as texture_file:
+        texture_file.write(DEFAULT_COMPRESSION_IDENTIFIERS)
+
+if not Path(CLEANER_CONFIG).is_file():
+    with Path(CLEANER_CONFIG).open(mode="w", encoding="utf-8") as cleaner_file:
+        cleaner_file.write(DEFAULT_CLEANER_CONFIG)
+
 
 CONFIG = CONFIG
 _load_config(CONFIG)
@@ -247,8 +322,8 @@ if not _check_adb():
 if not _check_aapt() in (None, True):
     sys.exit()
 
-CLEANER_CONFIG = str(CLEANER_CONFIG)
-COMPRESSION_DEFINITIONS = str(COMPRESSION_DEFINITIONS)
+CLEANER_CONFIG = str(Path(CLEANER_CONFIG).resolve())
+COMPRESSION_DEFINITIONS = str(Path(COMPRESSION_DEFINITIONS).resolve())
 
 if EDITED_CONFIG:
     _save_config(CONFIG)
