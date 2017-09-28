@@ -333,7 +333,6 @@ def main(args=None):
 
     chosen_device = None
     connected_devices = device_.get_devices(initialize=False)
-    print("yeah")
 
     try:
         if args.device:
