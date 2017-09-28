@@ -362,8 +362,15 @@ def main(args=None):
             return REGULAR_COMMANDS[args.command](chosen_device, args)
         except KeyError:
             raise NotImplementedError("The '{}' function is not yet implemented".format(args.command))
+        except device_.DeviceOfflineError:
+            print("Device has been suddenly disconnected!")
+            return False
 
+    # TODO: continue command execution if only one of devices disconnects
     try:
         return BATCH_COMMANDS[args.command](connected_devices, args)
     except KeyError:
         raise NotImplementedError("The '{}' function is not yet implemented".format(args.command))
+    except device_.DeviceOfflineError:
+        print("Device has been suddenly disconnected!")
+        return False

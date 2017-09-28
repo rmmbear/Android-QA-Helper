@@ -6,6 +6,7 @@ from time import strftime
 import helper as helper_
 from helper import apk as apk_
 
+
 def install(device, *items, stdout_=sys.stdout):
     """Install apps.
     Accepts either a list of apk files, or list with one apk and as many
@@ -179,11 +180,7 @@ def push_obb(device, obb_file, app_name, stdout_=sys.stdout):
     if device.is_file(obb_target_file):
         return True
 
-    if device.status != "device":
-        stdout_.write("ERROR: Device has been suddenly disconnected!\n")
-    else:
-        stdout_.write(
-            "ERROR: Pushed obb file was not found in destination folder.\n")
+    stdout_.write("ERROR: Pushed obb file was not found in destination folder.\n")
     return False
 
 
@@ -253,14 +250,10 @@ def record(device, output=".", name=None, silent=False, stdout_=sys.stdout):
         pass
     stdout_.write("\nRecording stopped.\n")
 
-
     device.reconnect(stdout_=stdout_)
 
     if not device.is_file(remote_recording):
-        if device.status != "device":
-            stdout_.write("ERROR: Device has been suddenly disconnected!\n")
-        else:
-            stdout_.write("ERROR: Recorded video was not found on device!\n")
+        stdout_.write("ERROR: Recorded video was not found on device!\n")
         return False
 
     output = str(Path(output) / Path(remote_recording).name)
@@ -288,10 +281,7 @@ def pull_traces(device, output=None, stdout_=sys.stdout):
     device.shell_command("cat", device.anr_trace_path, ">", remote_anr_file)
 
     if not device.is_file(remote_anr_file):
-        if device.status != "device":
-            stdout_.write("ERROR: Device has been suddenly disconnected!\n")
-        else:
-            stdout_.write("ERROR: The file was not found on device!\n")
+        stdout_.write("ERROR: The file was not found on device!\n")
         return False
 
     device.adb_command("pull", remote_anr_file, str(output / anr_filename),
@@ -300,10 +290,7 @@ def pull_traces(device, output=None, stdout_=sys.stdout):
     if (output / anr_filename).is_file():
         return str((output / anr_filename).resolve())
 
-    if device.status != "device":
-        stdout_.write("ERROR: Device has been suddenly disconnected\n!")
-    else:
-        stdout_.write("ERROR: The file was not copied!\n")
+    stdout_.write("ERROR: The file was not copied!\n")
     return False
 
 
@@ -350,12 +337,9 @@ def _clean_uninstall(device, apk_file, check_packages=True, clear_data=False,
     # - don't know what to do for data cleaning though
 
     if uninstall_log.lower() != "success":
-        if device.status != "device":
-            stdout_.write("ERROR: Device has been suddenly disconnected!\n")
-        else:
-            stdout_.write("ERROR: Unexpected error!\n")
-            for line in uninstall_log:
-                stdout_.write(line + "\n")
+        stdout_.write("ERROR: Unexpected error!\n")
+        for line in uninstall_log:
+            stdout_.write(line + "\n")
 
         return False
 
@@ -381,22 +365,20 @@ def _clean_remove(device, target, recursive=False, stdout_=sys.stdout):
 
     # TODO: fix the mixed output type
     if not result:
-        if device.status != "device":
-            stdout_.write("ERROR: Device has been suddenly disconnected!\n")
-            return False
-
         stdout_.write("Done!\n")
         return True
-    elif result.lower().endswith("no such file or directory"):
+
+    if result.lower().endswith("no such file or directory"):
         stdout_.write("File not found\n")
         return False
-    elif result.lower().endswith("permission denied"):
+
+    if result.lower().endswith("permission denied"):
         stdout_.write("Permission denied\n")
         return -1
-    else:
-        stdout_.write("Unexpected error, got:\n")
-        stdout_.write("".join(["ERROR: ", result, "\n"]))
-        return -2
+
+    stdout_.write("Unexpected error, got:\n")
+    stdout_.write("".join(["ERROR: ", result, "\n"]))
+    return -2
 
 
 def _clean_replace(device, remote, local, stdout_=sys.stdout):
@@ -415,11 +397,9 @@ def _clean_replace(device, remote, local, stdout_=sys.stdout):
         _remote = '"{}"'.format(remote)
 
     if not device.is_file(_remote):
-        if device.status != "device":
-            stdout_.write("ERROR: Device has been suddenly disconnected!\n")
-        else:
-            stdout_.write("ERROR: The file was not found on device!\n")
+        stdout_.write("ERROR: The file was not found on device!\n")
         return False
+
     stdout_.write("Done!\n")
     return True
 
