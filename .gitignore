@@ -95,3 +95,8 @@ ENV/
 # android tools
 adb/
 aapt/
+
+#helper-specific stuff
+helper_config
+compression_identifiers
+cleaner_config
