@@ -188,7 +188,7 @@ def install(device, args):
             print(filepath)
             return False
 
-    main_.install(device, *args.install)
+    main_.install(device, *args.install, install_location=args.location)
 
 
 def pull_traces(device, args):

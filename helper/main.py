@@ -7,7 +7,7 @@ import helper as helper_
 from helper import apk as apk_
 
 
-def install(device, *items, stdout_=sys.stdout):
+def install(device, *items, install_location="automatic", stdout_=sys.stdout):
     """Install apps.
     Accepts either a list of apk files, or list with one apk and as many
     obb files as you like.
@@ -29,7 +29,6 @@ def install(device, *items, stdout_=sys.stdout):
         return False
 
     # TODO: Accommodate for situations where aapt is not available
-    # TODO: Add ability to pick install location
 
     if not apk_list:
         stdout_.write("ERROR: No APKs found among provided files, aborting!\n")
@@ -41,7 +40,8 @@ def install(device, *items, stdout_=sys.stdout):
     for apk_file in apk_list:
         stdout_.write("".join(["\nINSTALLING: ", apk_file.app_name, "\n"]))
 
-        if not install_app(device, apk_file, stdout_=stdout_):
+        if not install_app(device, apk_file, install_location,
+                           stdout_=stdout_):
             install_failure.append(apk_file.app_name)
 
     installed = len(apk_list) - len(install_failure)
@@ -160,8 +160,8 @@ def install_app(device, apk_file, install_location="automatic",
 
 
 def push_obb(device, obb_file, app_name, stdout_=sys.stdout):
-    """Push <obb-file> to <shared-storage>/Android/obb/<package-name>/
-    on <Device>.
+    """Push obb expansion file to app's obb folder on device's
+    internal SD card.
     """
     device.device_init(limit_init=("shell_environment"))
 
