@@ -19,7 +19,7 @@ To download the platform-tools package, search for ```<sdk:url>platform-tools```
 Do the same for build-tools: search for ```<sdk:url>build-tools```, find your platform, replace the last part of the page's url with the found url and download (at the time of writing: https://dl-ssl.google.com/android/repository/build-tools_r25.0.2-linux.zip).
 
 # Installation:
-Download or clone this repository using ```git clone``` (if you are on windows, you can also download the frozen code from the [realeases page](https://github.com/rmmbear/Android-QA-Helper/releases)).
+Download or clone this repository using ```git clone``` (if you are on windows, you can also download the frozen code from the [releases page](https://github.com/rmmbear/Android-QA-Helper/releases)).
 
 In the root directory of the project there should be two directories: "adb" and "aapt". Place the adb (and its dlls, if on windows) and aapt into their corresponding directories. See requirements section on instructions how to get them.
 
@@ -38,8 +38,8 @@ It currently has the following functionality:
 
 # Current plans:
 - Hook up all of the existing functionality to GUI
-- Surface all available control otions of main functions in CLI
-- Expand the breadth of gatered data
+- Surface all available control options of main functions in CLI
+- Expand the breadth of gathered data
 - Optimize all the regex used in gathering data
 - Expand testing beyond device compatibility
 - Expand functionality:
