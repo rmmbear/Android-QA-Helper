@@ -8,7 +8,7 @@ from helper import apk as apk_
 
 
 def install(device, *items, install_location="automatic", keep_data=False,
-            stdout_=sys.stdout):
+            installer_name="android.helper", stdout_=sys.stdout):
     """Install apps.
     Accepts either a list of apk files, or list with one apk and as many
     obb files as you like.
@@ -98,7 +98,7 @@ def install(device, *items, install_location="automatic", keep_data=False,
 
 
 def install_app(device, apk_file, install_location="automatic",
-                installer_name="android_helper", stdout_=sys.stdout):
+                installer_name="android.helper", stdout_=sys.stdout):
     """Install an application from a local apk file."""
     possible_install_locations = {"automatic":"", "external":"-s",
                                   "internal":"-f"}
@@ -359,7 +359,7 @@ def uninstall_app(device, app, keep_data=False, stdout_=sys.stdout):
     stdout_.flush()
 
     process_log = device.shell_command(
-        "uninstall", keep_data, app_name, return_output=True, as_list=False).strip().lower()
+       "pm", "uninstall", keep_data, app_name, return_output=True, as_list=False).strip().lower()
 
     if system_app:
         if process_log == "failure":
