@@ -7,7 +7,8 @@ import helper as helper_
 from helper import apk as apk_
 
 
-def install(device, *items, install_location="automatic", stdout_=sys.stdout):
+def install(device, *items, install_location="automatic", keep_data=False,
+            stdout_=sys.stdout):
     """Install apps.
     Accepts either a list of apk files, or list with one apk and as many
     obb files as you like.
@@ -118,7 +119,7 @@ def install_app(device, apk_file, install_location="automatic",
     if apk_file.app_name in device.thirdparty_apps:
         stdout_.write(" ".join(["WARNING: Different version of the app",
                                 "already installed\n"]))
-        if not _clean_uninstall(device, apk_file, stdout_=stdout_):
+        if not uninstall_app(device, apk_file, stdout_=stdout_):
             stdout_.write("ERROR: Could not uninstall the app!\n")
             return False
     elif apk_file.app_name in device.system_apps:
@@ -166,8 +167,8 @@ def push_obb(device, obb_file, app_name, stdout_=sys.stdout):
     device.device_init(limit_init=("shell_environment"))
 
     obb_name = str(Path(obb_file).name)
-    obb_target_file = "".join([device.internal_sd_path, "/Android/obb/", app_name,
-                               "/", obb_name])
+    obb_target_file = "".join([device.internal_sd_path, "/Android/obb/",
+                               app_name, "/", obb_name])
 
     #pushing obb in two steps - some devices block adb push directly to obb folder
     device.adb_command("push", obb_file, device.internal_sd_path + "/" + obb_name,
@@ -294,53 +295,89 @@ def pull_traces(device, output=None, stdout_=sys.stdout):
     return False
 
 
-def _clean_uninstall(device, apk_file, check_packages=True, clear_data=False,
-                     stdout_=sys.stdout):
-    """Uninstall an app from specified device. Target can be an app name
-    or a path to apk file -- by default it will check if target is a
-    file, and if so it will attempt to extract app name from it.
-    To disable that, set "app_name" to True.
-    """
-    if isinstance(apk_file, str):
-        display_name = apk_file
-        app_name = apk_file
-    else:
-        display_name = apk_file.display_name
-        app_name = apk_file.app_name
+def clear_app_data(device, app, stdout_=sys.stdout):
+    """Clear app data.
 
-    if clear_data:
-        stdout_.write("".join(["Clearing application data: ",
-                               display_name, "... "]))
+    The app argument can be either package id or an initialized app object.
+    """
+    if isinstance(app, str):
+        display_name = app
+        app_name = app
+    else:
+        display_name = app.display_name
+        app_name = app.app_name
+
+    device.device_init(limit_init=("system_apps", "thirdparty_apps"),
+                       force_init=True)
+
+    stdout_.write("".join(["Clearing application data: ", display_name, "... "]))
+    stdout_.flush()
+
+    process_log = device.shell_command(
+        "pm", "clear", app_name, return_output=True, as_list=False).strip()
+
+    if process_log == "success":
+        stdout_.write("Done\n")
+        return True
+
+    if app_name not in device.system_apps and app_name not in device.thirdparty_apps:
+        stdout_.write("ERROR: Application not found on device!\n")
+        return False
+
+    stdout_.write("ERROR: Could not clear data!\n")
+    stdout_.write(process_log + "\n")
+    return False
+
+
+def uninstall_app(device, app, keep_data=False, stdout_=sys.stdout):
+    """Uninstall an app from a device.
+
+    The app argument can be either package id or an initialized app object.
+    """
+    if isinstance(app, str):
+        display_name = app
+        app_name = app
+    else:
+        display_name = app.display_name
+        app_name = app.app_name
+
+    if keep_data:
+        keep_data = "-k"
+    else:
+        keep_data = ""
+
+    device.device_init(limit_init=("system_apps",), force_init=True)
+    system_app = False
+
+    if app_name in device.system_apps:
+        system_app = True
+        stdout_.write("".join([display_name, " is a system app and cannot be removed completely.\n"]))
+        stdout_.write("".join(["Resetting ", display_name, " to factory version..."]))
     else:
         stdout_.write("".join(["Uninstalling ", display_name, "... "]))
 
     stdout_.flush()
-    if check_packages:
-        preinstall_log = device.shell_command("pm", "list", "packages",
-                                              return_output=True,
-                                              as_list=False).strip()
-        if app_name not in preinstall_log:
-            stdout_.write("ERROR: App was not found\n")
+
+    process_log = device.shell_command(
+        "uninstall", keep_data, app_name, return_output=True, as_list=False).strip().lower()
+
+    if system_app:
+        if process_log == "failure":
+            stdout_.write("Cannot downgrade!\n")
             return False
 
-    if clear_data:
-        uninstall_log = device.shell_command("pm", "clear", app_name,
-                                             return_output=True,
-                                             as_list=False).strip()
-    else:
-        uninstall_log = device.adb_command("uninstall", app_name,
-                                           return_output=True,
-                                           as_list=False).strip()
+        if process_log == "success":
+            stdout_.write("Done\n")
+            return True
 
-    # TODO: Use a better error/success detection method
-    # - check if the app has been removed from list of available packages in pm
-    # - don't know what to do for data cleaning though
-
-    if uninstall_log.lower() != "success":
         stdout_.write("ERROR: Unexpected error!\n")
-        for line in uninstall_log:
-            stdout_.write(line + "\n")
+        stdout_.write(process_log + "\n")
+        return False
 
+    device.device_init(limit_init=("thirdparty_apps",), force_init=True)
+    if app_name in device.thirdparty_apps:
+        stdout_.write("ERROR: App could not be removed!\n")
+        stdout_.write(process_log + "\n")
         return False
 
     stdout_.write("Done!\n")
@@ -411,12 +448,12 @@ def _clean_replace(device, remote, local, stdout_=sys.stdout):
 #4 - additional args required by internal function
 # Note: Device object is required for all functions as the first argument
 
-                  #1                   #2                #3  #4
-CLEANER_OPTIONS = {"remove"           :(_clean_remove,    1, [False]),
-                   "remove_recursive" :(_clean_remove,    1, [True]),
-                   "replace"          :(_clean_replace,   2, []),
-                   "uninstall"        :(_clean_uninstall, 1, []),
-                   "clear_data"       :(_clean_uninstall, 1, [False, True])
+                  #1                   #2               #3  #4
+CLEANER_OPTIONS = {"remove"           :(_clean_remove,  1, [False]),
+                   "remove_recursive" :(_clean_remove,  1, [True]),
+                   "replace"          :(_clean_replace, 2, []),
+                   "uninstall"        :(uninstall_app,  1, []),
+                   "clear_data"       :(clear_app_data, 1, [])
                   }
 
 
