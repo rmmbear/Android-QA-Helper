@@ -42,8 +42,7 @@ HELP_INSTALL_FILES = """.apk file(s) or one apk and its obb expansion
 file(s)."""
 CMD.add_argument("install", nargs="+", metavar="files",
                  help=HELP_INSTALL_FILES)
-HELP_INSTALL_KEEP = """Keep data and cache directories when replacing apps.
-"""
+HELP_INSTALL_KEEP = """Keep data and cache directories when replacing apps."""
 CMD.add_argument("--keep-data", action="store_true", help=HELP_INSTALL_KEEP)
 HELP_INSTALL_LOCATION = """Set the install location to either internal or
 external SD card. By default it is set to 'automatic', which lets the device
@@ -188,7 +187,8 @@ def install(device, args):
             print(filepath)
             return False
 
-    main_.install(device, *args.install, install_location=args.location)
+    main_.install(device, *args.install, install_location=args.location,
+                  keep_data=args.keep_data)
 
 
 def pull_traces(device, args):
