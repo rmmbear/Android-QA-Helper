@@ -94,7 +94,6 @@ class App:
         self.display_name = 'Unknown'
         self.version_name = 'Unknown'
         self.version_code = 'Unknown'
-        self.is_game = False
 
         self.launchable_activity = ''
 
@@ -114,6 +113,7 @@ class App:
 
     def _from_device(self, device, limited_init=True):
         raise NotImplementedError()
+        # TODO: implement initialization from device
         dump = device.shell_command("dumpsys", "package", self.app_name,
                                     return_output=True, as_list=False)
 
@@ -164,7 +164,6 @@ class App:
             "target_sdk" : "(?:targetSdkVersion\\:\\')([^\\']*)",
             "max_sdk" : "(?:maxSdkVersion\\=\\')([^\\']*)",
             "supported_abis" : "(?:native-code\\:\\ )(.*)",
-            "is_game" : "(application\\-isGame)",
             "launchable_activity" : "(?:launchable\\-activity\\:\\ name=\\')([^\\']*)",
             }
 
@@ -191,6 +190,10 @@ class App:
 
         if self.used_implied_features:
             self.used_implied_features = {feature : reason for feature, reason in self.used_implied_features}
+
+        if self.used_permissions:
+            self.used_permissions = list(set(self.used_permissions))
+            self.used_permissions.sort()
 
 
     def check_compatibility(self, device):
@@ -265,7 +268,9 @@ class App:
 
         return (compatible, reasons)
 
+
     def get_report(self, extended=False, indent=4):
+        """Return a formatted string containing all known app info."""
         line1 = "".join([self.display_name, " v.", self.version_name, " (", self.version_code, ")"])
         line2 = "".join(["App ID: ", self.app_name])
 
@@ -287,7 +292,7 @@ class App:
                          self.min_sdk, ")"])
 
         lines = "".join([lines, "\nSupported CPU ABIs: ",
-                         ", ".join(self.supported_abis)])
+                         ", ".join(self.supported_abis), "\n"])
 
         lines = "".join([lines, "\nUsed texture compressions:\n"])
         for compression in self.supported_texture_compressions:
@@ -295,15 +300,24 @@ class App:
 
 
         lines = "".join([lines, "\nRequired features:\n"])
-        for compression in self.used_features:
-            lines = "".join([lines, indent*" ", compression, "\n"])
+        for req_feature in self.used_features:
+            lines = "".join([lines, indent*" ", req_feature, "\n"])
 
         lines = "".join([lines, "\nOptional features:\n"])
-        for compression in self.used_optional_features:
-            lines = "".join([lines, indent*" ", compression, "\n"])
+        for opt_feature in self.used_optional_features:
+            lines = "".join([lines, indent*" ", opt_feature, "\n"])
+
+        used_dangerous = set(ANDROID_DANGEROUS_PERMISSIONS).intersection(self.used_permissions)
+
+        lines = "".join([lines, "\nRequired dangerous permissions:\n"])
+        for dang_permission in used_dangerous:
+            lines = "".join([lines, indent*" ", dang_permission, "\n"])
 
         lines = "".join([lines, "\nRequired permissions:\n"])
-        for compression in self.used_permissions:
-            lines = "".join([lines, indent*" ", compression, "\n"])
+        for permission in self.used_permissions:
+            if permission in used_dangerous:
+                continue
+
+            lines = "".join([lines, indent*" ", permission, "\n"])
 
         return lines
