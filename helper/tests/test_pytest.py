@@ -28,10 +28,11 @@ class DummyDevice(device_.Device):
 
         for info_source, info_specs in device_.INFO_EXTRACTION_CONFIG.items():
             if limit_init and info_source[-1] not in limit_init:
-                print(info_source[-1], "not in", limit_init)
                 continue
-            print(info_source[-1], "found in", limit_init)
-            print("continuing with", info_source[-1])
+
+            # skip debug info sources
+            if not info_specs:
+                continue
 
             try:
                 kwargs = dict(info_source[1])
@@ -69,6 +70,7 @@ class TestDeviceInit:
         """
         device = DummyDevice("dummy_full", config_dir=config_dir,
                              ignore_nonexistent_files=ignore_nonexistent_files)
+        device.device_init()
 
         print(device.full_info_string(initialize=False))
         if write_output:
