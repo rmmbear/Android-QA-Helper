@@ -50,6 +50,14 @@ decide the location based on available storage space and install location set
 in app's AndroidManifest.xml."""
 CMD.add_argument("--location", choices=["internal", "external"],
                  default="automatic", help=HELP_INSTALL_LOCATION)
+HELP_INSTALL_NAME = """Use this option to set the installer name used during
+installation. By default it is 'android.helper'. Under normal circumstances
+this would be the name of the appstore app used, so for example:
+com.sec.android.app.samsungapps (Samsung Galaxy Apps), com.android.vending
+(Google Play Store), com.amazon.mShop.android (Amazon Underground). Changing
+installer name may be useful for testing store-specific functionality."""
+CMD.add_argument("--installer-name", default="android.helper",
+                 help=HELP_INSTALL_NAME)
 
 
 HELP_CLEAN = """Clean various files from a device. """
@@ -188,7 +196,7 @@ def install(device, args):
             return False
 
     main_.install(device, *args.install, install_location=args.location,
-                  keep_data=args.keep_data)
+                  keep_data=args.keep_data, installer_name=args.installer_name)
 
 
 def pull_traces(device, args):

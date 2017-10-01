@@ -41,8 +41,8 @@ def install(device, *items, install_location="automatic", keep_data=False,
     for apk_file in apk_list:
         stdout_.write("".join(["\nINSTALLING: ", apk_file.app_name, "\n"]))
 
-        if not install_app(device, apk_file, install_location,
-                           stdout_=stdout_):
+        if not install_app(device, apk_file, install_location, installer_name,
+                           keep_data, stdout_=stdout_):
             install_failure.append(apk_file.app_name)
 
     installed = len(apk_list) - len(install_failure)
@@ -98,7 +98,8 @@ def install(device, *items, install_location="automatic", keep_data=False,
 
 
 def install_app(device, apk_file, install_location="automatic",
-                installer_name="android.helper", stdout_=sys.stdout):
+                installer_name="android.helper", keep_data=False,
+                stdout_=sys.stdout):
     """Install an application from a local apk file."""
     possible_install_locations = {"automatic":"", "external":"-s",
                                   "internal":"-f"}
@@ -119,7 +120,7 @@ def install_app(device, apk_file, install_location="automatic",
     if apk_file.app_name in device.thirdparty_apps:
         stdout_.write(" ".join(["WARNING: Different version of the app",
                                 "already installed\n"]))
-        if not uninstall_app(device, apk_file, stdout_=stdout_):
+        if not uninstall_app(device, apk_file, keep_data, stdout_=stdout_):
             stdout_.write("ERROR: Could not uninstall the app!\n")
             return False
     elif apk_file.app_name in device.system_apps:
@@ -164,19 +165,18 @@ def push_obb(device, obb_file, app_name, stdout_=sys.stdout):
     """Push obb expansion file to app's obb folder on device's
     internal SD card.
     """
-    device.device_init(limit_init=("shell_environment"))
+    device.device_init(limit_init=("getprop", "shell_environment"))
 
     obb_name = str(Path(obb_file).name)
-    obb_target_file = "".join([device.internal_sd_path, "/Android/obb/",
-                               app_name, "/", obb_name])
+    obb_target_file = "/".join([device.internal_sd_path, "Android/obb",
+                                app_name, obb_name])
 
     #pushing obb in two steps - some devices block adb push directly to obb folder
     device.adb_command("push", obb_file, device.internal_sd_path + "/" + obb_name,
                        stdout_=stdout_)
-    device.shell_command("mv",
-                         "".join(['"', device.internal_sd_path, "/", obb_name, '"']),
-                         "".join(['"', obb_target_file, '"']),
-                         stdout_=stdout_)
+    device.shell_command(
+        "mv", "".join(['"', device.internal_sd_path, "/", obb_name, '"']),
+        "".join(['"', obb_target_file, '"']), stdout_=stdout_)
 
     if device.is_file(obb_target_file):
         return True
@@ -285,8 +285,8 @@ def pull_traces(device, output=None, stdout_=sys.stdout):
         stdout_.write("ERROR: The file was not found on device!\n")
         return False
 
-    device.adb_command("pull", remote_anr_file, str(output / anr_filename),
-                       stdout_=stdout_)
+    device.adb_command(
+        "pull", remote_anr_file, str(output / anr_filename), stdout_=stdout_)
 
     if (output / anr_filename).is_file():
         return str((output / anr_filename).resolve())
@@ -310,7 +310,8 @@ def clear_app_data(device, app, stdout_=sys.stdout):
     device.device_init(limit_init=("system_apps", "thirdparty_apps"),
                        force_init=True)
 
-    stdout_.write("".join(["Clearing application data: ", display_name, "... "]))
+    stdout_.write(
+        "".join(["Clearing application data: ", display_name, "... "]))
     stdout_.flush()
 
     process_log = device.shell_command(
@@ -320,7 +321,8 @@ def clear_app_data(device, app, stdout_=sys.stdout):
         stdout_.write("Done\n")
         return True
 
-    if app_name not in device.system_apps and app_name not in device.thirdparty_apps:
+    if app_name not in device.system_apps and \
+       app_name not in device.thirdparty_apps:
         stdout_.write("ERROR: Application not found on device!\n")
         return False
 
@@ -351,15 +353,18 @@ def uninstall_app(device, app, keep_data=False, stdout_=sys.stdout):
 
     if app_name in device.system_apps:
         system_app = True
-        stdout_.write("".join([display_name, " is a system app and cannot be removed completely.\n"]))
-        stdout_.write("".join(["Resetting ", display_name, " to factory version..."]))
+        stdout_.write(" ".join([display_name, "is a system app and cannot be",
+                                "removed completely.\n"]))
+        stdout_.write(" ".join(["Resetting", display_name,
+                                "to factory version..."]))
     else:
         stdout_.write("".join(["Uninstalling ", display_name, "... "]))
 
     stdout_.flush()
 
-    process_log = device.shell_command(
-       "pm", "uninstall", keep_data, app_name, return_output=True, as_list=False).strip().lower()
+    process_log = device.shell_command("pm", "uninstall", keep_data, app_name,
+                                       return_output=True,
+                                       as_list=False).strip().lower()
 
     if system_app:
         if process_log == "failure":
