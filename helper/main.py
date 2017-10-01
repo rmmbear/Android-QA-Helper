@@ -406,23 +406,37 @@ def remove(device, target, recursive=False, stdout_=sys.stdout):
     stdout_.write(" ".join(["Removing", target, "... "]))
     stdout_.flush()
 
-    if not (device.is_file(target) or device.is_dir(target)):
-        stdout_.write("File not found\n")
-        return True
+    # TODO: commented out is the solution that should be more reliable
+    #       but which is broken for paths containing wildcards
+    #
+    #if not (device.is_file(target) or device.is_dir(target)):
+    #    stdout_.write("File not found\n")
+    #    return True
 
-    if not (device.is_file(target, check_write=True) or \
-            device.is_dir(target, check_write=True)):
-        stdout_.write("Permission denied\n")
-        return False
+    #if not (device.is_file(target, check_write=True) or \
+    #        device.is_dir(target, check_write=True)):
+    #    stdout_.write("Permission denied\n")
+    #    return False
 
-    result = device.shell_command("rm", recursive, '"{}"'.format(target),
+    result = device.shell_command("rm", recursive, target,
                                   return_output=True, as_list=False).strip()
-
-    if not (device.is_file(target) or device.is_dir(target)):
+    if not result:
         stdout_.write("Done!\n")
         return True
 
-    stdout_.write("Unexpected error, file could not be removed\n")
+    if "no such file or directory" in result.lower():
+        stdout_.write("File not found\n")
+        return True
+
+    if "permission denied" in result.lower():
+        stdout_.write("Permission denied\n")
+        return False
+
+    #if not (device.is_file(target) or device.is_dir(target)):
+    #    stdout_.write("Done!\n")
+    #    return True
+
+    stdout_.write("Unexpected error:\n")
     stdout_.write("".join([result, "\n"]))
     return False
 

@@ -12,7 +12,7 @@ from helper.extract_device_info import INFO_EXTRACTION_CONFIG
 ADB = helper_.ADB
 
 # The following variable represents what information is surfaced to the
-# user in the detailed-scan
+# user in the detailed scan
 SURFACED_INFO = (("Product", (
                      "Model",
                      "Manufacturer",
@@ -291,6 +291,8 @@ class Device:
             permissions += "w"
         if check_execute:
             permissions += "x"
+
+        # TODO: Make starred paths work somehow
 
         # check if the file exists
         exists = self.shell_command(
