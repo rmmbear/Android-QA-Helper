@@ -334,7 +334,7 @@ def clear_app_data(device, app, stdout_=sys.stdout):
 
 
 def uninstall_app(device, app, keep_data=False, stdout_=sys.stdout):
-    """Uninstall an app from a device.
+    """Uninstall applications from device.
 
     The app argument can be either package id or an initialized app object.
     """
@@ -391,56 +391,54 @@ def uninstall_app(device, app, keep_data=False, stdout_=sys.stdout):
     return True
 
 
-def _clean_remove(device, target, recursive=False, stdout_=sys.stdout):
-    """Remove a file from device."""
-    command = "rm"
+def remove(device, target, recursive=False, stdout_=sys.stdout):
+    """Remove file from device.
+
+    Returns True after successful removal of the file or if it
+    does not exist and False for permission error and unsuccessful
+    removal.
+    """
     if recursive:
-        command += " -r"
-    if " " in target:
-        target = '"{}"'.format(target)
+        recursive = "-r"
+    else:
+        recursive = ""
 
     stdout_.write(" ".join(["Removing", target, "... "]))
     stdout_.flush()
-    result = device.shell_command(command, target, return_output=True,
-                                  as_list=False).strip()
 
-    # TODO: Use a better error/success detection method
-    # - use the device.is_type methods here
+    if not (device.is_file(target) or device.is_dir(target)):
+        stdout_.write("File not found\n")
+        return True
 
-    # TODO: fix the mixed output type
-    if not result:
+    if not (device.is_file(target, check_write=True) or \
+            device.is_dir(target, check_write=True)):
+        stdout_.write("Permission denied\n")
+        return False
+
+    result = device.shell_command("rm", recursive, '"{}"'.format(target),
+                                  return_output=True, as_list=False).strip()
+
+    if not (device.is_file(target) or device.is_dir(target)):
         stdout_.write("Done!\n")
         return True
 
-    if result.lower().endswith("no such file or directory"):
-        stdout_.write("File not found\n")
+    stdout_.write("Unexpected error, file could not be removed\n")
+    stdout_.write("".join([result, "\n"]))
+    return False
+
+
+def replace(device, remote, local, stdout_=sys.stdout):
+    """Replace remote file with user-provided one."""
+    if not remove(device, remote, stdout_=stdout_):
+        stdout_.write("".join(["Cannot replace ", remote, "\n"]))
         return False
 
-    if result.lower().endswith("permission denied"):
-        stdout_.write("Permission denied\n")
-        return -1
+    stdout_.write(" ".join(["Placing", Path(local).name, "in its place..."]))
+    stdout_.flush()
 
-    stdout_.write("Unexpected error, got:\n")
-    stdout_.write("".join(["ERROR: ", result, "\n"]))
-    return -2
-
-
-def _clean_replace(device, remote, local, stdout_=sys.stdout):
-    """Replace file on device (remote) with the a local one."""
-    result = _clean_remove(device, remote, stdout_=stdout_)
-    if int(result) < 0:
-        stdout_.write(
-            " ".join(["Cannot replace", remote, "due to unexpected error\n"]))
-        return False
-
-    stdout_.write(" ".join(["Placing", local, "in its place\n"]))
     device.adb_command("push", local, remote, stdout_=stdout_)
 
-    _remote = remote
-    if " " in _remote:
-        _remote = '"{}"'.format(remote)
-
-    if not device.is_file(_remote):
+    if not device.is_file(remote):
         stdout_.write("ERROR: The file was not found on device!\n")
         return False
 
@@ -456,9 +454,9 @@ def _clean_replace(device, remote, local, stdout_=sys.stdout):
 # Note: Device object is required for all functions as the first argument
 
                   #1                   #2               #3  #4
-CLEANER_OPTIONS = {"remove"           :(_clean_remove,  1, [False]),
-                   "remove_recursive" :(_clean_remove,  1, [True]),
-                   "replace"          :(_clean_replace, 2, []),
+CLEANER_OPTIONS = {"remove"           :(remove,         1, [False]),
+                   "remove_recursive" :(remove,         1, [True]),
+                   "replace"          :(replace,        2, []),
                    "uninstall"        :(uninstall_app,  1, []),
                    "clear_data"       :(clear_app_data, 1, [])
                   }
@@ -563,13 +561,13 @@ def clean(device, config=None, parsed_config=None, force=False,
             if key not in parsed_config:
                 continue
             for item in parsed_config[key]:
-                stdout_.write(str(action) + " : " + str(item[0]) + "\n")
+                stdout_.write(" ".join([str(action), ":", str(item[0]), "\n"]))
 
         if "replace" in parsed_config:
             for pair in parsed_config["replace"]:
-                stdout_.write("\nThe file: " + pair[0] + "\n")
-                stdout_.write(indent * " " + "will be replaced with:" + "\n")
-                stdout_.write(indent * 2 * " " + pair[1] + "\n")
+                stdout_.write("".join(["\nThe file: ", pair[0], "\n"]))
+                stdout_.write("".join([indent * " ", "will be replaced with:\n"]))
+                stdout_.write("".join([indent * 2 * " ", pair[1], "\n"]))
 
         stdout_.write("\nContinue?\n")
 
