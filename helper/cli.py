@@ -210,18 +210,6 @@ def pull_traces(device, args):
     return False
 
 
-def clean(device_list, args):
-    """Remove device as set in cleaner config. Batch command"""
-    config_file = args.clean
-    if not Path(config_file).is_file():
-        print("Provided path does not point to an existing config file:")
-        print(config_file)
-        return False
-
-    for device in device_list:
-        main_.clean(device, config_file)
-
-
 def extract_apk(device, args):
     for app_name in args.extract_apk:
         out = device.extract_apk(app_name, args.output)
@@ -229,17 +217,24 @@ def extract_apk(device, args):
             print("Package saved to", out)
 
 
-def scan_connected(device_list):
+def clean(device, args):
+    """Remove device as set in cleaner config. Batch command"""
+    config_file = args.clean
+    if not Path(config_file).is_file():
+        print("Provided path does not point to an existing config file:")
+        print(config_file)
+        return False
+
+    main_.clean(device, config_file)
+
+
+def scan_connected(device, args):
     """"""
     format_str = "{:13}{:15}{:10}{}"
-    print(format_str.format("Serial", "Manufacturer", "Model", "Status"))
-
-    for device in device_list:
-        device.device_init(limit_init=("getprop"))
-        print(format_str.format(
-            device.serial, device.info("Product", "Manufacturer"),
-            device.info("Product", "Model"), device._status))
-    print()
+    device.device_init(limit_init=("getprop"))
+    print(format_str.format(
+        device.serial, device.info("Product", "Manufacturer"),
+        device.info("Product", "Model"), device._status))
 
 
 def scan_other():
@@ -256,50 +251,39 @@ def scan_other():
         print()
 
 
-def scan_all(device_list, args):
+def detailed_scan(device, args):
     """"""
-    if device_list:
-        scan_connected(device_list)
-    scan_other()
+    device.device_init(limit_init=["getprop"])
+    print("Collecting info from", device.info("Product", "Manufacturer"),
+          device.info("Product", "Model"), "...")
+    print(device.detailed_info_string())
+    print()
 
 
-def detailed_scan(device_list, args):
-    """"""
-    for device in device_list:
-        device.device_init(limit_init=["getprop"])
-        print("Collecting info from", device.info("Product", "Manufacturer"),
-              device.info("Product", "Model"), "...")
-        print(device.detailed_info_string())
-        print()
-    scan_other()
+def dump(device, args):
+    device.device_init(limit_init=["getprop"])
+    print("Preparing report for", device.info("Product", "Manufacturer"),
+          device.info("Product", "Model"), "...")
+
+    device.device_init()
+    filename = "".join([device.info("Product", "Manufacturer"), "_",
+                        device.info("Product", "Model"), "_", "REPORT"])
+    with (Path(args.output) / filename).open(mode="w") as device_report:
+        device_report.write(device.full_info_string())
+
+    print("Report saved to", str((Path(args.output) / filename).resolve()))
+    print()
 
 
-def dump(device_list, args):
-    for device in device_list:
-        device.device_init(limit_init=["getprop"])
-        print("Preparing report for", device.info("Product", "Manufacturer"),
-              device.info("Product", "Model"), "...")
-
-        device.device_init()
-        filename = "".join([device.info("Product", "Manufacturer"), "_",
-                            device.info("Product", "Model"), "_", "REPORT"])
-        with (Path(args.output) / filename).open(mode="w") as device_report:
-            device_report.write(device.full_info_string())
-
-        print("Report saved to", str((Path(args.output) / filename).resolve()))
-        print()
-
-
-def debug_dump(device_list, args):
+def debug_dump(device, args):
     print("Before continuing, please remember that ALL dumped files may",
           "contain sensitive data. Use caution.")
     input("Press enter to continue")
 
     from helper.tests import dump_devices
 
-    for device in device_list:
-        device.device_init()
-        dump_devices(device, args.output)
+    device.device_init()
+    dump_devices(device, args.output)
 
 
 REGULAR_COMMANDS = {"traces":pull_traces, "t":pull_traces,
@@ -309,7 +293,7 @@ REGULAR_COMMANDS = {"traces":pull_traces, "t":pull_traces,
 
 BATCH_COMMANDS = {"clean":clean, "c":clean,
                   "dump":dump, "d":dump,
-                  "scan":scan_all, "s":scan_all,
+                  "scan":scan_connected, "s":scan_connected,
                   "detailed-scan":detailed_scan, "ds":detailed_scan,
                   "debug-dump":debug_dump}
 
@@ -374,11 +358,19 @@ def main(args=None):
             print("Device has been suddenly disconnected!")
             return False
 
-    # TODO: continue command execution if only one of devices disconnects
-    try:
-        return BATCH_COMMANDS[args.command](connected_devices, args)
-    except KeyError:
-        raise NotImplementedError("The '{}' function is not yet implemented".format(args.command))
-    except device_.DeviceOfflineError:
-        print("Device has been suddenly disconnected!")
-        return False
+    # TODO: figure out how to better enable process continuation in batch commands after disconnect error
+    # preferably without checking for specific input here
+    if args.command in ("scan", "s"):
+        format_str = "{:13}{:15}{:10}{}"
+        print(format_str.format("Serial", "Manufacturer", "Model", "Status"))
+
+    for device in connected_devices:
+        try:
+            BATCH_COMMANDS[args.command](device, args)
+        except KeyError:
+            raise NotImplementedError("The '{}' function is not yet implemented".format(args.command))
+        except device_.DeviceOfflineError:
+            print("Device", "asdasdasd", "has been suddenly disconnected!")
+
+    if args.command in ("scan", "detailed-scan", "s", "ds"):
+        scan_other()
