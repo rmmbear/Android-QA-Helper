@@ -50,8 +50,8 @@ def install(device, *items, install_location="automatic", keep_data=False,
     if installed:
         if installed > 1:
             stdout_.write(
-                " ".join(["\nSuccesfully installed", str(installed),
-                          "out of", str(len(apk_list)), "provided apks:\n"]))
+                " ".join(["\nSuccesfully installed", str(installed), "out of",
+                          str(len(apk_list)), "provided apks:\n"]))
         else:
             stdout_.write("\nSuccesfully installed ")
 
@@ -79,14 +79,6 @@ def install(device, *items, install_location="automatic", keep_data=False,
 
         stdout_.write("\nCopying obb files...\n")
         device.device_init(limit_init=("shell_environment"))
-
-        # Prepare the target directory
-        obb_folder = device.internal_sd_path + "/Android/obb"
-        device.shell_command("mkdir", obb_folder, return_output=True)
-        device.shell_command("mkdir", obb_folder + "/" + apk_file.app_name,
-                             return_output=True)
-        device.shell_command("rm", "".join([obb_folder, "/", apk_file.app_name,
-                                            "/", "*.obb"]), return_output=True)
 
         for obb_file in obb_list:
             if not push_obb(device, obb_file, apk_file.app_name, stdout_=stdout_):
@@ -166,6 +158,16 @@ def push_obb(device, obb_file, app_name, stdout_=sys.stdout):
     internal SD card.
     """
     device.device_init(limit_init=("getprop", "shell_environment"))
+
+    # Prepare the target directory
+    obb_folder = device.internal_sd_path + "/Android/obb"
+    device.shell_command("mkdir", obb_folder, return_output=True)
+    device.shell_command("mkdir", obb_folder + "/" + app_name,
+                         return_output=True)
+
+    if not device.is_dir(obb_folder + "/" + app_name):
+        stdout_.write("ERROR: Could not create obb folder.\n")
+        return False
 
     obb_name = str(Path(obb_file).name)
     obb_target_file = "/".join([device.internal_sd_path, "Android/obb",
