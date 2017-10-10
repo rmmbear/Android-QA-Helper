@@ -36,7 +36,8 @@ android.permission.WRITE_CALL_LOG
 android.permission.WRITE_CONTACTS
 android.permission.WRITE_EXTERNAL_STORAGE""".splitlines()
 
-#API Level: Android Version, Version Code, Human Readable Name
+# API Level: Android Version, Version Code, Human Readable Name
+# https://developer.android.com/guide/topics/manifest/uses-sdk-element.html
 API_LEVEL_MATRIX = {
     26 : ("8.0",    "O",                "Oreo"),
     25 : ("7.1",    "N_MR1",            "Nougat"),
@@ -101,7 +102,7 @@ class App:
         self.min_sdk = '0'
         self.max_sdk = '0'
         self.target_sdk = '0'
-        self.used_permissions = ()
+        self.used_permissions = {}
         self.used_implied_features = ()
         self.used_optional_features = ()
         self.used_features = ()
@@ -157,31 +158,31 @@ class App:
 
         search_group = {
             "app_name" : "(?:name\\=\\')([^\\']*)",
-            "display_name" : "(?:application\\:\\ label\\=\\')([^\\']*)",
+            "display_name" : "(?:^application\\:\\ label\\=\\')([^\\']*)",
             "version_name" : "(?:versionName\\=\\')([^\\']*)",
             "version_code" : "(?:versionCode\\=\\')([^\\']*)",
-            "min_sdk" : "(?:sdkVersion\\:\\')([^\\']*)",
-            "target_sdk" : "(?:targetSdkVersion\\:\\')([^\\']*)",
-            "max_sdk" : "(?:maxSdkVersion\\=\\')([^\\']*)",
-            "supported_abis" : "(?:native-code\\:\\ )(.*)",
+            "min_sdk" : "(?:^sdkVersion\\:\\')([^\\']*)",
+            "target_sdk" : "(?:^targetSdkVersion\\:\\')([^\\']*)",
+            "max_sdk" : "(?:^maxSdkVersion\\=\\')([^\\']*)",
+            "supported_abis" : "(?:^native-code\\:\\ )(.*)",
             "launchable_activity" : "(?:launchable\\-activity\\:\\ name=\\')([^\\']*)",
             }
 
         findall_group = {
             "supported_texture_compressions" : "(?:supports\\-gl\\-texture\\:\\')([^\\']*)",
-            "used_permissions" : "(?:uses\\-permission\\:\\ name\\=\\')([^\\']*)",
+            "used_permissions" : "(?:uses\\-permission\\:\\ name\\=\\')([^\\']*)(?:.*max\\-sdkVersion\\=\\')?([^\\']*)",
             "used_implied_features" : "(?:uses\\-implied\\-feature\\:\\ name\\=\\')([^\\']*)(?:.*reason\\=\\')?([^\\']*)",
             "used_optional_features" : "(?:uses\\-feature\\-not\\-required\\:\\ name\\=\\')([^\\']*)",
             "used_features" : "(?:uses\\-feature\\:\\ name\\=\\')([^\\']*)",
             }
 
         for key, value in search_group.items():
-            extracted = re.search(value, dump)
+            extracted = re.search(value, dump, re.M)
             if extracted:
                 self.__dict__[key] = extracted.group(1).strip()
 
         for key, value in findall_group.items():
-            extracted = re.findall(value, dump)
+            extracted = re.findall(value, dump, re.M)
             if extracted:
                 self.__dict__[key] = extracted
 
@@ -192,8 +193,7 @@ class App:
             self.used_implied_features = {feature : reason for feature, reason in self.used_implied_features}
 
         if self.used_permissions:
-            self.used_permissions = list(set(self.used_permissions))
-            self.used_permissions.sort()
+            self.used_permissions = dict(self.used_permissions)
 
 
     def check_compatibility(self, device):
@@ -218,17 +218,19 @@ class App:
 
         # check if device uses a supported Android version
         device_sdk = device.info("OS", "API Level")
-        if int(self.min_sdk) > int(device_sdk):
-            compatible = False
-            reasons.append(" ".join(["API level of at least", self.min_sdk,
-                                     "is required but the device has",
-                                     device_sdk]))
+        if int(self.min_sdk):
+            if int(self.min_sdk) > int(device_sdk):
+                compatible = False
+                reasons.append(" ".join(["API level of at least", self.min_sdk,
+                                         "is required but the device has",
+                                         device_sdk]))
 
-        if int(self.max_sdk) and device_sdk > int(self.max_sdk):
-            compatible = False
-            reasons.append(" ".join(["API level of at most", self.max_sdk,
-                                     "is allowed but the device has",
-                                     device_sdk]))
+        if int(self.max_sdk):
+            if int(device_sdk) > int(self.max_sdk):
+                compatible = False
+                reasons.append(" ".join(["API level of at most", self.max_sdk,
+                                         "is allowed but the device has",
+                                         device_sdk]))
 
         # check if device uses one of supported abis
         if self.supported_abis:
