@@ -13,29 +13,33 @@ ADB = helper_.ADB
 
 # The following variable represents what information is surfaced to the
 # user in the detailed scan
-SURFACED_INFO = (("Product", (
+# do not pay attention to this, it's broken, I know
+SURFACED_INFO = (("Device", (
                      "Model",
                      "Manufacturer",
-                     "Device")),
-                 ("OS", (
-                     "Version",
+                     "Device",
+                     )),
+                 ("System", (
+                     "Android Version",
                      "API Level",
-                     "Build ID",)),
-                 ("RAM", ("Total", )),
-                 ("CPU", (
-                     "Chipset and Type",
-                     "Cores",
-                     "Architecture",
-                     "Max Frequency",
-                     "Available ABIs")),
-                 ("GPU", (
-                     "Model",
-                     "Vendor",
-                     "GL Version",
-                     "Texture Types")),
+                     "Build ID",
+                     )),
+                 ("Chipset", (
+                     "Board",
+                     "Max CPU Clock Speed",
+                     "CPU Cores",
+                     "Available ABIs",
+                     "CPU Features",
+                     "GPU Vendor",
+                     "GPU Model",
+                     "OpenGL Version",
+                     "Known Texture Compression Types",
+                     )),
                  ("Display", (
                      "Resolution",
-                     "Density")),
+                     "Density",
+                     )),
+                 ("Notable Features", (""))
                 )
 
 
@@ -136,6 +140,7 @@ class Device:
         """"""
         self.serial = serial
         self._extracted_info_groups = []
+        self._name = None
 
         self.internal_sd_path = None
         self.external_sd_path = None
@@ -189,6 +194,20 @@ class Device:
             raise DeviceOfflineError("Device {} became offline after adb command".format(self.serial), self.serial)
 
         return command_output
+
+
+    @property
+    def name(self):
+        if self._name:
+            return self._name
+
+        if "getprop" not in self._extracted_info_groups:
+            return "Unknown device (" + self.serial + ")"
+
+        self._name = "".join([self.info("Device", "Manufacturer"), " - ",
+                              self.info("Device", "Model"), " (", self.serial,
+                              ")"])
+        return self._name
 
 
     @property
@@ -385,7 +404,6 @@ class Device:
     def full_info_string(self, initialize=True, indent=4):
         """Return a formatted string containing all device info"""
         # ensure all required info is available
-
         if initialize:
             self.device_init()
 
@@ -393,8 +411,7 @@ class Device:
         # will be returned from that group
         # which means that group can be blacklisted by simply not specyfing any
         # values with it
-        group_whitelist = {"device_features":("device_features",),
-                           "system_apps":(),
+        group_whitelist = {"system_apps":(),
                           }
 
         indent = indent * " "
