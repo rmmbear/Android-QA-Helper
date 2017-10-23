@@ -235,8 +235,8 @@ def scan_connected(device, args):
     format_str = "{:13}{:15}{:10}{}"
     device.device_init(limit_init=("getprop"))
     print(format_str.format(
-        device.serial, device.info("Product", "Manufacturer"),
-        device.info("Product", "Model"), device._status))
+        device.serial, device.info("Device", "Manufacturer"),
+        device.info("Device", "Model"), device._status))
 
 
 def scan_other():
@@ -256,20 +256,18 @@ def scan_other():
 def detailed_scan(device, args):
     """"""
     device.device_init(limit_init=["getprop"])
-    print("Collecting info from", device.info("Product", "Manufacturer"),
-          device.info("Product", "Model"), "...")
+    print("Collecting info from", device.name, "...")
     print(device.detailed_info_string())
     print()
 
 
 def dump(device, args):
     device.device_init(limit_init=["getprop"])
-    print("Preparing report for", device.info("Product", "Manufacturer"),
-          device.info("Product", "Model"), "...")
+    print("Preparing report for", device.name, "...")
 
     device.device_init()
-    filename = "".join([device.info("Product", "Manufacturer"), "_",
-                        device.info("Product", "Model"), "_", "REPORT"])
+    filename = "".join([device.info("Device", "Manufacturer"), "_",
+                        device.info("Device", "Model"), "_", "REPORT"])
     with (Path(args.output) / filename).open(mode="w") as device_report:
         device_report.write(device.full_info_string())
 
