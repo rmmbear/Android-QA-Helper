@@ -223,16 +223,22 @@ INFO_EXTRACTION_CONFIG = {
     (("getprop",), (("as_list", False), ("return_output", True)), "getprop") : (
         InfoSpec(
             extraction_commands=(
-                (re.search, ('(?<=\\[ro\\.boot\\.serialno\\]: \\[).*(?=\\])', '$source')),),
-            var_name='Serial #', var_dict_1='Device', var_dict_2='_info'),
+                (re.search, ("(?<=\\[ro\\.boot\\.serialno\\]: \\[).*(?=\\])", "$source")),
+            ),
+            var_name="Serial #", var_dict_1="Device", var_dict_2="_info"
+        ),
         InfoSpec(
             extraction_commands=(
-                (re.search, ('(?<=\\[ro\\.product\\.model\\]: \\[).*(?=\\])', '$source')),),
-            var_name='Model', var_dict_1='Device', var_dict_2='_info'),
+                (re.search, ('(?<=\\[ro\\.product\\.model\\]: \\[).*(?=\\])', '$source')),
+            ),
+            var_name="Model", var_dict_1="Device", var_dict_2="_info"
+        ),
         InfoSpec(
             extraction_commands=(
-                (re.search, ('(?<=\\[ro\\.product\\.manufacturer\\]: \\[).*(?=\\])', '$source')),),
-            var_name='Manufacturer', var_dict_1='Device', var_dict_2='_info'),
+                (re.search, ("(?<=\\[ro\\.product\\.manufacturer\\]: \\[).*(?=\\])", "$source")),
+            ),
+            var_name="Manufacturer", var_dict_1="Device", var_dict_2="_info"
+        ),
         InfoSpec(
             extraction_commands=(
                 (re.search, ('(?<=\\[ro\\.product\\.device\\]: \\[).*(?=\\])', '$source')),),
@@ -285,14 +291,13 @@ INFO_EXTRACTION_CONFIG = {
                 (re.search, ('(?<=\\[ro\\.product\\.cpu\\.abi\\]\\: \\[).*(?=\\])', '$source')),
                 (re.search, ('(?<=\\[ro\\.product\\.cpu\\.abi2\\]\\: \\[).*(?=\\])', '$source'))),
             var_name='Available ABIs', var_dict_1='Chipset', var_dict_2='_info'),
-        # replace the above info if abilist is available
+        # abilist does not always include the primary abi
         InfoSpec(
             extraction_commands=(
                 (re.search, ('(?<=\\[ro\\.product\\.cpu\\.abilist\\]\\: \\[).*(?=\\])', '$source')),),
-            var_name='Available ABIs', var_dict_1='Chipset', var_dict_2='_info', resolve_existing_values='replace',
+            var_name='Available ABIs', var_dict_1='Chipset', var_dict_2='_info',
             post_extraction_commands=(
-                ('method', 'replace', (',', ', ')),
-                ('method', 'replace', ('  ', ' ')))),
+                ('method', 'split'),)),
         InfoSpec(
             extraction_commands=(
                 (re.search, ('(?<=\\[dalvik\\.vm\\.stack\\-trace\\-file\\]: \\[).*(?=\\])', '$source')),),
@@ -305,6 +310,12 @@ INFO_EXTRACTION_CONFIG = {
             extraction_commands=(
                 (re.search, ('(?<=\\[external\\_sd\\_path\\]: \\[).*(?=\\])', '$source')),),
             var_name='external_sd_path', resolve_existing_values='drop'),
+    ),
+    (("cat", "/sys/class/android_usb/android0/iSerial"), (("as_list", False), ("return_output", True)), "iserial"): (
+        InfoSpec(
+            var_name="Serial #", var_dict_1="Device", var_dict_2="_info",
+            resolve_existing_values="drop",
+        ),
     ),
     (("cat", "/proc/cpuinfo"), (("as_list", False), ("return_output", True)), "cpuinfo"): (
         InfoSpec(
