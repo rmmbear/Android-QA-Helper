@@ -54,8 +54,10 @@ HELP_INSTALL_NAME = """Use this option to set the installer name used during
 installation. By default it is 'android.helper'. Under normal circumstances
 this would be the name of the appstore app used, so for example:
 com.sec.android.app.samsungapps (Samsung Galaxy Apps), com.android.vending
-(Google Play Store), com.amazon.mShop.android (Amazon Underground). Changing
-installer name may be useful for testing store-specific functionality."""
+(Google Play Store), com.amazon.mShop.android (Amazon Underground),
+com.amazon.venezia (Amazon appstore--the native appstore app for Kindle Fire).
+Changing installer name may be useful for testing store-specific functionality.
+"""
 CMD.add_argument("--installer-name", default="android.helper",
                  help=HELP_INSTALL_NAME)
 
@@ -315,8 +317,8 @@ def main(args=None):
             print("ERROR: The provided path does not point to an existing directory!")
             return False
 
-    # ^-functionality not requiring initialized devices
-    # v-the opposite
+    if args.command not in BATCH_COMMANDS and args.command not in REGULAR_COMMANDS:
+        raise NotImplementedError("The '{}' function is not yet implemented".format(args.command))
 
     using_batch_commands = args.command not in REGULAR_COMMANDS
     if not args.command in ("scan", "s"):
@@ -352,8 +354,6 @@ def main(args=None):
 
         try:
             return REGULAR_COMMANDS[args.command](chosen_device, args)
-        except KeyError:
-            raise NotImplementedError("The '{}' function is not yet implemented".format(args.command))
         except device_.DeviceOfflineError:
             print("Device has been suddenly disconnected!")
             return False
@@ -367,8 +367,6 @@ def main(args=None):
     for device in connected_devices:
         try:
             BATCH_COMMANDS[args.command](device, args)
-        except KeyError:
-            raise NotImplementedError("The '{}' function is not yet implemented".format(args.command))
         except device_.DeviceOfflineError:
             print("Device", "asdasdasd", "has been suddenly disconnected!")
 
