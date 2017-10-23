@@ -141,9 +141,20 @@ def exe(executable, *args, return_output=False, as_list=True,
     """Run the provided executable with specified commands"""
     try:
         if return_output:
-            cmd_out = subprocess.run((executable,) + args, stdout=subprocess.PIPE,
-                                     stderr=subprocess.STDOUT).stdout
+            cmd_out = subprocess.run((executable,) + args,
+                stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+            ).stdout
+
             cmd_out = cmd_out.decode("utf-8", "replace")
+            # TODO: there is an issue with line endings in adb output
+            # on Linux each line is ended with '\r\n'
+            # on Windows this becomes '\r\r\n'
+            # the easy thing is to just search for double carriage return and
+            # replace it, which means that every adb command would gain some
+            # overhead. This could, although unlikely, result in mangled output
+            # soo... figure out what to do here
+            if sys.platform == "win32" and executable == ADB:
+                cmd_out = cmd_out.replace("\r\r\n", "\r\n")
 
             if as_list:
                 return cmd_out.splitlines()
