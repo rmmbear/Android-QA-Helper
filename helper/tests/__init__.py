@@ -23,12 +23,10 @@ def dump_devices(device, directory="."):
     """
     Path(directory).mkdir(exist_ok=True)
 
-    device_id = "".join([device.info("Product", "Manufacturer"), "_",
-                         device.info("Product", "Model")])
-    device_dir = Path(directory, (device_id + "_DUMP").replace(" ", "_"))
+    device_dir = Path(directory, (device.filename + "_DUMP"))
     device_dir.mkdir(exist_ok=True)
     print()
-    print("Dumping", device_id)
+    print("Dumping", device.name)
 
     for info_source in device_.INFO_EXTRACTION_CONFIG:
         try:
