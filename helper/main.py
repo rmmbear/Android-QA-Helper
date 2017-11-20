@@ -240,11 +240,9 @@ def record(device, output=".", name=None, silent=False, stdout_=sys.stdout):
     if name:
         filename = name
     else:
-        filename = "".join([device.name, "_screenrecord_",
+        filename = "".join([device.filename, "_screenrecord_",
                             strftime("%Y.%m.%d_%H.%M.%S"), ".mp4"])
 
-    unwanted_chars = ",() "
-    filename = "".join([x if x not in unwanted_chars else "_" for x in filename])
     remote_recording = "".join([device.internal_sd_path + "/" + filename])
 
     try:
@@ -279,8 +277,9 @@ def pull_traces(device, output=None, stdout_=sys.stdout):
 
     device.device_init(limit_init=("getprop", "shell_environment"))
 
-    anr_filename = "".join([device.info("Product", "Model"), "_anr_",
+    anr_filename = "".join([device.filename, "_anr_",
                             strftime("%Y.%m.%d_%H.%M.%S"), ".txt"])
+
     remote_anr_file = "".join([device.internal_sd_path, "/", anr_filename])
     device.shell_command("cat", device.anr_trace_path, ">", remote_anr_file)
 
@@ -608,7 +607,8 @@ def logcat_record(device, *filters, output_file=None, log_format="threadtime",
     # e.g. Only display log in the console if verbosity in all filters is above
     # 'info' (that is also why I'm not using logcat -f /path/to/file)
     if not output_file:
-        output_file = "logcat_" + strftime("%Y.%m.%d_%H.%M.%S") + ".log"
+        output_file = "".join([device.filename, "_logcat_",
+                               strftime("%Y.%m.%d_%H.%M.%S"), ".log"])
 
     stdout_.write("Recording logcat log, press ctrl+c to stop...\n")
     with open(output_file, mode="w", encoding="utf-8") as log_file:
