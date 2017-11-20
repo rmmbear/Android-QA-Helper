@@ -16,14 +16,15 @@
 
 import os
 import sys
-import inspect
 import shutil
+import inspect
+import logging
 import subprocess
 from pathlib import Path
 
 # Program meta-info
 VERSION = "0.14"
-VERSION_DATE = "23-10-2017"
+VERSION_DATE = "20-11-2017"
 VERSION_STRING = "".join(["Android Helper v", VERSION, " : ", VERSION_DATE])
 COPYRIGHT_STRING = "Copyright (c) 2017 rmmbear"
 SOURCE_STRING = "Check the source code at https://github.com/rmmbear/Android-QA-Helper"
@@ -113,6 +114,7 @@ ASTC - LDR = GL_KHR_texture_compression_astc_ldr
 ASTC - sliced 3D = GL_KHR_texture_compression_astc_sliced_3d
 """
 
+#logging.basicConfig(level=logging.DEBUG)
 
 def _get_script_dir():
     """"""
@@ -139,11 +141,12 @@ if sys.platform == "win32":
 def exe(executable, *args, return_output=False, as_list=True,
         stdout_=sys.stdout):
     """Run the provided executable with specified commands"""
+    #logging.debug("Executing {}".format([executable, *args]))
     try:
         if return_output:
             cmd_out = subprocess.run((executable,) + args,
-                stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-            ).stdout
+                                     stdout=subprocess.PIPE,
+                                     stderr=subprocess.STDOUT).stdout
 
             cmd_out = cmd_out.decode("utf-8", "replace")
             # TODO: there is an issue with line endings in adb output
@@ -338,5 +341,3 @@ COMPRESSION_DEFINITIONS = str(Path(COMPRESSION_DEFINITIONS).resolve())
 
 if EDITED_CONFIG:
     _save_config(CONFIG)
-
-del EDITED_CONFIG, HELPER_CONFIG_VARS

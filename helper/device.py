@@ -373,8 +373,8 @@ class Device:
 
         Return true when device comes back online.
         """
-        reconnect_status = self.adb_command("reconnect", return_output=True,
-                                            as_list=False)
+        reconnect_status = adb_command("-s", self.serial, "reconnect",
+                                       return_output=True, as_list=False)
         if reconnect_status.strip().lower() != "done":
             # I don't even know if there is a chance for unexpected output here
             stdout_.write("ERROR: ")
@@ -389,8 +389,8 @@ class Device:
                 " ".join(["Connection with this device had to be reset,",
                           "to continue you must grant debugging permission",
                           "again.\n"]))
-        reconnect_status = self.adb_command("wait-for-device",
-                                            return_output=True, as_list=False)
+        reconnect_status = adb_command("-s", self.serial, "wait-for-device",
+                                       return_output=True, as_list=False)
         if reconnect_status:
             # I have not seen the 'wait-for-<status>' command output anything ever
             # so this is a precaution in case it ever will
