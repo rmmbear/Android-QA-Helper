@@ -141,6 +141,7 @@ class Device:
         self.serial = serial
         self._extracted_info_groups = []
         self._name = None
+        self._filename = None
 
         self.internal_sd_path = None
         self.external_sd_path = None
@@ -198,6 +199,9 @@ class Device:
 
     @property
     def name(self):
+        """Property holding a human-readable name of the device.
+
+        Name consists of: manufacturer, model and serial number."""
         if self._name:
             return self._name
 
@@ -208,6 +212,19 @@ class Device:
                               self.info("Device", "Model"), " (", self.serial,
                               ")"])
         return self._name
+
+
+    @property
+    def filename(self):
+        """Device's name stripped of path-unsafe characters."""
+        if self._filename:
+            return self._filename
+
+        unwanted_chars = '*)(/\\:|<&;"%?># '
+        filename = "".join([x if x not in unwanted_chars else "_" for x in self.name])
+        self._filename = filename
+
+        return self._filename
 
 
     @property

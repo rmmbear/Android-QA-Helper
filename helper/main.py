@@ -201,7 +201,7 @@ def record(device, output=".", name=None, silent=False, stdout_=sys.stdout):
     # regular users from their device - hold the power button and it should
     # appear alongside reset and shutdown options
 
-    device.device_init(limit_init=("available_commands", "shell_environment"))
+    device.device_init(limit_init=("available_commands", "shell_environment", "getprop"))
 
     if 'screenrecord' not in device.available_commands:
         stdout_.write(
@@ -237,13 +237,14 @@ def record(device, output=".", name=None, silent=False, stdout_=sys.stdout):
         except KeyboardInterrupt:
             stdout_.write("\nRecording canceled!\n")
             return False
-
     if name:
         filename = name
     else:
-        filename = "".join([device.info("Product", "Model"), "_screenrecord_",
+        filename = "".join([device.name, "_screenrecord_",
                             strftime("%Y.%m.%d_%H.%M.%S"), ".mp4"])
 
+    unwanted_chars = ",() "
+    filename = "".join([x if x not in unwanted_chars else "_" for x in filename])
     remote_recording = "".join([device.internal_sd_path + "/" + filename])
 
     try:
