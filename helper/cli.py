@@ -330,7 +330,7 @@ def main(args=None):
         if args.device:
             for device in connected_devices:
                 if device.serial == args.device:
-                    chosen_device = [device]
+                    chosen_device = device
 
             if not chosen_device:
                 print("Device with serial number", str(args.device),
@@ -361,6 +361,9 @@ def main(args=None):
     if args.command in ("scan", "s"):
         format_str = "{:13}{:15}{:10}{}"
         print(format_str.format("Serial", "Manufacturer", "Model", "Status"))
+
+    if chosen_device:
+        connected_devices = [chosen_device]
 
     for device in connected_devices:
         try:
