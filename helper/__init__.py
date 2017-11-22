@@ -22,9 +22,11 @@ import logging
 import subprocess
 from pathlib import Path
 
-# Program meta-info
+#logging.basicConfig(level=logging.DEBUG)
+
+# Program metadata
 VERSION = "0.14"
-VERSION_DATE = "21-11-2017"
+VERSION_DATE = "23-11-2017"
 VERSION_STRING = "".join(["Android Helper v", VERSION, " : ", VERSION_DATE])
 COPYRIGHT_STRING = "Copyright (c) 2017 rmmbear"
 SOURCE_STRING = "Check the source code at https://github.com/rmmbear/Android-QA-Helper"
@@ -39,7 +41,6 @@ ABI_TO_ARCH = {"armeabi"    :"32bit (ARM)",
                "mips64"     :"64bit (Mips64)",
               }
 ADB_VERSION = "Unknown"
-ADB_REVISION = "Unknown"
 AAPT_VERSION = "Unknown"
 AAPT_AVAILABLE = False
 EDITED_CONFIG = False
@@ -113,8 +114,6 @@ ASTC - HDR = GL_KHR_texture_compression_astc_hdr
 ASTC - LDR = GL_KHR_texture_compression_astc_ldr
 ASTC - sliced 3D = GL_KHR_texture_compression_astc_sliced_3d
 """
-
-#logging.basicConfig(level=logging.DEBUG)
 
 def _get_script_dir():
     """"""
@@ -224,9 +223,12 @@ def _check_adb():
         globals()["ADB"] = adb
         globals()["EDITED_CONFIG"] = True
     if version_name:
-        globals()["ADB_VERSION"] = version_name.group().strip()
-    if version_code:
-        globals()["ADB_REVISION"] = version_code.group().strip()
+        version_name = version_name.group().strip()
+
+        if version_code:
+            " ".join([version_name, version_code.group().strip()])
+
+        globals()["ADB_VERSION"] = version_name
 
     return True
 
@@ -341,3 +343,8 @@ COMPRESSION_DEFINITIONS = str(Path(COMPRESSION_DEFINITIONS).resolve())
 
 if EDITED_CONFIG:
     _save_config(CONFIG)
+
+# TODO: replace custom config files (helper, gles textures and cleaner) with cfg module
+# TODO: add an interface for editing various configs
+# TODO: validate aapt and adb using list of known checksums
+# TODO: count what adb/aapt calls are made during each session
