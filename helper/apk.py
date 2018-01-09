@@ -38,7 +38,7 @@ android.permission.WRITE_EXTERNAL_STORAGE""".splitlines()
 
 # API Level: Android Version, Version Code, Human Readable Name
 # https://developer.android.com/guide/topics/manifest/uses-sdk-element.html
-# Last updated: 23.11.2017
+# Last updated: 2017.11.23
 API_LEVEL_MATRIX = {
     27 : ("8.1",   "O_MR1",            "Oreo"),
     26 : ("8.0",   "O",                "Oreo"),

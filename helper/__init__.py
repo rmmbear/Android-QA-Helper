@@ -1,5 +1,5 @@
 #   Android QA Helper - helping you test Android apps!
-#   Copyright (C) 2017  rmmbear
+#   Copyright (C) 2017 rmmbear
 #
 #   This program is free software: you can redistribute it and/or modify
 #   it under the terms of the GNU General Public License as published by
@@ -26,20 +26,21 @@ from pathlib import Path
 
 # Program metadata
 VERSION = "0.14"
-VERSION_DATE = "23-11-2017"
+VERSION_DATE = "2018-01-09"
 VERSION_STRING = "".join(["Android Helper v", VERSION, " : ", VERSION_DATE])
 COPYRIGHT_STRING = "Copyright (c) 2017 rmmbear"
 SOURCE_STRING = "Check the source code at https://github.com/rmmbear/Android-QA-Helper"
 
 # Global config variables
-ABI_TO_ARCH = {"armeabi"    :"32bit (ARM)",
-               "armeabi-v7a":"32bit (ARM)",
-               "arm64-v8a"  :"64bit (ARM64)",
-               "x86"        :"32bit (Intel x86)",
-               "x86_64"     :"64bit (Intel x86_64)",
-               "mips"       :"32bit (Mips)",
-               "mips64"     :"64bit (Mips64)",
-              }
+ABI_TO_ARCH = {
+    "armeabi"    :"32bit (ARM)",
+    "armeabi-v7a":"32bit (ARM)",
+    "arm64-v8a"  :"64bit (ARM64)",
+    "x86"        :"32bit (Intel x86)",
+    "x86_64"     :"64bit (Intel x86_64)",
+    "mips"       :"32bit (Mips)",
+    "mips64"     :"64bit (Mips64)",
+}
 ADB_VERSION = "Unknown"
 AAPT_VERSION = "Unknown"
 AAPT_AVAILABLE = False

@@ -1,17 +1,232 @@
+""""""
 import re
 import helper
 
-def _load_known_compressions():
-    with open(helper.COMPRESSION_DEFINITIONS, mode="r", encoding="utf-8") as comps:
-        for line in comps.read().splitlines():
-            if not line or line.startswith("#"):
-                continue
+# source: https://www.khronos.org/registry/OpenGL/index_es.php
+# last updated: 2018.01.06
+TEXTURE_COMPRESSION_IDS = {
+    "GL_AMD_compressed_ATC_texture" : "ATC",
+    "GL_ATI_compressed_texture_atitc" : "ATC",
+    "GL_ATI_texture_compression_atitc" : "ATC",
+    "GL_OES_compressed_ETC1_RGB8_texture" : "ETC1",
+    "GL_OES_compressed_ETC2_RGB8_texture" : "ETC2",
+    "GL_EXT_texture_compression_s3tc_srgb" : "S3TC (DXTC) - sRGB",
+    "GL_EXT_texture_compression_s3tc" : "S3TC (DXTC)",
+    "GL_EXT_texture_compression_dxt1" : "DXT1",
+    "GL_IMG_texture_compression_pvrtc" : "PVRTC",
+    "GL_IMG_texture_compression_pvrtc2" : "PVRTC2",
+    "GL_AMD_compressed_3DC_texture" : "3DC",
+    "GL_EXT_texture_compression_latc" : "LATC",
+    "GL_NV_texture_compression_latc" : "LATC",
+    "GL_OES_texture_compression_astc" : "ASTC",
+    "GL_KHR_texture_compression_astc_hdr" : "ASTC HDR",
+    "GL_KHR_texture_compression_astc_ldr" : "ASTC LDR",
+    "GL_KHR_texture_compression_astc_sliced_3d" : "ASTC - sliced 3D",
+    "GL_EXT_texture_compression_rgtc" : "RGTC",
+    "GL_EXT_texture_compression_bptc" : "BPTC",
+}
 
-            name, comp_id = line.split("=", maxsplit=1)
-            KNOWN_COMPRESSION_NAMES[comp_id] = name.strip()
+
+INFO_SOURCES = {
+    "getprop" : ("getprop",),
+    "iserial" : ("cat", "/sys/class/android_usb/android0/iSerial"),
+    "cpuinfo" : ("cat", "/proc/cpuinfo"),
+    "max_cpu_freq" : ("cat", "/sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_max_freq"),
+    "possible_cpu_cores" : ("cat", "/sys/devices/system/cpu/possible"),
+    "surfaceflinger_dump" : ("dumpsys", "SurfaceFlinger"),
+    "display_dump" : ("dumpsys", "display"),
+    "meminfo" : ("cat", "/proc/meminfo"),
+    "kernel_version" : ("cat", "/proc/version"),
+    "shell_environment" : ("printenv",),
+    "available_commands" : ("ls", "/system/bin"),
+    "device_features" : ("pm", "list", "features"),
+    "system_apps" : ("pm", "list", "packages", "-s"),
+    "thirdparty_apps" : ("pm", "list", "packages", "-3"),
+    "screen_size" : ("wm", "size"),
+    "screen_density" : ("wm", "density"),
+    "build.prop" : ("cat", "/system/build.prop"),        #debug
+    "dumpsys_full" : ("dumpsys",),                       #debug
+    }
+
+# list of features that one might go looking for in a device
+NOTABLE_FEATURES = [
+    ("Bluetooth", "feature:android.hardware.bluetooth"),
+    ("Bluetooth Low-Energy", "feature:android.hardware.bluetooth_le"),
+    ("IR Sensor", "feature:android.hardware.consumerir"),
+    ("Fingerprint Scanner", "feature:android.hardware.fingerprint"),
+    ("NFC", "feature:android.hardware.nfc"),
+    ("CDMA Telephony", "feature:android.hardware.telephony.cdma"),
+    ("GSM Telephony", "feature:android.hardware.telephony.gsm"),
+    ("VR Headtracking", "feature:android.hardware.vr.headtracking"),
+    ("VR Mode", "feature:android.software.vr.mode"),
+    ("High-Performance VR Mode", "feature:android.hardware.vr.high_performance"),
+    ("WiFi-Aware", "feature:android.hardware.wifi.aware"),
+]
+
+# information surfaced to the user in the detailed scan
+# (short scan shows only serial number, model, manufacturer and device status)
+SURFACED_BRIEF = [
+    # it follows the following structure:
+    # [section name, [(name, corresponding key from INFO_KEYS), ...]]
+    # if putting values in sections does not make much sense,
+    # the (name, INFO_KEY) tuple can be entered into the config directly
+    # without its own section
+    ["Identity",
+     [("Model", "device_model"),
+      ("Manufacturer", "device_manufacturer"),
+      ("Device", "device_device"),
+     ]
+    ],
+    ["System",
+     [("API Level", "android_api_level"),
+      ("Android Version", "android_version"),
+      ("Aftermarket Firmware", "aftermarket_firmware"),
+     ]
+    ],
+    ["Chipset",
+     [("Board", "board"),
+      ("RAM", "ram_capacity"),
+      ("CPU Architecture", "cpu_architecture"),
+      ("Cores", "cpu_core_count"),
+      ("Base Clock Frequency", "cpu_base_frequency"),
+      ("GPU Vendor", "gpu_vendor"),
+      ("GPU Model", "gpu_model"),
+      ("OpenGL ES Version", "gles_version"),
+      ("Known Texture Compression Types", "gles_texture_compressions"),
+     ]
+    ],
+    ["Display",
+     [("Resolution", "display_resolution"),
+      ("Density", "display_density"),
+      ("Size", "display_physical_size")
+     ]
+    ],
+    ["Storage",
+     [("Internal Storage Space Total", "internal_sd_capacity"),
+      ("Internal Storage Space Available", "internal_sd_free"),
+      ("SD Card Space Total", "external_sd_capacity"),
+      ("SD Card Space Available", "external_sd_free"),
+     ]
+    ],
+    ("Notable Features", "device_notable_features")
+]
+
+# information surfaced to the user in dump
+# follows the same structure as brief config
+SURFACED_VERBOSE = [
+    ["Identity",
+     [("Model", "device_model"),
+      ("Manufacturer", "device_manufacturer"),
+      ("Device", "device_device"),
+      ("Name", "device_name"),
+      ("Brand", "device_brand"),
+      ("Serial Number", "device_serial_number"),
+     ]
+    ],
+    ["System",
+     [("API Level", "android_api_level"),
+      ("Android Version", "android_version"),
+      ("Aftermarket Firmware", "aftermarket_firmware"),
+      ("Build ID", "android_build_id"),
+      ("Build Fingerprint", "android_build_fingerprint"),
+      ("Kernel Version", "kernel_version"),
+     ]
+    ],
+    ["Chipset",
+     [("Board", "board"),
+      ("RAM", "ram_capacity"),
+      ("CPU Architecture", "cpu_architecture"),
+      ("Cores", "cpu_core_count"),
+      ("Min Clock Frequency", "cpu_min_frequency"),
+      ("Base Clock Frequency", "cpu_base_frequency"),
+      ("Max Clock Frequency", "cpu_max_frequency"),
+      ("Available ABIs", "cpu_abis"),
+      ("CPU Features", "cpu_features"),
+      ("GPU Vendor", "gpu_vendor"),
+      ("GPU Model", "gpu_model"),
+      ("OpenGL ES Version", "gles_version"),
+      ("Known Texture Compression Types", "gles_texture_compressions"),
+     ]
+    ],
+    ["Display",
+     [("Resolution", "display_resolution"),
+      ("Density", "display_density"),
+      ("X-DPI", "display_x-dpi"),
+      ("Y-DPI", "display_y-dpi"),
+      ("Size", "display_physical_size"),
+     ]
+    ],
+    ["Storage",
+     [("Internal Storage Path", "internal_sd_path"),
+      ("Internal Storage Space Total", "internal_sd_capacity"),
+      ("Internal Storage Space Available", "internal_sd_free"),
+      ("SD Card Path", "external_sd_path"),
+      ("SD Card Space Total", "external_sd_capacity"),
+      ("SD Card Space Available", "external_sd_free"),
+     ]
+    ],
+    ("Notable Features", "device_notable_features"),
+    ("Device Features", "device_features"),
+    ("System Apps", "system_apps"),
+    ("Third-Party Apps", "third-party_apps"),
+    ("Shell Commands", "shell_commands"),
+]
+
+INFO_KEYS = [
+    "aftermarket_firmware",
+    "aftermarket_firmware_version",
+    "android_api_level",
+    "android_build_fingerprint",
+    "android_build_id",
+    "android_version",
+    "anr_trace_path",
+    "board",
+    "cpu_abis",
+    "cpu_architecture",
+    "cpu_base_frequency",
+    "cpu_core_count",
+    "cpu_features",
+    "cpu_max_frequency",
+    "cpu_min_frequency",
+    "device_brand",
+    "device_device",
+    "device_features",
+    "device_manufacturer",
+    "device_model",
+    "device_name",
+    "device_notable_features",
+    "device_serial_number",
+    "display_density",
+    "display_physical_size",
+    "display_resolution",
+    "display_x-dpi",
+    "display_y-dpi",
+    "external_sd_capacity",
+    "external_sd_free",
+    "external_sd_path",
+    "gles_extensions",
+    "gles_texture_compressions",
+    "gles_version",
+    "gpu_model",
+    "gpu_vendor",
+    "internal_sd_capacity",
+    "internal_sd_free",
+    "internal_sd_path",
+    "kernel_version",
+    "ram_capacity",
+    "shell_commands",
+    "system_apps",
+    "third-party_apps",
+    #"gpu_frequency",
+    #"gpu_ram",
+    #"ram_type",
+]
+
+KNOWN_COMPRESSION_NAMES = {}
+INFO_EXTRACTION_CONFIG = {}
 
 
-def extract_compression_names(surfaceflinger_dump):
+def load_compression_names(surfaceflinger_dump):
     """"""
     extensions = []
     for identifier, name in KNOWN_COMPRESSION_NAMES.items():
@@ -29,511 +244,263 @@ def abi_to_arch(abi):
     return helper.ABI_TO_ARCH[abi]
 
 
-KNOWN_COMPRESSION_NAMES = {}
-_load_known_compressions()
+def run_extraction_command(device, source_name):
+    """Run extraction command and return its output.
+
+    If there is a value stored under the corresponding source name in
+    device's _init_cache, that value is then returned instead.
+    """
+    try:
+        if device._init_cache[source_name] is not None:
+            return device._init_cache[source_name]
+    except KeyError:
+        out = device.shell_command(INFO_SOURCES[source_name], return_output=True, as_list=False)
+        device._init_cache[source_name] = out
+        return out
 
 
-class InfoSpec:
+def extract_identity(device):
     """"""
-    __slots__ = ('var_name', 'var_dict_1', 'var_dict_2', 'extraction_commands',
-                 'resolve_multiple_values', 'resolve_existing_values',
-                 'post_extraction_commands')
-    def __init__(self, var_name, var_dict_1=None, var_dict_2=None,
-                 extraction_commands=((),), post_extraction_commands=None,
-                 resolve_multiple_values='append', resolve_existing_values='append'):
-        """"""
-        self.var_name = var_name
-        self.var_dict_1 = var_dict_1
-        self.var_dict_2 = var_dict_2
+    #serial = run_extraction_command(device, "iserial")
+    getprop = run_extraction_command(device, "getprop")
+    getprop_keys = [
+        ("device_serial_number", "(?:\\[ro\\.boot\\.serialno\\]: \\[)([^\\]]*)"),
+        ("device_model", "(?:\\[ro\\.product\\.model\\]: \\[)([^\\]]*)"),
+        ("device_manufacturer", "(?:\\[ro\\.product\\.manufacturer\\]: \\[)([^\\]]*)"),
+        ("device_device", "(?:\\[ro\\.product\\.device\\]: \\[)([^\\]]*)"),
+        ("device_name", "(?:\\[ro\\.product\\.name\\]: \\[)([^\\]]*)"),
+        ("device_brand", "(?:\\[ro\\.product\\.brand\\]: \\[)([^\\]]*)"),
+    ]
 
-        self.extraction_commands = extraction_commands
-        self.post_extraction_commands = post_extraction_commands
-        self.resolve_multiple_values = resolve_multiple_values
-        self.resolve_existing_values = resolve_existing_values
+    for name, re_string in getprop_keys:
+        value = re.search(re_string, getprop)
+        if not value:
+            continue
 
-
-    def get_info_variable_container(self, device):
-        """Return dictionary object that is supposed to contain the
-        extracted info value.
-        """
-        container = device.__dict__
-        for name in (self.var_dict_2, self.var_dict_1):
-            if not name:
-                continue
-            try:
-                container = container[name]
-            except KeyError:
-                container[name] = {}
-                container = container[name]
-
-        return container
+        value = value.group(1).strip()
+        device.info_dict[name] = value
 
 
-    def can_run(self, device):
-        """Check if value can be assigned to info container"""
+def extract_os(device):
+    """"""
+    getprop = run_extraction_command(device, "getprop")
+    getprop_keys = [
+        ("android_verion", "(?:\\[ro\\.build\\.version\\.release\\]: \\[)([^\\]]*)"),
+        ("api_level", "(?:\\[ro\\.build\\.version\\.sdk\\]: \\[)([^\\]]*)"),
+        ("build_id", "(?:\\[ro\\.build\\.id\\]: \\[)([^\\]]*)"),
+        ("fingerprint", "(?:\\[ro\\.build\\.fingerprint\\]: \\[)([^\\]]*)"),
+    ]
+    for name, re_string in getprop_keys:
+        value = re.search(re_string, getprop)
+        if not value:
+            continue
+
+        value = value.group(1).strip()
+        device.info_dict[name] = value
+
+    kernel_version = run_extraction_command(device, "kernel_version").strip()
+    device.info_dict["kernel_version"] = kernel_version
+
+    # check for aftermarket firmware
+    fire_os = re.search("(?:\\[ro\\.build\\.mktg\\.fireos\\]: \\[)([^\\]]*)", getprop)
+    if fire_os:
+        device.info_dict["aftermarket_firmware"] = "FireOS"
+        device.info_dict["aftermarket_firmware_version"] = fire_os
+
+
+def extract_chipset(device):
+    """"""
+    getprop = run_extraction_command(device, "getprop")
+
+    meminfo = run_extraction_command(device, "meminfo")
+    ram = re.search("(?:MemTotal\\:\\s*)([^A-z\\ ]*)", meminfo)
+    if ram:
+        device.info_dict["ram_capacity"] = ram.group(1).strip()
+
+    abi1 = re.search("(?:\\[ro\\.product\\.cpu\\.abi\\]: \\[)([^\\]]*)", getprop)
+    abi2 = re.search("(?:\\[ro\\.product\\.cpu\\.abi2\\]\\: \\[)([^\\]]*)", getprop)
+    abilist = re.search("(?:\\[ro\\.product\\.cpu\\.abilist\\]\\: \\[)([^\\]]*)", getprop)
+    cpu_arch = None
+
+    if abilist:
+        abilist = [x.strip() for x in abilist.group(1).strip().split(",")]
+    else:
+        abilist = []
+
+    if abi1:
+        abi1 = abi1.group(1).strip()
+        abilist.append(abi1)
         try:
-            exists = bool(self.get_info_variable_container(device)[self.var_name])
+            cpu_arch = helper.ABI_TO_ARCH[abi1]
         except KeyError:
-            exists = False
-        return not (exists and self.resolve_existing_values == 'drop')
+            pass
+    if abi2:
+        abi2 = abi2.group(1).strip()
+        abilist.append(abi1)
 
+    abilist = set(abilist)
+    device.info_dict["cpu_abis"] = list(abilist)
 
-    def run(self, device, source):
-        """"""
-        value_container = self.get_info_variable_container(device)
-
-        try:
-            exists = bool(value_container[self.var_name])
-        except KeyError:
-            exists = False
-
-        extracted = []
-        for extraction_strategy in self.extraction_commands:
-            if self.resolve_multiple_values == 'drop' and extracted:
+    cpuinfo = run_extraction_command(device, "cpuinfo")
+    board = re.search("(?:\\[ro\\.board\\.platform\\]: \\[)([\\]]*)", getprop)
+    if not board:
+        for re_ in ["(?:Hardware\\s*?\\:)([^\\n\\r]*)",
+                    "(?:model\\ name\\s*?\\:)([^\\n\\r]*)",
+                    "(?:Processor\\s*?\\:)([^\\n\\r]*)"]:
+            board = re.search(re_, cpuinfo)
+            if board:
+                board = board.group(1).strip()
                 break
 
-            tmp_extracted = self._extract_value(extraction_strategy, source)
-            tmp_extracted = self._format_value(tmp_extracted)
-            if not tmp_extracted:
+    cpu_features = re.search("(?:Features\\s*?\\:)([^\\n\\r]*)", cpuinfo)
+    if cpu_features:
+        cpu_features = [x.strip() for x in cpu_features.group(1).split()]
+
+    device.info_dict["board"] = board
+    device.info_dict["cpu_features"] = cpu_features
+    device.info_dict["cpu_architecture"] = cpu_arch
+
+    max_frequency = run_extraction_command(device, "max_cpu_freq")
+    if max_frequency:
+        device.info_dict["cpu_max_frequency"] = max_frequency.strip()
+
+    core_count = run_extraction_command(device, "possible_cpu_cores")
+    max_cores = re.search("(?:\\-)([0-9]*)", core_count)
+    if max_cores:
+        device.info_dict["cpu_core_count"] = max_cores.group(1).strip()
+
+
+def extract_gpu(device):
+    """"""
+    gpu_vendor, gpu_model, gles_version = [None for x in range(3)]
+    dumpsys = run_extraction_command(device, "surfaceflinger_dump")
+    gpu_line = re.search("(?:GLES\\:)([^\n\r]*)", dumpsys)
+
+    if gpu_line:
+        gpu_vendor, gpu_model, gles_version = gpu_line.group(1).strip().split(",")
+
+    gles_extensions = re.search("(?:GLES\\:[^\\r\\n]*)(?:\\s*)([^\\r\\n]*)", dumpsys)
+
+    if gles_extensions:
+        gles_extensions = gles_extensions.group(1).strip().split(" ")
+
+    try:
+        for extension in gles_extensions:
+            try:
+                device.info_dict["gles_texture_compressions"].append(
+                    TEXTURE_COMPRESSION_IDS[extension])
+            except KeyError:
                 continue
+    except TypeError:
+        pass
 
-            try:
-                tmp_extracted = tmp_extracted.strip()
-            except AttributeError:
-                pass
-
-            if self.resolve_multiple_values == 'replace':
-                if isinstance(tmp_extracted, list):
-                    extracted = tmp_extracted
-                else:
-                    extracted = [tmp_extracted]
-            else:
-                if isinstance(tmp_extracted, list):
-                    extracted.extend(tmp_extracted)
-                else:
-                    extracted.append(tmp_extracted)
-
-        if extracted:
-            if exists and self.resolve_existing_values in ("append", "prepend"):
-
-                for item in extracted:
-                    sanitized_item = item.lower().replace(" ", "")
-                    for existing_value in value_container[self.var_name]:
-                        sanitized_existing_value = existing_value.lower().replace(" ", "")
-                        # check if the extracted info is redundant
-                        if sanitized_item in sanitized_existing_value:
-                            extracted.remove(item)
-                            break
-                        # check if extracted info is more verbose than the existing value
-                        elif sanitized_existing_value in sanitized_item:
-                            old_item = value_container[self.var_name].index(existing_value)
-                            value_container[self.var_name][old_item] = item
-                            extracted.remove(item)
-                            break
-
-                #if value_container[self.var_name].lower() in extracted.lower():
-                #    value_container[self.var_name] = extracted
-
-                if self.resolve_existing_values == "append":
-                    value_container[self.var_name].extend(extracted)
-                else:
-                    extracted.extend(value_container[self.var_name])
-                    value_container[self.var_name] = extracted
-            else:
-                value_container[self.var_name] = extracted
+    device.info_dict["gpu_vendor"] = gpu_vendor
+    device.info_dict["gpu_model"] = gpu_model
+    device.info_dict["gles_version"] = gles_version
 
 
-    def _extract_value(self, extraction_command, source):
-        """"""
-        if not extraction_command:
-            return source
+def extract_display(device):
+    """"""
+    getprop = run_extraction_command(device, "getprop")
+    density = re.search("(?:\\[ro\\.sf\\.lcd_density\\]: \\[)([^\\]]*)", getprop)
 
-        self_kwargs = {"$group":0}
+    dumpsys = run_extraction_command(device, "surfaceflinger_dump")
+    x_dpi = re.search("(?:x-dpi)([^\\n]*)", dumpsys)
+    y_dpi = re.search("(?:y-dpi)([^\\n]*)", dumpsys)
+    resolution = re.search("(?:Display\\[0\\] :)([^,]*)", dumpsys)
 
+    if not resolution:
+        wm_output = run_extraction_command(device, "screen_size")
+        resolution = re.search("(?:Physical size:)([^\\n]*)", wm_output)
+
+    if not density:
+        wm_output = run_extraction_command(device, "screen_density")
+        density = re.search("(?:Physical\\ density\\:)([0-9A-z]*)", wm_output)
+
+    if resolution:
+        resolution = resolution.group(1).strip()
+    if density:
+        density = density.group(1).strip()
+    if x_dpi:
+        x_dpi = x_dpi.group(1).strip()
+    if y_dpi:
+        y_dpi = y_dpi.group(1).strip()
+
+    device.info_dict["display_density"] = density
+    device.info_dict["display_resolution"] = resolution
+    device.info_dict["display_x-dpi"] = x_dpi
+    device.info_dict["display_y-dpi"] = y_dpi
+
+
+def extract_features(device):
+    """"""
+    feature_list = run_extraction_command(device, "device_features")
+
+    for feature_string, feature_name in NOTABLE_FEATURES:
+        if feature_string in feature_list:
+            device.info_dict["device_notable_features"].append(feature_name)
+
+    all_features = re.findall("(?:^feature:)([a-zA-Z0-9\\_\\.\\=]*)", feature_list, re.M)
+    device.info_dict["device_features"] = all_features
+
+
+def extract_storage(device):
+    """Extract list of various paths."""
+    internal_sd = device.info_dict["internal_sd_path"]
+    getprop = run_extraction_command(device, "getprop")
+    trace_path = re.search("(?:\\[dalvik\\.vm\\.stack\\-trace\\-file\\]: \\[)([^\\]]*)", getprop)
+
+    if not device.is_dir(internal_sd):
+        internal_sd = re.search("(?:\\[internal\\_sd\\_path\\]: \\[)([^\\]]*)", getprop)
+
+    external_sd = re.search("(?:\\[external\\_sd\\_path\\]: \\[)([^\\]]*)", getprop)
+    shell_env = run_extraction_command(device, "shell_environment")
+
+    if not device.is_dir(internal_sd):
+        internal_sd = re.search("(?:EXTERNAL_STORAGE=)([^\n]*)", shell_env)
+
+    if not device.is_dir(external_sd):
+        external_sd = re.search("(?:SECONDARY_STORAGE=)([^\n]*)", shell_env)
+
+    device.info_dict["internal_sd_path"] = internal_sd
+    device.info_dict["external_sd_path"] = external_sd
+    device.info_dict["anr_trace_path"] = trace_path
+
+
+def extract_available_commands(device):
+    """Extract a list of available shell commands."""
+    device.info_dict["shell_commands"] = []
+
+    for command in run_extraction_command(device, "available_commands").splitlines():
+        if "permission denied" in command:
+            continue
+
+        device.info_dict["shell_commands"].append(command.strip())
+
+
+def extract_installed_packages(device):
+    """Extract a list of installed system and third-party packages."""
+    device.info_dict["third-party_apps"] = []
+
+    for package in run_extraction_command(device, "third-party_apps").splitlines():
         try:
-            args = list(extraction_command[1])
+            app = package.split("package:", maxsplit=1)[1]
         except IndexError:
-            args = []
+            continue
 
-        while '$source' in args:
-            args[args.index('$source')] = source
+        device.info_dict["third-party_apps"].append(app.strip())
+
+    if device.info_dict["system_apps"]:
+        # system apps can generally only be disabled, downgraded or updated
+        # and do not need to be re-checked
+        return
+
+    device.info_dict["system_apps"] = []
+
+    for package in run_extraction_command(device, "system_apps").splitlines():
         try:
-            kwargs = extraction_command[2]
+            app = package.split("package:", maxsplit=1)[1]
         except IndexError:
-            kwargs = ()
+            continue
 
-        for pair in kwargs:
-            while "$source" in pair:
-                pair[pair.index('$source')] = source
-
-        kwargs = dict(kwargs)
-        for var in self_kwargs:
-            if var in kwargs:
-                self_kwargs[var] = kwargs.pop(var)
-
-        extracted_value = extraction_command[0](*args, **kwargs)
-        if extraction_command[0] == re.search and extracted_value:
-            extracted_value = extracted_value.group(self_kwargs['$group'])
-
-        return extracted_value
-
-
-    def _format_value(self, extracted_value):
-        """"""
-        if not self.post_extraction_commands:
-            return extracted_value
-        if extracted_value is None:
-            return ''
-
-        for formatting_commands in self.post_extraction_commands:
-            # 0 - command, 1 - *args, 2 - **kwargs
-            try:
-                args = list(formatting_commands[2])
-            except IndexError:
-                args = []
-            try:
-                kwargs = formatting_commands[3]
-            except IndexError:
-                kwargs = dict()
-
-            while '$extracted' in args:
-                args[args.index('$extracted')] = extracted_value
-
-            for pair in kwargs:
-                while "$extracted" in pair:
-                    pair[pair.index('$extracted')] = extracted_value
-
-            try:
-                if formatting_commands[0] == "function":
-                    extracted_value = formatting_commands[1](*args, **kwargs)
-
-                else:
-                    extracted_value = extracted_value.__getattribute__(
-                        formatting_commands[1])(*args, **kwargs)
-            except ValueError:
-                extracted_value = ''
-
-            if not extracted_value:
-                return None
-
-        return extracted_value
-
-
-INFO_EXTRACTION_CONFIG = {
-    (("getprop",), (("as_list", False), ("return_output", True)), "getprop") : (
-        InfoSpec(
-            extraction_commands=(
-                (re.search, ("(?<=\\[ro\\.boot\\.serialno\\]: \\[).*(?=\\])", "$source")),
-            ),
-            var_name="Serial #", var_dict_1="Device", var_dict_2="_info"
-        ),
-        InfoSpec(
-            extraction_commands=(
-                (re.search, ('(?<=\\[ro\\.product\\.model\\]: \\[).*(?=\\])', '$source')),
-            ),
-            var_name="Model", var_dict_1="Device", var_dict_2="_info"
-        ),
-        InfoSpec(
-            extraction_commands=(
-                (re.search, ("(?<=\\[ro\\.product\\.manufacturer\\]: \\[).*(?=\\])", "$source")),
-            ),
-            var_name="Manufacturer", var_dict_1="Device", var_dict_2="_info"
-        ),
-        InfoSpec(
-            extraction_commands=(
-                (re.search, ('(?<=\\[ro\\.product\\.device\\]: \\[).*(?=\\])', '$source')),),
-            var_name='Device', var_dict_1='Device', var_dict_2='_info'),
-        InfoSpec(
-            extraction_commands=(
-                (re.search, ('(?<=\\[ro\\.product\\.name\\]: \\[).*(?=\\])', '$source')),),
-            var_name='Name', var_dict_1='Device', var_dict_2='_info'),
-        InfoSpec(
-            extraction_commands=(
-                (re.search, ('(?<=\\[ro\\.product\\.brand\\]: \\[).*(?=\\])', '$source')),),
-            var_name='Brand', var_dict_1='Device', var_dict_2='_info'),
-        InfoSpec(
-            extraction_commands=(
-                (re.search, ('(?<=\\[ro\\.sf\\.lcd_density\\]: \\[).*(?=\\])', '$source')),),
-            var_name='Density', var_dict_1='Display', var_dict_2='_info'),
-        InfoSpec(
-            extraction_commands=(
-                (re.search, ('(?<=\\[ro\\.build\\.version\\.release\\]: \\[).*(?=\\])', '$source')),),
-            var_name='Android Version', var_dict_1='System', var_dict_2='_info'),
-        InfoSpec(
-            extraction_commands=(
-                (re.search, ('(?<=\\[ro\\.build\\.version\\.sdk\\]: \\[).*(?=\\])', '$source')),),
-            var_name='API Level', var_dict_1='System', var_dict_2='_info'),
-        InfoSpec(
-            extraction_commands=(
-                (re.search, ('(?<=\\[ro\\.build\\.mktg\\.fireos\\]: \\[).*(?=\\])', '$source')),),
-            var_name='Fire OS Version', var_dict_1='System', var_dict_2='_info'),
-        InfoSpec(
-            extraction_commands=(
-                (re.search, ('(?<=\\[ro\\.build\\.id\\]: \\[).*(?=\\])', '$source')),),
-            var_name='Build ID', var_dict_1='System', var_dict_2='_info'),
-        InfoSpec(
-            extraction_commands=(
-                (re.search, ('(?<=\\[ro\\.build\\.fingerprint\\]: \\[).*(?=\\])', '$source')),),
-            var_name='Build Fingerprint', var_dict_1='System', var_dict_2='_info'),
-        InfoSpec(
-            extraction_commands=(
-                (re.search, ('(?<=\\[ro\\.board\\.platform\\]: \\[).*(?=\\])', '$source')),),
-            var_name='Board', var_dict_1='Chipset', var_dict_2='_info'),
-        InfoSpec(
-            extraction_commands=(
-                (re.search, ('(?<=\\[ro\\.product\\.cpu\\.abi\\]: \\[).*(?=\\])', '$source')),),
-            var_name='CPU Architecture', var_dict_1='Chipset', var_dict_2='_info',
-            post_extraction_commands=(
-                ('function', abi_to_arch, ('$extracted',)),)),
-        # accommodate for device that only have two abis and abilist is not available in getprop
-        InfoSpec(
-            extraction_commands=(
-                (re.search, ('(?<=\\[ro\\.product\\.cpu\\.abi\\]\\: \\[).*(?=\\])', '$source')),
-                (re.search, ('(?<=\\[ro\\.product\\.cpu\\.abi2\\]\\: \\[).*(?=\\])', '$source'))),
-            var_name='Available ABIs', var_dict_1='Chipset', var_dict_2='_info'),
-        # abilist does not always include the primary abi
-        InfoSpec(
-            extraction_commands=(
-                (re.search, ('(?<=\\[ro\\.product\\.cpu\\.abilist\\]\\: \\[).*(?=\\])', '$source')),),
-            var_name='Available ABIs', var_dict_1='Chipset', var_dict_2='_info',
-            post_extraction_commands=(
-                ('method', 'split'),)),
-        InfoSpec(
-            extraction_commands=(
-                (re.search, ('(?<=\\[dalvik\\.vm\\.stack\\-trace\\-file\\]: \\[).*(?=\\])', '$source')),),
-            var_name='anr_trace_path'),
-        InfoSpec(
-            extraction_commands=(
-                (re.search, ('(?<=\\[internal\\_sd\\_path\\]: \\[).*(?=\\])', '$source')),),
-            var_name='internal_sd_path', resolve_existing_values='drop'),
-        InfoSpec(
-            extraction_commands=(
-                (re.search, ('(?<=\\[external\\_sd\\_path\\]: \\[).*(?=\\])', '$source')),),
-            var_name='external_sd_path', resolve_existing_values='drop'),
-    ),
-    (("cat", "/sys/class/android_usb/android0/iSerial"), (("as_list", False), ("return_output", True)), "iserial"): (
-        InfoSpec(
-            var_name="Serial #", var_dict_1="Device", var_dict_2="_info",
-            resolve_existing_values="drop",
-        ),
-    ),
-    (("cat", "/proc/cpuinfo"), (("as_list", False), ("return_output", True)), "cpuinfo"): (
-        InfoSpec(
-            extraction_commands=(
-                (re.search, ('(?<=Hardware).*', '$source')),),
-            var_name='Board', var_dict_1='Chipset', var_dict_2='_info', resolve_existing_values='prepend',
-            post_extraction_commands=(
-                ('method', 'strip', (' :\t',)),)),
-        InfoSpec(
-            extraction_commands=(
-                (re.search, ('(?<=model name).*', '$source')),
-                (re.search, ('(?<=Processor).*', '$source'))),
-            var_name='Board', var_dict_1='Chipset', var_dict_2='_info', resolve_multiple_values='drop',
-            post_extraction_commands=(
-                ('method', 'strip', (' :\t',)),)),
-        InfoSpec(
-            extraction_commands=(
-                (re.search, ('(?<=Features).*', '$source')),),
-            var_name='CPU Features', var_dict_1='Chipset', var_dict_2='_info', resolve_multiple_values='drop',
-            post_extraction_commands=(
-                ('method', 'strip', (' :\t',)),)),
-    ),
-    (("cat", "/sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_max_freq"), (("as_list", False), ("return_output", True)), "cpu_freq"): (
-        InfoSpec(
-            var_name='Max CPU Clock Speed', var_dict_1='Chipset', var_dict_2='_info',
-            post_extraction_commands=(
-                ('function', int, ('$extracted',)),
-                ('method', '__floordiv__', (1000,)),
-                ('function', str, ('$extracted',)),
-                ('method', "__add__", (' MHz',)))),
-    ),
-    (("cat", "/sys/devices/system/cpu/possible"), (("as_list", False), ("return_output", True)), "cpu_cores"): (
-        InfoSpec(
-            extraction_commands=(
-                (re.search, ('(?<=-).*', '$source')),
-                (re.search, ('.*', '$source'))),
-            var_name='CPU Cores', var_dict_1='Chipset', var_dict_2='_info', resolve_multiple_values='drop',
-            post_extraction_commands=(
-                ('function', lambda x: int(x) + 1, ('$extracted',)),
-                ('function', str, ('$extracted',)))),
-    ),
-    (("dumpsys", "SurfaceFlinger"), (("as_list", False), ("return_output", True)), "surfaceflinger_dump"): (
-        InfoSpec(
-            extraction_commands=(
-                (re.search, ('(?:GLES\\:\\ )(.*?)(?:\\,)', '$source'), (('$group', 1),)),),
-            var_name='GPU Vendor', var_dict_1='Chipset', var_dict_2='_info'),
-        InfoSpec(
-            extraction_commands=(
-                (re.search, ('(?:GLES\\:\\ .*?\\,)(.*?)(?:\\,)', '$source'), (('$group', 1),)),),
-            var_name='GPU Model', var_dict_1='Chipset', var_dict_2='_info'),
-        InfoSpec(
-            extraction_commands=(
-                (re.search, ('(?<=GLES: )(?:[^\\,]+\\,){2}(.*)', '$source'), (('$group', 1),)),),
-            var_name='GL Version', var_dict_1='Chipset', var_dict_2='_info'),
-        InfoSpec(
-            extraction_commands=(
-                (re.search, ('(?<=x-dpi).*', '$source')),),
-            var_name='X-DPI', var_dict_1='Display', var_dict_2='_info',
-            post_extraction_commands=(
-                ('method', 'strip', (' :\t',)),)),
-        InfoSpec(
-            extraction_commands=(
-                (re.search, ('(?<=y-dpi).*', '$source')),),
-            var_name='Y-DPI', var_dict_1='Display', var_dict_2='_info',
-            post_extraction_commands=(
-                ('method', 'strip', (' :\t',)),)),
-        InfoSpec(
-            extraction_commands=(
-                (re.search, ('(?<=Display\\[0\\] :)[^,]*', '$source')),),
-            var_name='Resolution', var_dict_1='Display', var_dict_2='_info',
-            post_extraction_commands=(
-                ('method', 'strip', (' :\t',)),)),
-        InfoSpec(
-            extraction_commands=(
-                (re.search, ('(?<=GLES:)(.*)(\\n*)(.*\\n*.*)', '$source'), (('$group', 3),)),),
-            var_name='gles_extensions',
-            post_extraction_commands=(
-                ('method', 'split'),)),
-        InfoSpec(
-            var_name='Texture Types', var_dict_1='GPU', var_dict_2='_info',
-            post_extraction_commands=(
-                ('function', extract_compression_names, ('$extracted',)),)),
-    ),
-    (("cat", "/proc/meminfo"), (("as_list", False), ("return_output", True)), "meminfo") : (
-        InfoSpec(
-            extraction_commands=(
-                (re.search, ('(?<=^MemTotal:)[^A-z]*', '$source')),),
-            var_name='RAM', var_dict_1='Chipset', var_dict_2='_info',
-            post_extraction_commands=(
-                ('function', int, ('$extracted',)),
-                ('method', '__floordiv__', (1024,)),
-                ('function', str, ('$extracted',)),
-                ('method', '__add__', (' MB',)))),
-    ),
-    (("cat", "/proc/version"), (("as_list", False), ("return_output", True)), "kernel_version"): (
-        InfoSpec(
-            var_name='Kernel Version', var_dict_1='System', var_dict_2='_info',),
-    ),
-    (("printenv",), (("as_list", False), ("return_output", True)), "shell_environment") :(
-        InfoSpec(
-            extraction_commands=(
-                (re.search, ("(?<=EXTERNAL_STORAGE=).*", "$source")),),
-            var_name="internal_sd_path", resolve_existing_values="drop"),
-        InfoSpec(
-            extraction_commands=(
-                (re.search, ("(?<=SECONDARY_STORAGE=).*", "$source")),),
-            var_name="external_sd_path", resolve_existing_values="drop"),
-    ),
-    (("ls", "/system/bin"), (('as_list', True), ("return_output", True)), "available_commands") :(
-        InfoSpec(
-            var_name='available_commands', resolve_existing_values='replace'),
-    ),
-    (("pm", "list", "features"), (('as_list', False), ("return_output", True)), "device_features") :(
-        InfoSpec(
-            extraction_commands=(
-                (re.search, ('(?<=feature:)android.hardware.bluetooth', '$source')),),
-            var_name='Notable Features', var_dict_1='_info',
-            post_extraction_commands=(
-                ('function', str, ("Bluetooth",)),)),
-        InfoSpec(
-            extraction_commands=(
-                (re.search, ('(?<=feature:)android.hardware.bluetooth_le', '$source')),),
-            var_name='Notable Features', var_dict_1='_info',
-            post_extraction_commands=(
-                ('function', str, ("Bluetooth Low Energy",)),)),
-        InfoSpec(
-            extraction_commands=(
-                (re.search, ('(?<=feature:)android.hardware.consumerir', '$source')),),
-            var_name='Notable Features', var_dict_1='_info',
-            post_extraction_commands=(
-                ('function', str, ("Infrared",)),)),
-        InfoSpec(
-            extraction_commands=(
-                (re.search, ('(?<=feature:)android.hardware.fingerprint', '$source')),),
-            var_name='Notable Features', var_dict_1='_info',
-            post_extraction_commands=(
-                ('function', str, ("Fingerprint Scanner",)),)),
-        InfoSpec(
-            extraction_commands=(
-                (re.search, ('(?<=feature:)android.software.freeform_window_management', '$source')),),
-            var_name='Notable Features', var_dict_1='_info',
-            post_extraction_commands=(
-                ('function', str, ("Freeform Window Management",)),)),
-        InfoSpec(
-            extraction_commands=(
-                (re.search, ('(?<=feature:)android.hardware.nfc', '$source')),),
-            var_name='Notable Features', var_dict_1='_info',
-            post_extraction_commands=(
-                ('function', str, ("NFC",)),)),
-        InfoSpec(
-            extraction_commands=(
-                (re.search, ('(?<=feature:)android.hardware.telephony.cdma', '$source')),),
-            var_name='Notable Features', var_dict_1='_info',
-            post_extraction_commands=(
-                ('function', str, ("CDMA Telephony",)),)),
-        InfoSpec(
-            extraction_commands=(
-                (re.search, ('(?<=feature:)android.hardware.telephony.gsm', '$source')),),
-            var_name='Notable Features', var_dict_1='_info',
-            post_extraction_commands=(
-                ('function', str, ("GSM Telephony",)),)),
-        InfoSpec(
-            extraction_commands=(
-                (re.search, ('(?<=feature:)android.hardware.vr.headtracking', '$source')),),
-            var_name='Notable Features', var_dict_1='_info',
-            post_extraction_commands=(
-                ('function', str, ("VR Headtracking",)),)),
-        InfoSpec(
-            extraction_commands=(
-                (re.search, ('(?<=feature:)android.software.vr.mode', '$source')),),
-            var_name='Notable Features', var_dict_1='_info',
-            post_extraction_commands=(
-                ('function', str, ("VR Mode",)),)),
-        InfoSpec(
-            extraction_commands=(
-                (re.search, ('(?<=feature:)android.hardware.vr.high_performance', '$source')),),
-            var_name='Notable Features', var_dict_1='_info',
-            post_extraction_commands=(
-                ('function', str, ("High-Performance VR Mode",)),)),
-        InfoSpec(
-            extraction_commands=(
-                (re.search, ('(?<=feature:)android.hardware.wifi.aware', '$source')),),
-            var_name='Notable Features', var_dict_1='_info',
-            post_extraction_commands=(
-                ('function', str, ("WiFi-Aware",)),)),
-        InfoSpec(
-            extraction_commands=(
-                (re.findall, ('((?<=feature:).*?)\r', '$source')),),
-            var_name='device_features'),
-    ),
-    (("pm", "list", "packages", "-s"), (('as_list', False), ("return_output", True)), "system_apps") :(
-        InfoSpec(
-            extraction_commands=(
-                (re.findall, ('((?<=package:).*?)\r', '$source')),),
-            var_name='system_apps', resolve_existing_values='replace'),
-    ),
-    (("pm", "list", "packages", "-3"), (('as_list', False), ("return_output", True)), "thirdparty_apps") :(
-        InfoSpec(
-            extraction_commands=(
-                (re.findall, ('((?<=package:).*?)\r', '$source')),),
-            var_name='thirdparty_apps', resolve_existing_values='replace'),
-    ),
-    (("wm", "size"), (('as_list', False), ("return_output", True)), "screen_size") :(
-        InfoSpec(
-            extraction_commands=(
-                (re.search, ('(?<=Physical size:).*', '$source')),),
-            var_name='Resolution', var_dict_1='Display', var_dict_2='_info', resolve_existing_values='drop'),
-    ),
-    (("wm", "density"), (('as_list', False), ("return_output", True)), "screen_density") :(
-        InfoSpec(
-            extraction_commands=(
-                (re.search, ("(?<=Physical density:).*", '$source')),),
-            var_name='Density', var_dict_1='Display', var_dict_2='_info', resolve_existing_values='drop'),
-    ),
-    (("cat", "/system/build.prop"), (('as_list', False), ("return_output", True)), "build.prop") :(
-        # this is here only to be picked up during debug helper device dumps
-    ),
-    (("dumpsys",), (('as_list', False), ("return_output", True)), "dumpsys_services") :(
-        # this is here only to be picked up during debug helper device dumps
-    ),
-}
+        device.info_dict["system_apps"].append(app.strip())
