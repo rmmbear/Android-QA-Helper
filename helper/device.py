@@ -7,13 +7,10 @@ from time import sleep
 
 import helper as helper_
 import helper.apk as apk_
-from helper.extract_device_info import INFO_EXTRACTION_CONFIG
+from helper.extract_data import INFO_EXTRACTION_CONFIG
 
 ADB = helper_.ADB
 
-# The following variable represents what information is surfaced to the
-# user in the detailed scan
-# do not pay attention to this, it's broken, I know
 SURFACED_INFO = (("Device", (
                      "Model",
                      "Manufacturer",
@@ -142,8 +139,9 @@ class Device:
         self._extracted_info_groups = []
         self._name = None
         self._filename = None
+        self._init_cache = {}
 
-        self.internal_sd_path = None
+        self.internal_sd_path = "/mnt/shell/emulated/"
         self.external_sd_path = None
         self.anr_trace_path = None
 
@@ -153,6 +151,7 @@ class Device:
         self.available_commands = ()
 
         self._info = OrderedDict()
+        self.info_dict = {}
 
         for pair in SURFACED_INFO:
             props = OrderedDict()
@@ -206,7 +205,7 @@ class Device:
             return self._name
 
         if "getprop" not in self._extracted_info_groups:
-            return "Unknown device (" + self.serial + ")"
+            return "Unknown device ({})".format(self.serial)
 
         self._name = "".join([self.info("Device", "Manufacturer"), " - ",
                               self.info("Device", "Model"), " (", self.serial,

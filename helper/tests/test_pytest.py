@@ -4,7 +4,7 @@ from pathlib import Path
 import helper as helper_
 import helper.device as device_
 import helper.tests as tests_
-import helper.extract_device_info as helper_extract
+import helper.extract_data as helper_extract
 
 
 FULL_DEVICE_CONFIG = helper_.BASE + "/tests/full_config"
