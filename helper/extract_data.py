@@ -223,8 +223,6 @@ INFO_KEYS = [
 ]
 
 KNOWN_COMPRESSION_NAMES = {}
-INFO_EXTRACTION_CONFIG = {}
-
 
 def load_compression_names(surfaceflinger_dump):
     """"""
@@ -254,7 +252,7 @@ def run_extraction_command(device, source_name):
         if device._init_cache[source_name] is not None:
             return device._init_cache[source_name]
     except KeyError:
-        out = device.shell_command(INFO_SOURCES[source_name], return_output=True, as_list=False)
+        out = device.shell_command(*INFO_SOURCES[source_name], return_output=True, as_list=False)
         device._init_cache[source_name] = out
         return out
 
