@@ -100,3 +100,6 @@ aapt/
 helper_config
 compression_identifiers
 cleaner_config
+
+*.apk
+*.obb
