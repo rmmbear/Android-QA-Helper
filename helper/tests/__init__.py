@@ -1,9 +1,115 @@
+import sys
 import random
 import string
 from pathlib import Path
 
 import helper.main as main_
 import helper.device as device_
+
+from helper.extract_data import INFO_SOURCES
+from helper.device import DeviceOfflineError
+
+from helper import extract_data
+EXTRACTION_FUNCTIONS = {x[8::]:getattr(extract_data, x) for x in dir(extract_data) if x.startswith("extract_")}
+
+
+class DummyDevice(device_.Device):
+    _dummy_count = 0
+    def __init__(self, config_dir, *args, **kwargs):
+        self.config_dir = config_dir
+        self._dummy_count += 1
+        self._loaded_dummy_data = False
+
+        # avoid triggering automatic data extraction
+        if len(args) > 1:
+            if not isinstance(args, list):
+                args = list(args)
+
+            status = args[1]
+            args[1] = "offline"
+        else:
+            try:
+                status = kwargs["status"]
+                kwargs["status"] = "offline"
+            except KeyError:
+                status = "offline"
+
+        super().__init__(*args, **kwargs)
+        self._status = status
+
+
+    @property
+    def name(self):
+        """Property holding a human-readable name of the device.
+
+        Name consists of: dummy number, manufacturer, model and serial number."""
+        if self._name:
+            return self._name
+
+        if "identity" not in self._extracted_info_groups:
+            return "Dummy{} - Unknown device ({})".format(self._dummy_count, self.serial)
+
+        self._name = "".join(["Dummy", str(self._dummy_count),
+                              self.info_dict["device_manufacturer"], " - ",
+                              self.info_dict["device_model"], " (", self.serial,
+                              ")"])
+        return self._name
+
+
+    @property
+    def status(self):
+        """Dummy's status never changes."""
+        return self._status
+
+
+    def adb_command(self, *args, **kwargs):
+        """Same as adb_command(*args), but specific to the given device.
+        """
+        print(args, kwargs)
+        if self.status != "device":
+            raise DeviceOfflineError("Called adb command while device {} was offline".format(self.serial), self.serial)
+        #return command_output
+        return ""
+
+
+    def shell_command(self, *args, **kwargs):
+        """Same as adb_command(["shell", *args]), but specific to the
+        given device.
+        """
+        if self.status != "device":
+            raise DeviceOfflineError("Called shell command while device {} was offline".format(self.serial), self.serial)
+        #return command_output
+        return ""
+
+
+    def is_type(self, file_path, file_type, check_read=False,
+                check_write=False, check_execute=False, symlink_ok=True):
+
+        return True
+
+
+    def load_dummy_data(self, config_dir=None):
+        if not config_dir:
+            config_dir = self.config_dir
+
+        for source_name in INFO_SOURCES:
+            with (Path(config_dir) / source_name).open(mode="r", encoding="utf-8") as dummy_data:
+                self._init_cache[source_name] = dummy_data.read()
+
+
+    def extract_data(self, limit_to=(), force_extract=False):
+        """"""
+        for command_id, command in EXTRACTION_FUNCTIONS.items():
+            if not force_extract and command in self._extracted_info_groups:
+                continue
+
+            if limit_to:
+                if command_id not in limit_to:
+                    continue
+
+            command(self)
+            self._extracted_info_groups.append(command_id)
+
 
 
 def get_nonexistent_path():
@@ -18,27 +124,27 @@ def get_nonexistent_path():
 
 
 def dump_devices(device, directory="."):
-    """Function for dumping device information used in device initiation.
-    Dumped files can be used with TestDeviceInit.test_full().
+    """Dump device data to files.
+    What is dumped is controlled by extract_data's INFO_SOURCES.
+    This data is meant to be loaded into DummyDevice for debugging and compatibility tests.
     """
     Path(directory).mkdir(exist_ok=True)
 
+    device.extract_data(limit_to=("identity",))
     device_dir = Path(directory, (device.filename + "_DUMP"))
     device_dir.mkdir(exist_ok=True)
     print()
     print("Dumping", device.name)
 
-    for info_source in device_.INFO_EXTRACTION_CONFIG:
-        try:
-            args = info_source[0]
-        except IndexError:
-            args = ()
+    for source_name, command in INFO_SOURCES.items():
+        output = device.shell_command(*command, return_output=True, as_list=False)
 
-        filename = info_source[-1]
-
-        output = device.shell_command(*args, return_output=True, as_list=False)
-
-        with Path(device_dir, filename).open(mode="w", encoding="utf-8") as dump_file:
+        with Path(device_dir, source_name).open(mode="w", encoding="utf-8") as dump_file:
             dump_file.write(output)
+        sys.stdout.write(".")
+        sys.stdout.flush()
+
+    sys.stdout.write("\n")
 
     print("Device dumped to", str(device_dir.resolve()))
+    return str(device_dir.resolve())

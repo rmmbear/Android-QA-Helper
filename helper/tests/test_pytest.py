@@ -2,8 +2,8 @@ import re
 from pathlib import Path
 
 import helper as helper_
-import helper.device as device_
-import helper.tests as tests_
+#import helper.device as device_
+#import helper.tests as tests_
 import helper.extract_data as helper_extract
 
 
@@ -111,7 +111,7 @@ class TestExtractModule:
 
     def test_reference_existing_keys_only(self):
         """Check if the module references existing info keys."""
-        extraction_module = Path(helper_.BASE) / "extract_device_info.py"
+        extraction_module = Path(helper_.BASE) / "extract_data.py"
 
         with extraction_module.open(mode="r", encoding="utf-8") as module:
             extraction_code = module.read()
@@ -124,59 +124,23 @@ class TestExtractModule:
             assert key in helper_extract.INFO_KEYS
 
 
+    def test_reference_existing_keys_only_main(self):
+        """Check if the module references existing info keys."""
+        extraction_module = Path(helper_.BASE) / "main.py"
+
+        with extraction_module.open(mode="r", encoding="utf-8") as module:
+            extraction_code = module.read()
+
+        # a bit naive approach, but it works
+        # FIX: this will not catch indirect references
+        info_keys = re.findall("(?:device\\.info\\_dict\\[\\\")([^\\]\\\"]*)", extraction_code)
+
+        for key in info_keys:
+            assert key in helper_extract.INFO_KEYS
+
 # TODO: rewrite everything below this comment
-"""
-class DummyDevice(device_.Device):
-    def __init__(self, *args, config_dir=None, ignore_nonexistent_files=False,
-                 **kwargs):
-
-        self.config_dir = config_dir
-        self.ignore_nonexistent_files = ignore_nonexistent_files
-
-        super().__init__(*args, **kwargs)
 
 
-    def device_init(self, limit_init=(), force_init=False,
-                    ignore_nonexistent_files=None):
-
-        if not ignore_nonexistent_files:
-            ignore_nonexistent_files = self.ignore_nonexistent_files
-
-        for info_source, info_specs in device_.INFO_EXTRACTION_CONFIG.items():
-            if limit_init and info_source[-1] not in limit_init:
-                continue
-
-            # skip debug info sources
-            if not info_specs:
-                continue
-
-            try:
-                kwargs = dict(info_source[1])
-            except IndexError:
-                kwargs = {}
-
-            source_file = Path(self.config_dir) / info_source[-1]
-            source_output = ''
-
-            print("Reading file:", str(source_file))
-
-            try:
-                with source_file.open(mode="r", encoding="utf-8") as f:
-                    source_output = f.read()
-            except FileNotFoundError:
-                if not ignore_nonexistent_files:
-                    raise
-
-            if 'as_list' in kwargs:
-                if kwargs['as_list']:
-                    source_output = source_output.splitlines()
-
-            for info_object in info_specs:
-                if info_object.can_run(self):
-                    info_object.run(self, source_output)
-
-        self.initialized = True
-"""
 
 
 """
@@ -205,7 +169,7 @@ class TestDeviceInit:
         assert device.available_commands
         assert device.anr_trace_path
 
-        for category in device._info.values():
+        for category in device.info_dict.values():
             if isinstance(category, list):
                 assert category
             else:
@@ -240,7 +204,7 @@ class TestDeviceInit:
         assert not device.available_commands
         assert not device.anr_trace_path
 
-        for category in device._info.values():
+        for category in device.info_dict.values():
             for key, value in category.items():
                 assert key and not value
 
@@ -257,7 +221,7 @@ class TestDeviceInit:
         assert not device.available_commands
         assert not device.anr_trace_path
 
-        for category in device._info.values():
+        for category in device.info_dict.values():
             for key, value in category.items():
                 assert key and not value
 """
