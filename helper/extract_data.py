@@ -1,4 +1,7 @@
-""""""
+"""
+
+Other modules expect that all extraction functions' names start with 'extract_'
+"""
 import re
 import helper
 
@@ -41,14 +44,14 @@ INFO_SOURCES = {
     "available_commands" : ("ls", "/system/bin"),
     "device_features" : ("pm", "list", "features"),
     "system_apps" : ("pm", "list", "packages", "-s"),
-    "thirdparty_apps" : ("pm", "list", "packages", "-3"),
+    "third-party_apps" : ("pm", "list", "packages", "-3"),
     "screen_size" : ("wm", "size"),
     "screen_density" : ("wm", "density"),
     "build.prop" : ("cat", "/system/build.prop"),        #debug
     "dumpsys_full" : ("dumpsys",),                       #debug
     }
 
-# list of features that one might go looking for in a device
+# list of features that one might be looking for in a device
 NOTABLE_FEATURES = [
     ("Bluetooth", "feature:android.hardware.bluetooth"),
     ("Bluetooth Low-Energy", "feature:android.hardware.bluetooth_le"),
@@ -63,7 +66,7 @@ NOTABLE_FEATURES = [
     ("WiFi-Aware", "feature:android.hardware.wifi.aware"),
 ]
 
-# information surfaced to the user in the detailed scan
+# information surfaced to the user in detailed scan
 # (short scan shows only serial number, model, manufacturer and device status)
 SURFACED_BRIEF = [
     # it follows the following structure:
@@ -249,8 +252,7 @@ def run_extraction_command(device, source_name):
     device's _init_cache, that value is then returned instead.
     """
     try:
-        if device._init_cache[source_name] is not None:
-            return device._init_cache[source_name]
+        return device._init_cache[source_name]
     except KeyError:
         out = device.shell_command(*INFO_SOURCES[source_name], return_output=True, as_list=False)
         device._init_cache[source_name] = out
@@ -283,10 +285,10 @@ def extract_os(device):
     """"""
     getprop = run_extraction_command(device, "getprop")
     getprop_keys = [
-        ("android_verion", "(?:\\[ro\\.build\\.version\\.release\\]: \\[)([^\\]]*)"),
-        ("api_level", "(?:\\[ro\\.build\\.version\\.sdk\\]: \\[)([^\\]]*)"),
-        ("build_id", "(?:\\[ro\\.build\\.id\\]: \\[)([^\\]]*)"),
-        ("fingerprint", "(?:\\[ro\\.build\\.fingerprint\\]: \\[)([^\\]]*)"),
+        ("android_version", "(?:\\[ro\\.build\\.version\\.release\\]\\:\\ \\[)([^\\]]*)"),
+        ("android_api_level", "(?:\\[ro\\.build\\.version\\.sdk\\]\\:\\ \\[)([^\\]]*)"),
+        ("android_build_id", "(?:\\[ro\\.build\\.id\\]\\:\\ \\[)([^\\]]*)"),
+        ("android_build_fingerprint", "(?:\\[ro\\.build\\.fingerprint\\]\\:\\ \\[)([^\\]]*)"),
     ]
     for name, re_string in getprop_keys:
         value = re.search(re_string, getprop)
@@ -340,20 +342,21 @@ def extract_chipset(device):
     device.info_dict["cpu_abis"] = list(abilist)
 
     cpuinfo = run_extraction_command(device, "cpuinfo")
-    board = re.search("(?:\\[ro\\.board\\.platform\\]: \\[)([\\]]*)", getprop)
+    board = re.search("(?:\\[ro\\.board\\.platform\\]: \\[)([^\\]]*)", getprop)
     if not board:
-        for re_ in ["(?:Hardware\\s*?\\:)([^\\n\\r]*)",
-                    "(?:model\\ name\\s*?\\:)([^\\n\\r]*)",
-                    "(?:Processor\\s*?\\:)([^\\n\\r]*)"]:
+        for re_ in ["(?:Hardware\\s*?\\:)([^\n\r]*)",
+                    "(?:model\\ name\\s*?\\:)([^\n\r]*)",
+                    "(?:Processor\\s*?\\:)([^\n\r]*)"]:
             board = re.search(re_, cpuinfo)
             if board:
-                board = board.group(1).strip()
                 break
 
     cpu_features = re.search("(?:Features\\s*?\\:)([^\\n\\r]*)", cpuinfo)
     if cpu_features:
         cpu_features = [x.strip() for x in cpu_features.group(1).split()]
 
+    if board:
+        board = board.group(1).strip()
     device.info_dict["board"] = board
     device.info_dict["cpu_features"] = cpu_features
     device.info_dict["cpu_architecture"] = cpu_arch
@@ -365,7 +368,7 @@ def extract_chipset(device):
     core_count = run_extraction_command(device, "possible_cpu_cores")
     max_cores = re.search("(?:\\-)([0-9]*)", core_count)
     if max_cores:
-        device.info_dict["cpu_core_count"] = max_cores.group(1).strip()
+        device.info_dict["cpu_core_count"] = str(int(max_cores.group(1).strip()) + 1)
 
 
 def extract_gpu(device):
@@ -382,15 +385,15 @@ def extract_gpu(device):
     if gles_extensions:
         gles_extensions = gles_extensions.group(1).strip().split(" ")
 
-    try:
+        device.info_dict["gles_texture_compressions"] = []
+
         for extension in gles_extensions:
             try:
                 device.info_dict["gles_texture_compressions"].append(
                     TEXTURE_COMPRESSION_IDS[extension])
             except KeyError:
+                # extension is not a type of texture compression, continue
                 continue
-    except TypeError:
-        pass
 
     device.info_dict["gpu_vendor"] = gpu_vendor
     device.info_dict["gpu_model"] = gpu_model
@@ -461,8 +464,8 @@ def extract_storage(device):
         external_sd = re.search("(?:SECONDARY_STORAGE=)([^\n]*)", shell_env)
 
     device.info_dict["internal_sd_path"] = internal_sd
-    device.info_dict["external_sd_path"] = external_sd
-    device.info_dict["anr_trace_path"] = trace_path
+    device.info_dict["external_sd_path"] = external_sd.group(1)
+    device.info_dict["anr_trace_path"] = trace_path.group(1)
 
 
 def extract_available_commands(device):
