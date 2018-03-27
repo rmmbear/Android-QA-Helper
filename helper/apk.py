@@ -215,7 +215,7 @@ class App:
         compatible = True
         reasons = []
         # Ensure the necessary data is available
-        device.device_init(limit_init=("device_features",
+        device.extract_data(limit_init=("device_features",
                                        "surfaceflinger_dump", "getprop"))
 
         # check if device uses a supported Android version
@@ -236,7 +236,7 @@ class App:
 
         # check if device uses one of supported abis
         if self.supported_abis:
-            device_abis = device._info["CPU"]["Available ABIs"]
+            device_abis = device.info_dict["cpu_abis"]
             unique_abis = set(list(device_abis) + self.supported_abis)
             all_abis = list(device_abis) + self.supported_abis
 

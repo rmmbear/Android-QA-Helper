@@ -233,10 +233,10 @@ def clean(device, args):
 def scan_connected(device, args):
     """"""
     format_str = "{:13}{:15}{:10}{}"
-    device.device_init(limit_init=("getprop"))
+    device.extract_data(limit_to=["identity"])
     print(format_str.format(
-        device.serial, device.info("Device", "Manufacturer"),
-        device.info("Device", "Model"), device._status))
+        device.serial, device.info_dict["device_manufacturer"],
+        device.info_dict["device_model"], device._status))
 
 
 def scan_other():
@@ -255,19 +255,18 @@ def scan_other():
 
 def detailed_scan(device, args):
     """"""
-    device.device_init(limit_init=["getprop"])
+    device.extract_data(limit_to=["identity"])
     print("Collecting info from", device.name, "...")
     print(device.detailed_info_string())
     print()
 
 
 def dump(device, args):
-    device.device_init(limit_init=["getprop"])
+    device.extract_data(limit_to=["identity"])
     print("Preparing report for", device.name, "...")
 
-    device.device_init()
-    filename = "".join([device.info("Device", "Manufacturer"), "_",
-                        device.info("Device", "Model"), "_", "REPORT"])
+    device.extract_data()
+    filename = "".join([device.filename, "_REPORT"])
     with (Path(args.output) / filename).open(mode="w") as device_report:
         device_report.write(device.full_info_string())
 
@@ -282,7 +281,7 @@ def debug_dump(device, args):
 
     from helper.tests import dump_devices
 
-    device.device_init()
+    device.extract_data()
     dump_devices(device, args.output)
 
 
@@ -373,3 +372,5 @@ def main(args=None):
 
     if args.command in ("scan", "detailed-scan", "s", "ds"):
         scan_other()
+
+# TODO: add commands for setting various config values

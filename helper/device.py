@@ -2,55 +2,30 @@
 import re
 import sys
 from pathlib import Path
-from collections import OrderedDict
+#from collections import OrderedDict
 from time import sleep
 
-import helper as helper_
+#import helper as helper_
 import helper.apk as apk_
-from helper.extract_data import INFO_EXTRACTION_CONFIG
+import helper.extract_data as extract
+from helper import ADB, CONFIG, VERSION, exe
 
-ADB = helper_.ADB
+#ADB = helper_.ADB
 
-SURFACED_INFO = (("Device", (
-                     "Model",
-                     "Manufacturer",
-                     "Device",
-                     )),
-                 ("System", (
-                     "Android Version",
-                     "API Level",
-                     "Build ID",
-                     )),
-                 ("Chipset", (
-                     "Board",
-                     "Max CPU Clock Speed",
-                     "CPU Cores",
-                     "Available ABIs",
-                     "CPU Features",
-                     "GPU Vendor",
-                     "GPU Model",
-                     "OpenGL Version",
-                     "Known Texture Compression Types",
-                     )),
-                 ("Display", (
-                     "Resolution",
-                     "Density",
-                     )),
-                 ("Notable Features", (""))
-                )
+EXTRACTION_FUNCTIONS = {x[8::]:getattr(extract, x) for x in dir(extract) if x.startswith("extract_")}
 
 
 def adb_command(*args, check_server=True, stdout_=sys.stdout, **kwargs):
-    """Execute an ADB command, and return -- or don't -- its result.
+    """Execute an ADB command.
 
     If check_server is true, function will first make sure that an ADB
     server is available before executing the command.
     """
     try:
         if check_server:
-            helper_.exe(ADB, "start-server", return_output=True)
+            exe(ADB, "start-server", return_output=True)
 
-        return helper_.exe(ADB, *args, **kwargs)
+        return exe(ADB, *args, **kwargs)
     except FileNotFoundError:
         stdout_.write("".join(["Helper expected ADB to be located in '", ADB,
                                "' but could not find it.\n"]))
@@ -61,7 +36,7 @@ def adb_command(*args, check_server=True, stdout_=sys.stdout, **kwargs):
                       "following path is correct and points to an actual ADB",
                       "binary:", ADB, "To fix this issue you may need to edit",
                       "or delete the helper config file, located at:",
-                      helper_.CONFIG]))
+                      CONFIG]))
         sys.exit()
 
 
@@ -141,30 +116,14 @@ class Device:
         self._filename = None
         self._init_cache = {}
 
-        self.internal_sd_path = "/mnt/shell/emulated/"
-        self.external_sd_path = None
-        self.anr_trace_path = None
-
-        self.thirdparty_apps = ()
-        self.system_apps = ()
-        self.device_features = ()
-        self.available_commands = ()
-
-        self._info = OrderedDict()
-        self.info_dict = {}
-
-        for pair in SURFACED_INFO:
-            props = OrderedDict()
-            for prop in pair[1]:
-                props[prop] = list()
-
-            self._info[pair[0]] = props
+        self.info_dict = {x:None for x in extract.INFO_KEYS}
+        self.info_dict["internal_sd_path"] = "/mnt/shell/emulated/"
 
         self.initialized = False
         self._status = status
 
         if self._status == "device":
-            self.device_init(limit_init)
+            self.extract_data(limit_init)
 
 
     def adb_command(self, *args, **kwargs):
@@ -204,11 +163,11 @@ class Device:
         if self._name:
             return self._name
 
-        if "getprop" not in self._extracted_info_groups:
+        if "identity" not in self._extracted_info_groups:
             return "Unknown device ({})".format(self.serial)
 
-        self._name = "".join([self.info("Device", "Manufacturer"), " - ",
-                              self.info("Device", "Model"), " (", self.serial,
+        self._name = "".join([self.info_dict["device_manufacturer"], " - ",
+                              self.info_dict["device_model"], " (", self.serial,
                               ")"])
         return self._name
 
@@ -239,9 +198,9 @@ class Device:
 
         return self._status
 
-
+    """
     def info(self, index1, index2=None, nonexistent_ok=False):
-        """Fetch the string value for the given info variable."""
+        """"""Fetch the string value for the given info variable.""""""
         try:
             info_container = self._info[index1]
             if not index2:
@@ -257,49 +216,28 @@ class Device:
                 return "Unavailable"
             else:
                 raise
+    """
 
+    def extract_data(self, limit_to=(), force_extract=False):
+        """"""
+        """
+        if limit_to:
+            extraction_commands = [EXTRACTION_FUNCTIONS[x] for x in limit_to]
+        else:
+            extraction_commands = [x for x in EXTRACTION_FUNCTIONS.values()]
+        """
+        for command_id, command in EXTRACTION_FUNCTIONS.items():
+            if not force_extract and command in self._extracted_info_groups:
+                continue
 
-    def device_init(self, limit_init=(), force_init=False):
-        """Gather all the information."""
-        if self.status == "device":
-            for info_source, info_specs in INFO_EXTRACTION_CONFIG.items():
-                source_name = info_source[-1]
-
-                if not force_init and source_name in self._extracted_info_groups:
+            if limit_to:
+                if command_id not in limit_to:
                     continue
 
-                if limit_init and source_name not in limit_init:
-                    continue
+            command(self)
+            self._extracted_info_groups.append(command_id)
 
-                try:
-                    args = info_source[0]
-                except IndexError:
-                    args = ()
-                try:
-                    kwargs = dict(info_source[1])
-                except IndexError:
-                    kwargs = {}
-
-                source_output = None
-
-                for info_object in info_specs:
-                    if info_object.can_run(self):
-                        if not source_output:
-                            source_output = self.shell_command(*args, **kwargs)
-
-                        info_object.run(self, source_output)
-
-                self._extracted_info_groups.append(source_name)
-
-            # This kinda defeats the purpose of the whole info config thing...
-            if isinstance(self.internal_sd_path, list):
-                self.internal_sd_path = self.internal_sd_path[0]
-            if isinstance(self.external_sd_path, list):
-                self.external_sd_path = self.external_sd_path[0]
-            if isinstance(self.anr_trace_path, list):
-                self.anr_trace_path = self.anr_trace_path[0]
-
-            self.initialized = True
+        self._init_cache = {}
 
 
     def is_type(self, file_path, file_type, check_read=False,
@@ -400,11 +338,11 @@ class Device:
         # TODO: If you wait long enough, all problems will just disappear, right?
         sleep(0.7)
 
-        if self.status == "unauthorized":
+        if self.status != "device":
             stdout_.write(
                 " ".join(["Connection with this device had to be reset,",
-                          "to continue you must grant debugging permission",
-                          "again.\n"]))
+                          "to continue you must reconnect your device and/or",
+                          "grant debugging permission again.\n"]))
         reconnect_status = adb_command("-s", self.serial, "wait-for-device",
                                        return_output=True, as_list=False)
         if reconnect_status:
@@ -421,94 +359,42 @@ class Device:
         """Return a formatted string containing all device info"""
         # ensure all required info is available
         if initialize:
-            self.device_init()
+            self.extract_data()
 
-        # if an info source is a key in whitelist, only the asociated values
-        # will be returned from that group
-        # which means that group can be blacklisted by simply not specyfing any
-        # values with it
-        group_whitelist = {"system_apps":(),
-                          }
+        indent = " " * indent
+        full_info_string = "-----Android QA Helper v.{}-----".format(VERSION)
 
-        indent = indent * " "
-        group_list = []
-        grouped_vars = {}
-        ungrouped_vars = []
+        for info_section in extract.SURFACED_VERBOSE:
+            full_info_string = "".join([full_info_string, "\n", info_section[0], ":\n"])
+            if isinstance(info_section, list):
+                for info_name, info_key in info_section[1]:
+                    info_value = self.info_dict[info_key]
 
-        # TODO: Look into simplifying this mess
+                    if not info_value:
+                        info_value = "Unknown"
+                    elif isinstance(info_value, (list, tuple)):
+                        info_value = ", ".join(info_value)
 
-        full_info_string = "-----Android QA Helper v.{}-----".format(
-            helper_.VERSION)
+                    full_info_string = "".join([full_info_string, indent, info_name, ":", info_value, "\n"])
 
-        for info_category, variables_list in INFO_EXTRACTION_CONFIG.items():
-            info_source = info_category[-1]
+            else:
+                info_name, info_key = info_section
+                info_value = self.info_dict[info_key]
 
-            for info_variable in variables_list:
-                if info_source in group_whitelist and \
-                info_variable.var_name not in group_whitelist[info_source]:
-                    continue
+                if not info_value:
+                    info_value = "Unknown"
+                elif isinstance(info_value, (list, tuple)):
+                    info_value = ", ".join(info_value)
 
-                if info_variable.var_dict_2 == "_info":
-                    if info_variable.var_dict_1 not in group_list:
-                        group_list.append(info_variable.var_dict_1)
-
-                    value = self.info(info_variable.var_dict_1,
-                                      info_variable.var_name, True)
-                    if not value:
-                        value = "Unknown"
-
-                    line = "".join([info_variable.var_name, " : ", value])
-
-                    if info_variable.var_dict_1 not in grouped_vars:
-                        grouped_vars[info_variable.var_dict_1] = []
-
-                    if line in grouped_vars[info_variable.var_dict_1]:
-                        continue
-
-                    grouped_vars[info_variable.var_dict_1].append(line)
-                elif info_variable.var_dict_1 == "_info":
-                    value = self.info(info_variable.var_name,
-                                      nonexistent_ok=True)
-                    if not value:
-                        value = "Unknown"
-
-                    line = "".join([info_variable.var_name, " : ", value])
-                    ungrouped_vars.append(line)
-                else:
-                    try:
-                        value = self.__dict__[info_variable.var_name]
-                    except KeyError:
-                        value = "Unavailable"
-
-                    if not value:
-                        value = "Unknown"
-                    else:
-                        if isinstance(value, (list, tuple)):
-                            value = ", ".join(value)
-                        else:
-                            value = str(value)
-
-                    line = "".join([info_variable.var_name, " : ", value])
-                    ungrouped_vars.append(line)
-
-        for group in group_list:
-            full_info_string = "".join([full_info_string, "\n", group, ":\n"])
-            for value in grouped_vars[group]:
-                full_info_string = "".join([full_info_string, indent, value, "\n"])
-
-        full_info_string += "\n"
-
-        for value in ungrouped_vars:
-            full_info_string = "".join([full_info_string, value, "\n"])
+                full_info_string = "".join([full_info_string, indent, info_value, "\n"])
 
         return full_info_string
 
-
+    """
     def detailed_info_string(self, initialize=True, indent=4):
-        """"""
         info = ""
         if initialize:
-            self.device_init(limit_init=())
+            self.extract_data()
 
         for category_name, value_names_list in SURFACED_INFO:
             info = "".join([info, "\n", category_name, ":"])
@@ -518,7 +404,7 @@ class Device:
                                           nonexistent_ok=True)])
 
         return info
-
+"""
 
     def basic_info_string(self):
         """Return formatted string containing basic device information.
@@ -526,23 +412,23 @@ class Device:
         compression types.
         """
         # ensure all required data is available
-        self.device_init(limit_init=("getprop", "surfaceflinger_dump"))
+        self.extract_data(limit_to=["gpu", "identity", "os"])
 
-        model = self.info("Product", "Model")
+        model = self.info_dict["device_model"]
         if not model:
             model = "Unknown model"
 
-        manufacturer = self.info("Product", "Manufacturer")
-        if manufacturer is None:
+        manufacturer = self.info_dict["device_manufacturer"]
+        if not manufacturer:
             manufacturer = "Unknown manufacturer"
 
-        os_ver = self.info("OS", "Version")
-        if os_ver is None:
+        os_ver = self.info_dict["android_version"]
+        if not os_ver:
             os_ver = "Unknown OS version"
 
         line1 = " - ".join([manufacturer, model, os_ver])
         line2 = "".join(["Texture compression types: ",
-                         self.info("GPU", "Texture Types")])
+                         ", ".join(self.info_dict["gles_texture_compressions"])])
 
         return "\n".join([line1, line2])
 
@@ -559,9 +445,10 @@ class Device:
         else:
             app_name = app
 
-        self.device_init(limit_init=("thirdparty_apps", "system_apps"))
+        self.extract_data(limit_to=("installed_packages"))
 
-        if app_name not in self.system_apps and app_name not in self.thirdparty_apps:
+        if app_name not in self.info_dict["system_apps"] or\
+           app_name not in self.info_dict["third-party_apps"]:
             stdout_.write(" ".join([app_name, "not in list of installed apps.\n"]))
             return False
 

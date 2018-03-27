@@ -78,7 +78,7 @@ def install(device, *items, install_location="automatic", keep_data=False,
             return False
 
         stdout_.write("\nCopying obb files...\n")
-        device.device_init(limit_init=("shell_environment"))
+        device.extract_data(limit_init=("shell_environment"))
 
         for obb_file in obb_list:
             if not push_obb(device, obb_file, apk_file.app_name, stdout_=stdout_):
@@ -106,8 +106,7 @@ def install_app(device, apk_file, install_location="automatic",
             for reason in is_compatible[1]:
                 stdout_.write(reason + "\n")
 
-    device.device_init(limit_init=("system_apps", "thirdparty_apps"),
-                       force_init=True)
+    device.extract_data(limit_to=["installed_packages"], force_extract=True)
 
     if apk_file.app_name in device.thirdparty_apps:
         stdout_.write(" ".join(["WARNING: Different version of the app",
@@ -141,8 +140,7 @@ def install_app(device, apk_file, install_location="automatic",
                          destination, stdout_=stdout_)
     device.shell_command("rm", destination, stdout_=stdout_)
 
-    device.device_init(limit_init=("system_apps", "thirdparty_apps"),
-                       force_init=True)
+    device.extract_data(limit_to=["installed_apps"], force_extract=True)
 
     # TODO: detect installation failure for system apps
     if apk_file.app_name not in device.thirdparty_apps:
@@ -157,7 +155,7 @@ def push_obb(device, obb_file, app_name, stdout_=sys.stdout):
     """Push obb expansion file to app's obb folder on device's
     internal SD card.
     """
-    device.device_init(limit_init=("getprop", "shell_environment"))
+    device.extract_data(limit_to=["storage"])
 
     # Prepare the target directory
     obb_folder = device.internal_sd_path + "/Android/obb"
@@ -201,18 +199,18 @@ def record(device, output=".", name=None, silent=False, stdout_=sys.stdout):
     # regular users from their device - hold the power button and it should
     # appear alongside reset and shutdown options
 
-    device.device_init(limit_init=("available_commands", "shell_environment", "getprop"))
+    device.extract_data(limit_to=["available_commands", "storage", "identity"])
 
     if 'screenrecord' not in device.available_commands:
         stdout_.write(
             " ".join(["This device's shell does not have the 'screenrecord'",
                       "command."]))
-        if int(device.info("OS", "API Level")) < 19:
+        if int(device.info_dict["android_api_level"]) < 19:
             stdout_.write(
                 " ".join(["The command was introduced with API level 19 (",
                           "Android version 4.4.4) and your device has API level",
-                          device.info("OS", "API Level"), "(Android version",
-                          device.info("OS", "Version"), ").\n"]))
+                          device.info_dict["android_api_level"], "(Android version",
+                          device.info_dict["android_version"], ").\n"]))
         else:
             stdout_.write(
                 " ".join(["Your device's manufacturer opted to not",
@@ -275,7 +273,7 @@ def pull_traces(device, output=None, stdout_=sys.stdout):
     else:
         output = Path(output).resolve()
 
-    device.device_init(limit_init=("getprop", "shell_environment"))
+    device.extract_data(limit_init=("getprop", "shell_environment"))
 
     anr_filename = "".join([device.filename, "_anr_",
                             strftime("%Y.%m.%d_%H.%M.%S"), ".txt"])
@@ -309,8 +307,7 @@ def clear_app_data(device, app, stdout_=sys.stdout):
         display_name = app.display_name
         app_name = app.app_name
 
-    device.device_init(limit_init=("system_apps", "thirdparty_apps"),
-                       force_init=True)
+    device.extract_data(limit_to=["installed_packages"], force_extract=True)
 
     stdout_.write(
         "".join(["Clearing application data: ", display_name, "... "]))
@@ -350,7 +347,7 @@ def uninstall_app(device, app, keep_data=False, stdout_=sys.stdout):
     else:
         keep_data = ""
 
-    device.device_init(limit_init=("system_apps",), force_init=True)
+    device.extract_data(limit_init=("system_apps",), force_init=True)
     system_app = False
 
     if app_name in device.system_apps:
@@ -381,7 +378,7 @@ def uninstall_app(device, app, keep_data=False, stdout_=sys.stdout):
         stdout_.write(process_log + "\n")
         return False
 
-    device.device_init(limit_init=("thirdparty_apps",), force_init=True)
+    device.extract_data(limit_init=("thirdparty_apps",), force_init=True)
     if app_name in device.thirdparty_apps:
         stdout_.write("ERROR: App could not be removed!\n")
         stdout_.write(process_log + "\n")
