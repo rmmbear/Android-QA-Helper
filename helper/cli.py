@@ -368,7 +368,7 @@ def main(args=None):
         try:
             BATCH_COMMANDS[args.command](device, args)
         except device_.DeviceOfflineError:
-            print("Device", "asdasdasd", "has been suddenly disconnected!")
+            print("Device", device.name, "has been suddenly disconnected!")
 
     if args.command in ("scan", "detailed-scan", "s", "ds"):
         scan_other()
