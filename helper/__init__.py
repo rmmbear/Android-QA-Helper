@@ -26,7 +26,7 @@ from pathlib import Path
 
 # Program metadata
 VERSION = "0.14"
-VERSION_DATE = "2018-01-12"
+VERSION_DATE = "2018-04-10"
 VERSION_STRING = "".join(["Android Helper v", VERSION, " : ", VERSION_DATE])
 COPYRIGHT_STRING = "Copyright (c) 2017 rmmbear"
 SOURCE_STRING = "Check the source code at https://github.com/rmmbear/Android-QA-Helper"
@@ -184,6 +184,11 @@ def _check_adb():
     """Check if executable saved in ADB is and actual ADB executable
     and extract its version.
     """
+
+    #TODO: Change flow to following: 1. Check directory set in config (if any) 2. check default path 3. prompt for input
+    # if file is found in directory set in config, but is not a valid executable, error out
+    # if a file is not found in 1, display a fallback warning and continue to 2
+
     adb = ADB
     adb_path_changed = False
 
@@ -192,11 +197,9 @@ def _check_adb():
 
     if not adb:
         print("ADB BINARY MISSING!")
-        print("Helper could not find ADB, which is required for this program.",
-              "Close this window, place the binary in:",
-              "'{}'".format(Path(BASE + "/../adb").resolve()),
-              "and delete helper config or enter its path below (use drag and",
-              "drop if your terminal allows it).")
+        print("Helper could not find ADB, which is required for communicating with Android devices.")
+        print("Please drag and drop ADB onto this window and then press enter to continue.")
+
         adb = input(": ").strip(" '\"")
         if not Path(adb).is_file():
             print("Provided path is not a file!")
@@ -212,14 +215,13 @@ def _check_adb():
     if "android debug bridge" not in out.lower():
         print("CORRUPT ADB BINARY!")
         print(adb)
-        print("The file is either not an executable binary or is not an ADB",
-              "binary. Replace the file with an actual ADB binary and edit",
-              "or remove the helper config file.")
+        print("The file was not recognized as a valid ADB executable.")
         return False
 
     version_name = re.search("(?<=version ).*", out, re.I)
     version_code = re.search("(?<=revision ).*", out, re.I)
 
+    # TODO: Replace with cfg module
     if adb_path_changed:
         globals()["ADB"] = adb
         globals()["EDITED_CONFIG"] = True
@@ -238,6 +240,11 @@ def _check_aapt(aapt=AAPT):
     """Check if executable saved in AAPT is and actual AAPT executable
     and extract its version.
     """
+    #TODO: Change flow to following: 1. Check directory set in config (if any) 2. check default path 3. prompt for input
+    # if file is found in directory set in config, but is not a valid executable, error out
+    # if a file is not found in 1, display a fallback warning and continue to 2
+
+
     aapt = AAPT
     aapt_path_changed = False
 
@@ -246,13 +253,9 @@ def _check_aapt(aapt=AAPT):
 
     if not aapt:
         print("AAPT BINARY MISSING!")
-        print("Helper could not find AAPT, which is required for certain",
-              "operations on apk files, including app installation. To load",
-              "the aapt, close this window, place the binary in:",
-              "'{}'".format(Path(BASE + "/../aapt").resolve()),
-              "and delete helper config. You can also enter its path below",
-              "(use drag-and-drop if your terminal allows it) or press enter",
-              "without typing anything to skip this.")
+        print("Helper could not find AAPT, which is required for operations on apk files.")
+        print("Drag and drop the AAPT executable onto this window and press enter to continue.")
+        print("You can also skip loading AAPT by leaving the field empty and pressing enter")
         aapt = input(": ").strip(" '\"")
         if aapt:
             if not Path(aapt).is_file():
@@ -262,8 +265,8 @@ def _check_aapt(aapt=AAPT):
             aapt = str(Path(aapt).resolve())
             aapt_path_changed = True
         else:
-            print("You chose not to load the aapt binary. Please note that",
-                  "some features will not be available because of this.")
+            print("You chose not to load the AAPT. Please note that some features will not be available because of this.")
+            print("This dialog will be displayed for every launch until a valid AAPT executable is found.")
             globals()["AAPT"] = ""
             globals()["AAPT_AVAILABLE"] = False
             return
@@ -275,13 +278,12 @@ def _check_aapt(aapt=AAPT):
     if "android asset packaging tool" not in out.lower():
         print("CORRUPT AAPT BINARY!")
         print(aapt)
-        print("The file is either not an executable binary or is not an AAPT",
-              "binary. Replace the file with an actual AAPT binary and edit",
-              "or remove the helper config file.")
+        print("The file was not recognized as a valid AAPT executable.")
         return False
 
     version_name = re.search("(?<=android asset packaging tool, v).*", out, re.I)
 
+    # TODO: Replace with cfg module
     if aapt_path_changed:
         globals()["AAPT"] = aapt
         globals()["EDITED_CONFIG"] = True
@@ -335,8 +337,13 @@ CONFIG = CONFIG
 _load_config(CONFIG)
 
 if not _check_adb():
+    print("Please place a valid ADB executable (and its DLLs on Windows) into the default adb location (", str(Path(BASE + "/../adb").resolve()))
+    print("or edit the helper_config file manually.")
     sys.exit()
 if not _check_aapt() in (None, True):
+    print("Please place a valid AAPT executable into the default adb location (", str(Path(BASE + "/../aapt").resolve()))
+    print("or edit the helper_config file manually.")
+
     sys.exit()
 
 CLEANER_CONFIG = str(Path(CLEANER_CONFIG).resolve())
