@@ -436,8 +436,9 @@ def extract_display(device):
 def extract_features(device):
     """"""
     feature_list = run_extraction_command(device, "device_features")
-
-    for feature_string, feature_name in NOTABLE_FEATURES:
+    device.info_dict["device_notable_features"] = []
+    
+    for feature_name, feature_string in NOTABLE_FEATURES:
         if feature_string in feature_list:
             device.info_dict["device_notable_features"].append(feature_name)
 
