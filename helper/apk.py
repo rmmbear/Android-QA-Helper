@@ -40,33 +40,33 @@ android.permission.WRITE_EXTERNAL_STORAGE""".splitlines()
 # https://developer.android.com/guide/topics/manifest/uses-sdk-element.html
 # Last updated: 2017.11.23
 API_LEVEL_MATRIX = {
-    27 : ("8.1",   "O_MR1",            "Oreo"),
-    26 : ("8.0",   "O",                "Oreo"),
-    25 : ("7.1",   "N_MR1",            "Nougat"),
-    24 : ("7.0",   "N",                "Nougat"),
-    23 : ("6.0",   "M",                "Marshmallow"),
-    22 : ("5.1",   "LOLLIPOP_MR1",     "Lollipop"),
-    21 : ("5.0",   "LOLLIPOP",         "Lollipop"),
-    20 : ("4.4W",  "KITKAT_WATCH",     "KitKat Watch"),
-    19 : ("4.4",   "KITKAT",           "KitKat"),
-    18 : ("4.3",   "JELLY_BEAN_MR2",   "Jelly Bean"),
-    17 : ("4.2",   "JELLY_BEAN_MR1",   "Jelly Bean"),
-    16 : ("4.1",   "JELLY_BEAN",       "Jelly Bean"),
+    27 : ("8.1", "O_MR1", "Oreo"),
+    26 : ("8.0", "O", "Oreo"),
+    25 : ("7.1", "N_MR1", "Nougat"),
+    24 : ("7.0", "N", "Nougat"),
+    23 : ("6.0", "M", "Marshmallow"),
+    22 : ("5.1", "LOLLIPOP_MR1", "Lollipop"),
+    21 : ("5.0", "LOLLIPOP", "Lollipop"),
+    20 : ("4.4W", "KITKAT_WATCH", "KitKat Watch"),
+    19 : ("4.4", "KITKAT", "KitKat"),
+    18 : ("4.3", "JELLY_BEAN_MR2", "Jelly Bean"),
+    17 : ("4.2", "JELLY_BEAN_MR1", "Jelly Bean"),
+    16 : ("4.1", "JELLY_BEAN", "Jelly Bean"),
     15 : ("4.0.3", "ICE_CREAM_SANDWICH_MR1", "Ice Cream Sandwich"),
-    14 : ("4.0",   "ICE_CREAM_SANDWICH", "Ice Cream Sandwich"),
-    13 : ("3.2",   "HONEYCOMB_MR2",    "Honeycomb"),
-    12 : ("3.1",   "HONEYCOMB_MR1",    "Honeycomb"),
-    11 : ("3.0",   "HONEYCOMB",        "Honeycomb"),
-    10 : ("2.3.3", "GINGERBREAD_MR1",  "Gingerbread"),
-    9  : ("2.3",   "GINGERBREAD",      "Gingerbread"),
-    8  : ("2.2",   "FROYO",            "Froyo"),
-    7  : ("2.1",   "ECLAIR_MR1",       "Eclair"),
-    6  : ("2.0.1", "ECLAIR_0_1",       "Eclair"),
-    5  : ("2.0",   "ECLAIR",           "Eclair"),
-    4  : ("1.6",   "DONUT",            "Donut"),
-    3  : ("1.5",   "CUPCAKE",          "Cupcake"),
-    2  : ("1.1",   "BASE_1_1",         "Base"),
-    1  : ("1.0",   "BASE",             "Base")}
+    14 : ("4.0", "ICE_CREAM_SANDWICH", "Ice Cream Sandwich"),
+    13 : ("3.2", "HONEYCOMB_MR2", "Honeycomb"),
+    12 : ("3.1", "HONEYCOMB_MR1", "Honeycomb"),
+    11 : ("3.0", "HONEYCOMB", "Honeycomb"),
+    10 : ("2.3.3", "GINGERBREAD_MR1", "Gingerbread"),
+    9  : ("2.3", "GINGERBREAD", "Gingerbread"),
+    8  : ("2.2", "FROYO", "Froyo"),
+    7  : ("2.1", "ECLAIR_MR1", "Eclair"),
+    6  : ("2.0.1", "ECLAIR_0_1", "Eclair"),
+    5  : ("2.0", "ECLAIR", "Eclair"),
+    4  : ("1.6", "DONUT", "Donut"),
+    3  : ("1.5", "CUPCAKE", "Cupcake"),
+    2  : ("1.1", "BASE_1_1", "Base"),
+    1  : ("1.0", "BASE", "Base")}
 
 
 def aapt_command(*args, stdout_=sys.stdout, **kwargs):
@@ -141,8 +141,7 @@ class App:
 
             if apk_path:
                 self.device_path = apk_path.group().strip()
-                local_path = "".join(["./", device.info("Product", "Model"),
-                                      Path(self.device_path).name])
+                local_path = "".join(["./", device.filename])
                 device.adb_command("pull", self.device_path, local_path)
                 self.host_path = local_path
                 self.from_file()
@@ -215,11 +214,10 @@ class App:
         compatible = True
         reasons = []
         # Ensure the necessary data is available
-        device.extract_data(limit_init=("device_features",
-                                       "surfaceflinger_dump", "getprop"))
+        device.extract_data(limit_to=("os", "chipset", "gpu", "features"))
 
         # check if device uses a supported Android version
-        device_sdk = device.info("OS", "API Level")
+        device_sdk = device.info_dict["android_api_level"]
         if int(self.min_sdk):
             if int(self.min_sdk) > int(device_sdk):
                 compatible = False
@@ -250,9 +248,9 @@ class App:
 
         # check if device uses one of supported texture compressions
         if self.supported_texture_compressions:
-            unique_textures = set(list(device.gles_extensions) \
-                                  + self.supported_texture_compressions)
-            all_textures = list(device.gles_extensions) \
+            unique_textures = set(list(device.info_dict["gles_extensions"] \
+                                  + self.supported_texture_compressions))
+            all_textures = list(device.info_dict["gles_extensions"]) \
                            + self.supported_texture_compressions
 
             # just like with abis
@@ -265,7 +263,7 @@ class App:
 
         # check if all features are available
         for feature in self.used_features:
-            if feature not in device.device_features:
+            if feature not in device.info_dict["device_features"]:
                 compatible = False
                 reasons.append(" ".join(["Feature", feature,
                                          "not available on device"]))

@@ -68,7 +68,7 @@ def install(device, *items, install_location="automatic", keep_data=False,
         for app_name in install_failure:
             stdout_.write("".join([app_name, "\n"]))
 
-        return
+        return None
 
     # take care of obb file(s)
     if obb_list:
@@ -78,7 +78,7 @@ def install(device, *items, install_location="automatic", keep_data=False,
             return False
 
         stdout_.write("\nCopying obb files...\n")
-        device.extract_data(limit_init=("shell_environment"))
+        device.extract_data(limit_to=("storage"))
 
         for obb_file in obb_list:
             if not push_obb(device, obb_file, apk_file.app_name, stdout_=stdout_):
@@ -108,13 +108,13 @@ def install_app(device, apk_file, install_location="automatic",
 
     device.extract_data(limit_to=["installed_packages"], force_extract=True)
 
-    if apk_file.app_name in device.thirdparty_apps:
+    if apk_file.app_name in device.info_dict["third-party_apps"]:
         stdout_.write(" ".join(["WARNING: Different version of the app",
                                 "already installed\n"]))
         if not uninstall_app(device, apk_file, keep_data, stdout_=stdout_):
             stdout_.write("ERROR: Could not uninstall the app!\n")
             return False
-    elif apk_file.app_name in device.system_apps:
+    elif apk_file.app_name in device.info_dict["system_apps"]:
         stdout_.write(
             "WARNING: This app already exists on device as a system app!\n")
         stdout_.write(
@@ -143,7 +143,7 @@ def install_app(device, apk_file, install_location="automatic",
     device.extract_data(limit_to=["installed_apps"], force_extract=True)
 
     # TODO: detect installation failure for system apps
-    if apk_file.app_name not in device.thirdparty_apps:
+    if apk_file.app_name not in device.info_dict["third-party_apps"]:
         stdout_.write("ERROR: App could not be installed!\n")
         return False
 
@@ -158,7 +158,7 @@ def push_obb(device, obb_file, app_name, stdout_=sys.stdout):
     device.extract_data(limit_to=["storage"])
 
     # Prepare the target directory
-    obb_folder = device.internal_sd_path + "/Android/obb"
+    obb_folder = device.info_dict["internal_sd_path"] + "/Android/obb"
     device.shell_command("mkdir", obb_folder, return_output=True)
     device.shell_command("mkdir", obb_folder + "/" + app_name,
                          return_output=True)
@@ -168,14 +168,14 @@ def push_obb(device, obb_file, app_name, stdout_=sys.stdout):
         return False
 
     obb_name = str(Path(obb_file).name)
-    obb_target_file = "/".join([device.internal_sd_path, "Android/obb",
+    obb_target_file = "/".join([device.info_dict["internal_sd_path"], "Android/obb",
                                 app_name, obb_name])
 
     #pushing obb in two steps - some devices block adb push directly to obb folder
-    device.adb_command("push", obb_file, device.internal_sd_path + "/" + obb_name,
+    device.adb_command("push", obb_file, device.info_dict["internal_sd_path"] + "/" + obb_name,
                        stdout_=stdout_)
     device.shell_command(
-        "mv", "".join(['"', device.internal_sd_path, "/", obb_name, '"']),
+        "mv", "".join(['"', device.info_dict["internal_sd_path"], "/", obb_name, '"']),
         "".join(['"', obb_target_file, '"']), stdout_=stdout_)
 
     if device.is_file(obb_target_file):
@@ -201,7 +201,7 @@ def record(device, output=".", name=None, silent=False, stdout_=sys.stdout):
 
     device.extract_data(limit_to=["available_commands", "storage", "identity"])
 
-    if 'screenrecord' not in device.available_commands:
+    if 'screenrecord' not in device.info_dict["shell_commands"]:
         stdout_.write(
             " ".join(["This device's shell does not have the 'screenrecord'",
                       "command."]))
@@ -241,7 +241,7 @@ def record(device, output=".", name=None, silent=False, stdout_=sys.stdout):
         filename = "".join([device.filename, "_screenrecord_",
                             strftime("%Y.%m.%d_%H.%M.%S"), ".mp4"])
 
-    remote_recording = "".join([device.internal_sd_path + "/" + filename])
+    remote_recording = "".join([device.info_dict["internal_sd_path"] + "/" + filename])
 
     try:
         device.shell_command("screenrecord", "--verbose", remote_recording,
@@ -278,8 +278,8 @@ def pull_traces(device, output=None, stdout_=sys.stdout):
     anr_filename = "".join([device.filename, "_anr_",
                             strftime("%Y.%m.%d_%H.%M.%S"), ".txt"])
 
-    remote_anr_file = "".join([device.internal_sd_path, "/", anr_filename])
-    device.shell_command("cat", device.anr_trace_path, ">", remote_anr_file)
+    remote_anr_file = "".join([device.info_dict["internal_sd_path"], "/", anr_filename])
+    device.shell_command("cat", device.info_dict["anr_trace_path"], ">", remote_anr_file)
 
     if not device.is_file(remote_anr_file):
         stdout_.write("ERROR: The file was not found on device!\n")
@@ -320,8 +320,8 @@ def clear_app_data(device, app, stdout_=sys.stdout):
         stdout_.write("Done\n")
         return True
 
-    if app_name not in device.system_apps and \
-       app_name not in device.thirdparty_apps:
+    if app_name not in device.info_dict["system_apps"] and \
+       app_name not in device.info_dict["third-party_apps"]:
         stdout_.write("ERROR: Application not found on device!\n")
         return False
 
@@ -350,7 +350,7 @@ def uninstall_app(device, app, keep_data=False, stdout_=sys.stdout):
     device.extract_data(limit_init=("system_apps",), force_init=True)
     system_app = False
 
-    if app_name in device.system_apps:
+    if app_name in device.info_dict["system_apps"]:
         system_app = True
         stdout_.write(" ".join([display_name, "is a system app and cannot be",
                                 "removed completely.\n"]))
@@ -379,7 +379,7 @@ def uninstall_app(device, app, keep_data=False, stdout_=sys.stdout):
         return False
 
     device.extract_data(limit_init=("thirdparty_apps",), force_init=True)
-    if app_name in device.thirdparty_apps:
+    if app_name in device.info_dict["third-party_apps"]:
         stdout_.write("ERROR: App could not be removed!\n")
         stdout_.write(process_log + "\n")
         return False

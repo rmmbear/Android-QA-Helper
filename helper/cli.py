@@ -144,7 +144,7 @@ for group in  PARSER._action_groups:
 PARSER_NO_ARGS = PARSER.parse_args([])
 
 
-def pick_device(stdout_=sys.stdout):
+def pick_device():
     """Ask the user to pick a device from list of currently connected
     devices. If there are no devices to choose from, it will return the
     sole connected device or None, if there are no devices at all.
@@ -160,22 +160,21 @@ def pick_device(stdout_=sys.stdout):
         return device_list[0]
 
     while True:
-        stdout_.write("Multiple devices detected!\n")
-        stdout_.write(
-            "Please choose which of devices below you want to work with.\n")
+        print("Multiple devices detected!\n")
+        print("Please choose which of devices below you want to work with.\n")
         for counter, device in enumerate(device_list):
-            stdout_.write(" ".join([counter, ":"]))
-            device.print_basic_info(stdout_)
+            print(" ".join([counter, ":"]))
+            print(device.basic_info_string())
 
-        stdout_.write("Enter your choice: ")
+        print("Enter your choice: ")
         user_choice = input().strip()
         if not user_choice.isnumeric():
-            stdout_.write("The answer must be a number!\n")
+            print("The answer must be a number!\n")
             continue
 
         user_choice = int(user_choice)
         if user_choice < 0  or user_choice >= len(device_list):
-            stdout_.write("Answer must be one of the above numbers!\n")
+            print("Answer must be one of the above numbers!\n")
             continue
 
         return device_list[user_choice]
@@ -257,7 +256,7 @@ def detailed_scan(device, args):
     """"""
     device.extract_data(limit_to=["identity"])
     print("Collecting info from", device.name, "...")
-    print(device.detailed_info_string())
+    print(device.full_info_string())
     print()
 
 

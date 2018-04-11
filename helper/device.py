@@ -320,6 +320,7 @@ class Device:
         This is the same as calling device.is_type(<path>, "d", ...)
         """
         return self.is_type(file_path, "d", *args, **kwargs)
+        
 
 
     def reconnect(self, stdout_=sys.stdout):
@@ -329,12 +330,17 @@ class Device:
         """
         reconnect_status = adb_command("-s", self.serial, "reconnect",
                                        return_output=True, as_list=False)
+        # TODO: New versions of adb started outputting device status when reconnecting devices
+        # Which
+        
+        """
         if reconnect_status.strip().lower() != "done":
             # I don't even know if there is a chance for unexpected output here
             stdout_.write("ERROR: ")
             stdout_.write(reconnect_status + "\n")
             return False
-
+        """
+        
         # TODO: If you wait long enough, all problems will just disappear, right?
         sleep(0.7)
 
@@ -498,7 +504,7 @@ class Device:
                 stdout_.write("App already running, bringing it to front.\n")
                 return True
             else:
-                stdout_.write("App appears to have been succesfully launched.\n")
+                stdout_.write("App appears to have been successfully launched.\n")
                 return True
         else:
             if self.status != "device":
