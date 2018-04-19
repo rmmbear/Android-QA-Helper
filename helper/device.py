@@ -458,9 +458,11 @@ class Device:
         else:
             app_name = app
 
+        print(app_name)
+
         self.extract_data(limit_to=("installed_packages"))
 
-        if app_name not in self.info_dict["system_apps"] or\
+        if app_name not in self.info_dict["system_apps"] and\
            app_name not in self.info_dict["third-party_apps"]:
             stdout_.write(" ".join([app_name, "not in list of installed apps.\n"]))
             return False

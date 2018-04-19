@@ -22,11 +22,11 @@ import logging
 import subprocess
 from pathlib import Path
 
-#logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.DEBUG)
 
 # Program metadata
 VERSION = "0.14"
-VERSION_DATE = "2018-04-19"
+VERSION_DATE = "2018-04-20"
 VERSION_STRING = "".join(["Android Helper v", VERSION, " : ", VERSION_DATE])
 COPYRIGHT_STRING = "Copyright (c) 2017 rmmbear"
 SOURCE_STRING = "Check the source code at https://github.com/rmmbear/Android-QA-Helper"
@@ -115,7 +115,7 @@ if sys.platform == "win32":
 def exe(executable, *args, return_output=False, as_list=True,
         stdout_=sys.stdout):
     """Run the provided executable with specified commands"""
-    #logging.debug("Executing {}".format([executable, *args]))
+    logging.debug("Executing {}".format([executable, *args]))
     try:
         if return_output:
             cmd_out = subprocess.run((executable,) + args,
