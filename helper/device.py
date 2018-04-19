@@ -24,12 +24,11 @@ def adb_command(*args, check_server=None, stdout_=sys.stdout, **kwargs):
     if check_server is None:
         check_server = False
         try:
-            print(kwargs)
             if kwargs["return_output"]:
                 check_server = True
         except KeyError:
             pass
-    
+
     try:
         if check_server:
             exe(ADB, "start-server", return_output=True)
@@ -328,7 +327,7 @@ class Device:
         This is the same as calling device.is_type(<path>, "d", ...)
         """
         return self.is_type(file_path, "d", *args, **kwargs)
-        
+
 
 
     def reconnect(self, stdout_=sys.stdout):
@@ -340,7 +339,7 @@ class Device:
                                        return_output=True, as_list=False)
         # TODO: New versions of adb started outputting device status when reconnecting devices
         # Which
-        
+
         """
         if reconnect_status.strip().lower() != "done":
             # I don't even know if there is a chance for unexpected output here
@@ -348,7 +347,7 @@ class Device:
             stdout_.write(reconnect_status + "\n")
             return False
         """
-        
+
         # TODO: If you wait long enough, all problems will just disappear, right?
         sleep(0.7)
 
