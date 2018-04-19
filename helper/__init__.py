@@ -105,7 +105,7 @@ ADB = BASE + "/../adb/adb"
 AAPT = BASE + "/../aapt/aapt"
 CONFIG = BASE + "/../helper_config"
 CLEANER_CONFIG = BASE + "/../cleaner_config"
-COMPRESSION_DEFINITIONS = BASE + "/../compression_identifiers"
+#COMPRESSION_DEFINITIONS = BASE + "/../compression_identifiers"
 
 if sys.platform == "win32":
     AAPT += ".exe"
@@ -298,9 +298,10 @@ def _save_config(config):
 Path(ADB).parent.mkdir(exist_ok=True)
 Path(AAPT).parent.mkdir(exist_ok=True)
 Path(CONFIG).touch(exist_ok=True)
-if not Path(COMPRESSION_DEFINITIONS).is_file():
-    with Path(COMPRESSION_DEFINITIONS).open(mode="w", encoding="utf-8") as texture_file:
-        texture_file.write(DEFAULT_COMPRESSION_IDENTIFIERS)
+
+#if not Path(COMPRESSION_DEFINITIONS).is_file():
+#    with Path(COMPRESSION_DEFINITIONS).open(mode="w", encoding="utf-8") as texture_file:
+#        texture_file.write(DEFAULT_COMPRESSION_IDENTIFIERS)
 
 if not Path(CLEANER_CONFIG).is_file():
     with Path(CLEANER_CONFIG).open(mode="w", encoding="utf-8") as cleaner_file:
@@ -321,7 +322,7 @@ if not _check_aapt() in (None, True):
     sys.exit()
 
 CLEANER_CONFIG = str(Path(CLEANER_CONFIG).resolve())
-COMPRESSION_DEFINITIONS = str(Path(COMPRESSION_DEFINITIONS).resolve())
+#COMPRESSION_DEFINITIONS = str(Path(COMPRESSION_DEFINITIONS).resolve())
 
 if EDITED_CONFIG:
     _save_config(CONFIG)
