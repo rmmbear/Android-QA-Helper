@@ -47,8 +47,9 @@ INFO_SOURCES = {
     "third-party_apps" : ("pm", "list", "packages", "-3"),
     "screen_size" : ("wm", "size"),
     "screen_density" : ("wm", "density"),
-    "build.prop" : ("cat", "/system/build.prop"),        #debug
-    "dumpsys_full" : ("dumpsys",),                       #debug
+    "build.prop" : ("cat", "/system/build.prop"),   #debug
+    "dumpsys_full" : ("dumpsys",),                  #debug
+    "directory_map" : ("ls", "-alR"),               #debug
     }
 
 # list of features that one might be looking for in a device
@@ -448,25 +449,55 @@ def extract_features(device):
 
 def extract_storage(device):
     """Extract list of various paths."""
-    internal_sd = device.info_dict["internal_sd_path"]
-    getprop = run_extraction_command(device, "getprop")
-    trace_path = re.search("(?:\\[dalvik\\.vm\\.stack\\-trace\\-file\\]: \\[)([^\\]]*)", getprop)
-
-    if not device.is_dir(internal_sd):
-        internal_sd = re.search("(?:\\[internal\\_sd\\_path\\]: \\[)([^\\]]*)", getprop)
-
-    external_sd = re.search("(?:\\[external\\_sd\\_path\\]: \\[)([^\\]]*)", getprop)
+    internal_sd = None
+    external_sd = None
+    trace_path = None
     shell_env = run_extraction_command(device, "shell_environment")
-
+    
+    try:
+        internal_sd = re.search("(?:EXTERNAL_STORAGE=)([^\\s]*)", shell_env).group(1)
+        print("shell env int", internal_sd)
+    except AttributeError:
+        pass
+    try:
+        external_sd = re.search("(?:SECONDARY_STORAGE=)([^\\s]*)", shell_env).group(1)
+        print("shell env ext", external_sd)
+    except AttributeError:
+        pass
+    
+   
+    getprop = run_extraction_command(device, "getprop")
+    try:
+        trace_path = re.search("(?:\\[dalvik\\.vm\\.stack\\-trace\\-file\\]: \\[)([^\\]]*)", getprop).group(1).strip()
+    except AttributeError:
+        pass
+        
     if not device.is_dir(internal_sd):
-        internal_sd = re.search("(?:EXTERNAL_STORAGE=)([^\n]*)", shell_env)
-
+        try:
+            internal_sd = re.search("(?:\\[internal\\_sd\\_path\\]: \\[)([^\\]]*)", getprop).group(1)
+            print("getprop int", internal_sd)
+        except AttributeError:
+            pass
+           
     if not device.is_dir(external_sd):
-        external_sd = re.search("(?:SECONDARY_STORAGE=)([^\n]*)", shell_env)
+        try:
+            external_sd = re.search("(?:\\[external\\_sd\\_path\\]: \\[)([^\\]]*)", getprop).group(1)
+            print("getprop ext", external_sd)
+        except AttributeError:
+            pass
 
+            
+    if not device.is_dir(internal_sd):
+        guesses = ["/mnt/sdcard", "/storage/emulated/legacy"]
+        
+        for guess in guesses:
+            if device.is_dir(guess):
+                internal_sd = guess
+                break
+        
     device.info_dict["internal_sd_path"] = internal_sd
-    device.info_dict["external_sd_path"] = external_sd.group(1)
-    device.info_dict["anr_trace_path"] = trace_path.group(1)
+    device.info_dict["external_sd_path"] = external_sd
+    device.info_dict["anr_trace_path"] = trace_path
 
 
 def extract_available_commands(device):

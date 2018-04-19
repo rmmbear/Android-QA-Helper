@@ -15,7 +15,7 @@ from helper import ADB, CONFIG, VERSION, exe
 EXTRACTION_FUNCTIONS = {x[8::]:getattr(extract, x) for x in dir(extract) if x.startswith("extract_")}
 
 
-def adb_command(*args, check_server=True, stdout_=sys.stdout, **kwargs):
+def adb_command(*args, check_server=None, stdout_=sys.stdout, **kwargs):
     """Execute an ADB command.
 
     If check_server is true, function will first make sure that an ADB
@@ -117,7 +117,6 @@ class Device:
         self._init_cache = {}
 
         self.info_dict = {x:None for x in extract.INFO_KEYS}
-        self.info_dict["internal_sd_path"] = "/mnt/shell/emulated/"
 
         self.initialized = False
         self._status = status

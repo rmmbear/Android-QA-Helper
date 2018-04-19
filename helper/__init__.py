@@ -26,7 +26,7 @@ from pathlib import Path
 
 # Program metadata
 VERSION = "0.14"
-VERSION_DATE = "2018-04-12"
+VERSION_DATE = "2018-04-19"
 VERSION_STRING = "".join(["Android Helper v", VERSION, " : ", VERSION_DATE])
 COPYRIGHT_STRING = "Copyright (c) 2017 rmmbear"
 SOURCE_STRING = "Check the source code at https://github.com/rmmbear/Android-QA-Helper"
@@ -88,32 +88,6 @@ DEFAULT_CLEANER_CONFIG = """# lines starting with '#' will be ignored
 remove : /mnt/sdcard/*_screenrecord_*.mp4
 remove : /mnt/sdcard/*_anr_*.txt
 remove : /data/local/tmp/helper_*
-"""
-DEFAULT_COMPRESSION_IDENTIFIERS = """# lines starting with '#' will be ignored
-# this file lists known common texture compression types
-# you can extend it by adding a human-readable name and the
-# extension string the two must be delimited with '='
-#
-# for reference on GLES extensions, see:
-# https://www.khronos.org/registry/OpenGL/index_es.php
-#
-
-ATC = GL_AMD_compressed_ATC_texture
-ATC = GL_ATI_compressed_texture_atitc
-ATC = GL_ATI_texture_compression_atitc
-ETC1 = GL_OES_compressed_ETC1_RGB8_texture
-ETC2 = GL_OES_compressed_ETC2_RGB8_texture
-DXTC = GL_EXT_texture_compression_s3tc
-DXT1 = GL_EXT_texture_compression_dxt1
-PVRTC = GL_IMG_texture_compression_pvrtc
-PVRTC2 = GL_IMG_texture_compression_pvrtc2
-3DC = GL_AMD_compressed_3DC_texture
-LATC = GL_EXT_texture_compression_latc
-LATC = GL_NV_texture_compression_latc
-ASTC = GL_OES_texture_compression_astc
-ASTC - HDR = GL_KHR_texture_compression_astc_hdr
-ASTC - LDR = GL_KHR_texture_compression_astc_ldr
-ASTC - sliced 3D = GL_KHR_texture_compression_astc_sliced_3d
 """
 
 def _get_script_dir():
