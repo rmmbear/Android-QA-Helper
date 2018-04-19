@@ -273,7 +273,7 @@ def pull_traces(device, output=None, stdout_=sys.stdout):
     else:
         output = Path(output).resolve()
 
-    device.extract_data(limit_init=("getprop", "shell_environment"))
+    device.extract_data(limit_to=("storage", "identity"))
 
     anr_filename = "".join([device.filename, "_anr_",
                             strftime("%Y.%m.%d_%H.%M.%S"), ".txt"])
@@ -347,7 +347,7 @@ def uninstall_app(device, app, keep_data=False, stdout_=sys.stdout):
     else:
         keep_data = ""
 
-    device.extract_data(limit_init=("system_apps",), force_init=True)
+    device.extract_data(limit_to=("system_apps",), force_init=True)
     system_app = False
 
     if app_name in device.info_dict["system_apps"]:
@@ -378,7 +378,7 @@ def uninstall_app(device, app, keep_data=False, stdout_=sys.stdout):
         stdout_.write(process_log + "\n")
         return False
 
-    device.extract_data(limit_init=("thirdparty_apps",), force_init=True)
+    device.extract_data(limit_to=("third-party_apps",), force_init=True)
     if app_name in device.info_dict["third-party_apps"]:
         stdout_.write("ERROR: App could not be removed!\n")
         stdout_.write(process_log + "\n")
