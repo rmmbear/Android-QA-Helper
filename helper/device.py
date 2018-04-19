@@ -21,6 +21,15 @@ def adb_command(*args, check_server=None, stdout_=sys.stdout, **kwargs):
     If check_server is true, function will first make sure that an ADB
     server is available before executing the command.
     """
+    if check_server is None:
+        check_server = False
+        try:
+            print(kwargs)
+            if kwargs["return_output"]:
+                check_server = True
+        except KeyError:
+            pass
+    
     try:
         if check_server:
             exe(ADB, "start-server", return_output=True)
