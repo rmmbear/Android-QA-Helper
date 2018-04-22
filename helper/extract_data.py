@@ -246,17 +246,21 @@ def abi_to_arch(abi):
     return helper.ABI_TO_ARCH[abi]
 
 
-def run_extraction_command(device, source_name):
+def run_extraction_command(device, source_name, use_cache=True, keep_cache=True):
     """Run extraction command and return its output.
 
     If there is a value stored under the corresponding source name in
     device's _init_cache, that value is then returned instead.
     """
     try:
+        if not use_cache:
+            raise KeyError
+
         return device._init_cache[source_name]
     except KeyError:
         out = device.shell_command(*INFO_SOURCES[source_name], return_output=True, as_list=False)
-        device._init_cache[source_name] = out
+        if keep_cache:
+            device._init_cache[source_name] = out
         return out
 
 
@@ -500,7 +504,7 @@ def extract_available_commands(device):
     """Extract a list of available shell commands."""
     device.info_dict["shell_commands"] = []
 
-    for command in run_extraction_command(device, "available_commands").splitlines():
+    for command in run_extraction_command(device, "available_commands", use_cache=False).splitlines():
         if "permission denied" in command:
             continue
 
@@ -509,16 +513,12 @@ def extract_available_commands(device):
 
 def extract_installed_packages(device):
     """Extract a list of installed system and third-party packages."""
-    device.info_dict["third-party_apps"] = []
+    extract_system_packages(device)
+    extract_thirdparty_packages(device)
 
-    for package in run_extraction_command(device, "third-party_apps").splitlines():
-        try:
-            app = package.split("package:", maxsplit=1)[1]
-        except IndexError:
-            continue
 
-        device.info_dict["third-party_apps"].append(app.strip())
-
+def extract_system_packages(device):
+    """"""
     if device.info_dict["system_apps"]:
         # system apps can generally only be disabled, downgraded or updated
         # and do not need to be re-checked
@@ -526,10 +526,23 @@ def extract_installed_packages(device):
 
     device.info_dict["system_apps"] = []
 
-    for package in run_extraction_command(device, "system_apps").splitlines():
+    for package in run_extraction_command(device, "system_apps", use_cache=False, keep_cache=False).splitlines():
         try:
             app = package.split("package:", maxsplit=1)[1]
         except IndexError:
             continue
 
         device.info_dict["system_apps"].append(app.strip())
+
+
+def extract_thirdparty_packages(device):
+    """"""
+    device.info_dict["third-party_apps"] = []
+
+    for package in run_extraction_command(device, "third-party_apps", use_cache=False, keep_cache=False).splitlines():
+        try:
+            app = package.split("package:", maxsplit=1)[1]
+        except IndexError:
+            continue
+
+        device.info_dict["third-party_apps"].append(app.strip())
