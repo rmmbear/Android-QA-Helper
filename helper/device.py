@@ -1,6 +1,7 @@
 """"""
 import re
 import sys
+import logging
 from pathlib import Path
 #from collections import OrderedDict
 from time import sleep
@@ -11,7 +12,7 @@ import helper.extract_data as extract
 from helper import ADB, CONFIG, VERSION, exe
 
 #ADB = helper_.ADB
-
+LOGGER = logging.getLogger(__name__)
 EXTRACTION_FUNCTIONS = {x[8::]:getattr(extract, x) for x in dir(extract) if x.startswith("extract_")}
 
 
@@ -227,22 +228,20 @@ class Device:
 
     def extract_data(self, limit_to=(), force_extract=False):
         """"""
-        """
-        if limit_to:
-            extraction_commands = [EXTRACTION_FUNCTIONS[x] for x in limit_to]
-        else:
-            extraction_commands = [x for x in EXTRACTION_FUNCTIONS.values()]
-        """
         for command_id, command in EXTRACTION_FUNCTIONS.items():
-            if not force_extract and command in self._extracted_info_groups:
-                continue
-
             if limit_to:
                 if command_id not in limit_to:
                     continue
 
+            if command in self._extracted_info_groups:
+                if not force_extract:
+                    LOGGER.debug("'{}' - skipping extraction of '{}' - command already executed".format(self.name, command_id))
+                    continue
+
+            LOGGER.info("'{}' - extracting info group '{}'".format(self.name, command_id))
             command(self)
-            self._extracted_info_groups.append(command_id)
+            if command_id not in self._extracted_info_groups:
+                self._extracted_info_groups.append(command_id)
 
         self._init_cache = {}
 
@@ -457,8 +456,6 @@ class Device:
             app_name = app.app_name
         else:
             app_name = app
-
-        print(app_name)
 
         self.extract_data(limit_to=("installed_packages"))
 

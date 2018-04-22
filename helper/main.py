@@ -78,7 +78,7 @@ def install(device, *items, install_location="automatic", keep_data=False,
             return False
 
         stdout_.write("\nCopying obb files...\n")
-        device.extract_data(limit_to=("storage"))
+        device.extract_data(limit_to=["storage"])
 
         for obb_file in obb_list:
             if not push_obb(device, obb_file, apk_file.app_name, stdout_=stdout_):
@@ -97,8 +97,7 @@ def install_app(device, apk_file, install_location="automatic",
                                   "internal":"-f"}
 
     if apk_file.app_name.startswith("Unknown"):
-        stdout_.write(
-            "WARNING: This app does not appear to be a valid .apk archive\n")
+        stdout_.write("WARNING: This app does not appear to be a valid .apk archive\n")
     else:
         is_compatible = apk_file.check_compatibility(device)
         if not is_compatible[0]:
@@ -106,19 +105,16 @@ def install_app(device, apk_file, install_location="automatic",
             for reason in is_compatible[1]:
                 stdout_.write(reason + "\n")
 
-    device.extract_data(limit_to=["installed_packages"], force_extract=True)
+    device.extract_data(limit_to=["installed_packages"])
 
     if apk_file.app_name in device.info_dict["third-party_apps"]:
-        stdout_.write(" ".join(["WARNING: Different version of the app",
-                                "already installed\n"]))
+        stdout_.write(" ".join(["WARNING: Different version of the app already installed\n"]))
         if not uninstall_app(device, apk_file, keep_data, stdout_=stdout_):
             stdout_.write("ERROR: Could not uninstall the app!\n")
             return False
     elif apk_file.app_name in device.info_dict["system_apps"]:
-        stdout_.write(
-            "WARNING: This app already exists on device as a system app!\n")
-        stdout_.write(
-            "         System apps can only be upgraded to newer versions.\n")
+        stdout_.write("WARNING: This app already exists on device as a system app!\n")
+        stdout_.write("         System apps can only be upgraded to newer versions.\n")
 
     apk_filename = Path(apk_file.host_path).name
     destination = ("/data/local/tmp/helper_" + apk_filename).replace(" ", "_")
@@ -140,7 +136,8 @@ def install_app(device, apk_file, install_location="automatic",
                          destination, stdout_=stdout_)
     device.shell_command("rm", destination, stdout_=stdout_)
 
-    device.extract_data(limit_to=["installed_apps"], force_extract=True)
+
+    device.extract_data(limit_to=["installed_packages"])
 
     # TODO: detect installation failure for system apps
     if apk_file.app_name not in device.info_dict["third-party_apps"]:
@@ -273,7 +270,7 @@ def pull_traces(device, output=None, stdout_=sys.stdout):
     else:
         output = Path(output).resolve()
 
-    device.extract_data(limit_to=("storage", "identity"))
+    device.extract_data(limit_to=["storage", "identity"])
 
     anr_filename = "".join([device.filename, "_anr_",
                             strftime("%Y.%m.%d_%H.%M.%S"), ".txt"])
@@ -307,7 +304,7 @@ def clear_app_data(device, app, stdout_=sys.stdout):
         display_name = app.display_name
         app_name = app.app_name
 
-    device.extract_data(limit_to=["installed_packages"], force_extract=True)
+    device.extract_data(limit_to=["installed_packages"])
 
     stdout_.write(
         "".join(["Clearing application data: ", display_name, "... "]))
@@ -347,7 +344,7 @@ def uninstall_app(device, app, keep_data=False, stdout_=sys.stdout):
     else:
         keep_data = ""
 
-    device.extract_data(limit_to=("system_apps",), force_init=True)
+    device.extract_data(limit_to=["installed_packages"])
     system_app = False
 
     if app_name in device.info_dict["system_apps"]:
@@ -378,7 +375,7 @@ def uninstall_app(device, app, keep_data=False, stdout_=sys.stdout):
         stdout_.write(process_log + "\n")
         return False
 
-    device.extract_data(limit_to=("third-party_apps",), force_init=True)
+    device.extract_data(limit_to=["installed_packages"])
     if app_name in device.info_dict["third-party_apps"]:
         stdout_.write("ERROR: App could not be removed!\n")
         stdout_.write(process_log + "\n")
