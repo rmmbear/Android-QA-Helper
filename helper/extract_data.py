@@ -30,6 +30,16 @@ TEXTURE_COMPRESSION_IDS = {
 }
 
 
+SH_PATH_EXE = """#shell script for finding executables in PATH
+for dir in ${PATH//:/ }; do
+    for file in $dir/*; do
+        if [ -x "$file" ]; then
+            echo ${file##*/};
+        fi;
+    done;
+done;"""
+
+
 INFO_SOURCES = {
     "getprop" : ("getprop",),
     "iserial" : ("cat", "/sys/class/android_usb/android0/iSerial"),
@@ -41,7 +51,7 @@ INFO_SOURCES = {
     "meminfo" : ("cat", "/proc/meminfo"),
     "kernel_version" : ("cat", "/proc/version"),
     "shell_environment" : ("printenv",),
-    "available_commands" : ("ls", "/system/bin"),
+    "available_commands" : (SH_PATH_EXE,),
     "device_features" : ("pm", "list", "features"),
     "system_apps" : ("pm", "list", "packages", "-s"),
     "third-party_apps" : ("pm", "list", "packages", "-3"),
@@ -174,6 +184,7 @@ SURFACED_VERBOSE = [
     ("System Apps", "system_apps"),
     ("Third-Party Apps", "third-party_apps"),
     ("Shell Commands", "shell_commands"),
+    ("GLES Extensions", "gles_extensions"),
 ]
 
 INFO_KEYS = [
@@ -391,7 +402,7 @@ def extract_gpu(device):
         gles_extensions = gles_extensions.group(1).strip().split(" ")
 
         device.info_dict["gles_texture_compressions"] = []
-
+        device.info_dict["gles_extensions"] = gles_extensions
         for extension in gles_extensions:
             try:
                 device.info_dict["gles_texture_compressions"].append(
@@ -504,11 +515,8 @@ def extract_available_commands(device):
     """Extract a list of available shell commands."""
     device.info_dict["shell_commands"] = []
 
-    for command in run_extraction_command(device, "available_commands", use_cache=False).splitlines():
-        if "permission denied" in command:
-            continue
-
-        device.info_dict["shell_commands"].append(command.strip())
+    commands = run_extraction_command(device, "available_commands", use_cache=False, keep_cache=False).splitlines()
+    device.info_dict["shell_commands"] = commands
 
 
 def extract_installed_packages(device):
