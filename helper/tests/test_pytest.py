@@ -1,16 +1,20 @@
 import re
 from pathlib import Path
 
+import pytest
+
 import helper as helper_
-#import helper.device as device_
+import helper.device as device_
 #import helper.tests as tests_
 import helper.extract_data as helper_extract
-
 
 FULL_DEVICE_CONFIG = helper_.BASE + "/tests/full_config"
 COMPATIBILITY_DIR = helper_.BASE + "/tests/compatibility"
 COMPATIBILITY_OUT_DIR = helper_.BASE + "/tests/compatibility_output"
 
+
+PHYSICAL_DEVICE_REQUIRED = pytest.mark.skipif(not device_.get_devices(initialize=False), 
+                                              reason="Physical device required, none found.")
 
 class TestExtractModule:
     def verify_info_config(self, config):
@@ -141,6 +145,17 @@ class TestExtractModule:
 # TODO: rewrite everything below this comment
 
 
+class TestPhysicalDevice:
+    @PHYSICAL_DEVICE_REQUIRED
+    def test_full_init(self):
+        connected_devices = device_.get_devices()
+        
+        if not connected_devices:
+            pytest.skip("")
+        for p_device in connected_devices:
+            for key in helper_extract.INFO_KEYS:
+                print(key, ":", p_device.info_dict[key])
+                assert p_device.info_dict[key]
 
 
 """
