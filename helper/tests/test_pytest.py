@@ -1,19 +1,20 @@
 import re
 from pathlib import Path
+from time import strftime
 
 import pytest
 
 import helper as helper_
 import helper.device as device_
-#import helper.tests as tests_
-import helper.extract_data as helper_extract
+
+from helper.extract_data import INFO_KEYS, SURFACED_BRIEF, SURFACED_VERBOSE
+
+from helper.tests import DummyDevice
 
 FULL_DEVICE_CONFIG = helper_.BASE + "/tests/full_config"
-COMPATIBILITY_DIR = helper_.BASE + "/tests/compatibility"
-COMPATIBILITY_OUT_DIR = helper_.BASE + "/tests/compatibility_output"
+COMPATIBILITY_DIR = helper_.BASE + "/../compat_data"
 
-
-PHYSICAL_DEVICE_REQUIRED = pytest.mark.skipif(not device_.get_devices(initialize=False), 
+PHYSICAL_DEVICE_REQUIRED = pytest.mark.skipif(not device_.get_devices(initialize=False),
                                               reason="Physical device required, none found.")
 
 class TestExtractModule:
@@ -37,18 +38,17 @@ class TestExtractModule:
                     assert ((pair[0] and pair[1]) and
                             isinstance(pair[0], str) and isinstance(pair[1], str))
 
-                    assert pair[1] in helper_extract.INFO_KEYS
+                    assert pair[1] in INFO_KEYS
             else:
                 # each of the objects in loose (name, key) tuple is a non-empty string
                 assert (section[0] and section[1] and
                         isinstance(section[0], str) and isinstance(section[1], str))
 
-                assert section[1] in helper_extract.INFO_KEYS
+                assert section[1] in INFO_KEYS
 
 
     def test_verify_config_test(self):
         """Test validity of the config test."""
-        import pytest
         # input that is not an iterable
         bad_input = [None, 1, 1.5]
 
@@ -105,12 +105,12 @@ class TestExtractModule:
 
     def test_verify_brief_surfaced_config(self):
         """Verify that brief surfaced info config is formatted correctly and references existing info keys."""
-        self.verify_info_config(helper_extract.SURFACED_BRIEF)
+        self.verify_info_config(SURFACED_BRIEF)
 
 
     def test_verify_verbose_surfaced_config(self):
         """Verify that verbose surfaced info config is formatted correctly and references existing info keys."""
-        self.verify_info_config(helper_extract.SURFACED_VERBOSE)
+        self.verify_info_config(SURFACED_VERBOSE)
 
 
     def test_reference_existing_keys_only(self):
@@ -125,7 +125,7 @@ class TestExtractModule:
         info_keys = re.findall("(?:device\\.info\\_dict\\[\\\")([^\\]\\\"]*)", extraction_code)
 
         for key in info_keys:
-            assert key in helper_extract.INFO_KEYS
+            assert key in INFO_KEYS
 
 
     def test_reference_existing_keys_only_main(self):
@@ -140,7 +140,7 @@ class TestExtractModule:
         info_keys = re.findall("(?:device\\.info\\_dict\\[\\\")([^\\]\\\"]*)", extraction_code)
 
         for key in info_keys:
-            assert key in helper_extract.INFO_KEYS
+            assert key in INFO_KEYS
 
 # TODO: rewrite everything below this comment
 
@@ -149,15 +149,95 @@ class TestPhysicalDevice:
     @PHYSICAL_DEVICE_REQUIRED
     def test_full_init(self):
         connected_devices = device_.get_devices()
-        
+
         if not connected_devices:
             pytest.skip("")
+        found_bad = False
         for p_device in connected_devices:
-            for key in helper_extract.INFO_KEYS:
-                print(key, ":", p_device.info_dict[key])
-                assert p_device.info_dict[key]
+            for key in INFO_KEYS:
+                if not p_device.info_dict[key]:
+                    found_bad = True
+                    print(key, ":", [p_device.info_dict[key]])
+        assert not found_bad
 
 
+class TestDummyDevice:
+    def test_full_init(self):
+        """Test device initialization from dumped data.
+        """
+        indent = 4
+        dummy_count = 0
+
+        device_list = {}
+
+        for device_dir in Path(COMPATIBILITY_DIR).iterdir():
+            print("-----")
+            print(device_dir.name)
+            if not device_dir.is_dir():
+                continue
+            dummy_count += 1
+            device_dummy = DummyDevice(device_dir, "dummy_{}".format(dummy_count))
+            device_dummy._status = "device"
+            device_dummy.load_dummy_data(skip_errors=True)
+            device_dummy.extract_data()
+
+            print(device_dummy.name)
+
+            current_time = strftime("%Y.%m.%d-%H.%M.%S")
+            with (device_dir / "__DUMMY_INFO_DUMP_{}".format(current_time)).open(mode="w", encoding="utf-8") as info_out:
+                info_out.write(device_dummy.full_info_string(initialize=False))
+
+            unexpected_keys = []
+            empty_keys = []
+
+            with (device_dir / "__DUMMY_INFO_DICT_{}".format(current_time)).open(mode="w", encoding="utf-8") as info_dict_out:
+                longest_key = 0
+                for key in device_dummy.info_dict:
+                    if len(key) > longest_key:
+                        longest_key = len(key)
+
+                line_template = "".join(["{:", str(longest_key), "} : {}"])
+
+                for key in sorted(device_dummy.info_dict.keys()):
+                    val = device_dummy.info_dict[key]
+                    if not val:
+                        empty_keys.append(key)
+                    if key not in INFO_KEYS:
+                        unexpected_keys.append(key)
+
+                    info_dict_out.write(line_template.format(key, [val]))
+                    info_dict_out.write("\n")
+
+
+            missing_keys = []
+
+            for key in INFO_KEYS:
+                if key not in device_dummy.info_dict:
+                    missing_keys.append(key)
+
+            if empty_keys:
+                print("Keys did not have values assigned:")
+                for key in empty_keys:
+                    print(" "*indent, key)
+            if unexpected_keys:
+                print("Keys were not expected:")
+                for key in unexpected_keys:
+                    print(" "*indent, key)
+            if missing_keys:
+                print("Keys from INFO_KEYS were not found:")
+                for key in missing_keys:
+                    print(" "*indent, key)
+
+            device_list[device_dir.name] = {}
+            device_list[device_dir.name]["unexpected"] = unexpected_keys
+            device_list[device_dir.name]["empty"] = empty_keys
+            device_list[device_dir.name]["missing"] = missing_keys
+            print("/////")
+
+        for device in device_list:
+            assert bool(not device_list[device]["unexpected"])
+            assert bool(not device_list[device]["missing"])
+            assert bool(not device_list[device]["empty"])
 """
 class TestDeviceInit:
     def test_full(self, config_dir=FULL_DEVICE_CONFIG, write_output=None,
