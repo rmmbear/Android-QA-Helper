@@ -19,6 +19,7 @@ class DummyDevice(device_.Device):
         self.config_dir = config_dir
         self._dummy_count += 1
         self._loaded_dummy_data = False
+        self.ignore_load_errors = True
 
         # avoid triggering automatic data extraction
         if len(args) > 1:
@@ -47,9 +48,9 @@ class DummyDevice(device_.Device):
             return self._name
 
         if "identity" not in self._extracted_info_groups:
-            return "Dummy{} - Unknown device ({})".format(self._dummy_count, self.serial)
+            return "Dummy_{} - Unknown device ({})".format(self._dummy_count, self.serial)
 
-        self._name = "".join(["Dummy", str(self._dummy_count),
+        self._name = "".join(["Dummy_", str(self._dummy_count), " ",
                               self.info_dict["device_manufacturer"], " - ",
                               self.info_dict["device_model"], " (", self.serial,
                               ")"])
@@ -89,26 +90,45 @@ class DummyDevice(device_.Device):
 
 
     def load_dummy_data(self, config_dir=None):
+        """Load dump data into _init_cache.
+        Data in the cache is used for data extraction functions.
+        """
         if not config_dir:
             config_dir = self.config_dir
 
         for source_name in INFO_SOURCES:
-            with (Path(config_dir) / source_name).open(mode="r", encoding="utf-8") as dummy_data:
-                self._init_cache[source_name] = dummy_data.read()
+            try:
+                with (Path(config_dir) / source_name).open(mode="r", encoding="utf-8") as dummy_data:
+                    self._init_cache[source_name] = dummy_data.read()
+            except FileNotFoundError:
+                if self.ignore_load_errors:
+                    #print("WARNING: ", Path(config_dir) / source_name)
+                    #print("Could not open the file")
+                    pass
+                else:
+                    raise
 
 
     def extract_data(self, limit_to=(), force_extract=False):
-        """"""
+        """Extracting data with a dummy will result in loading all
+        dump data, no matter what is specified in limit_to.
+        """
         for command_id, command in EXTRACTION_FUNCTIONS.items():
-            if not force_extract and command in self._extracted_info_groups:
-                continue
-
             if limit_to:
                 if command_id not in limit_to:
                     continue
 
+            if command in self._extracted_info_groups:
+                if not force_extract:
+            #        LOGGER.debug("'{}' - skipping extraction of '{}' - command already executed".format(self.name, command_id))
+                    continue
+
+            #LOGGER.info("'{}' - extracting info group '{}'".format(self.name, command_id))
             command(self)
-            self._extracted_info_groups.append(command_id)
+            if command_id not in self._extracted_info_groups:
+                self._extracted_info_groups.append(command_id)
+
+        #self._init_cache = {}
 
 
 
@@ -123,7 +143,7 @@ def get_nonexistent_path():
             return str(nonexistent_path.resolve())
 
 
-def dump_devices(device, directory="."):
+def dump_device(device, directory="."):
     """Dump device data to files.
     What is dumped is controlled by extract_data's INFO_SOURCES.
     This data is meant to be loaded into DummyDevice for debugging and compatibility tests.
