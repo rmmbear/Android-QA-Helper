@@ -5,6 +5,8 @@ Other modules expect that all extraction functions' names start with 'extract_'
 import re
 import helper
 
+
+
 # source: https://www.khronos.org/registry/OpenGL/index_es.php
 # last updated: 2018.01.06
 TEXTURE_COMPRESSION_IDS = {
@@ -263,12 +265,16 @@ def run_extraction_command(device, source_name, use_cache=True, keep_cache=True)
     If there is a value stored under the corresponding source name in
     device's _init_cache, that value is then returned instead.
     """
+    from helper.device import Device
     try:
         if not use_cache:
             raise KeyError
 
         return device._init_cache[source_name]
     except KeyError:
+        if not isinstance(device, Device):
+            return ""
+
         out = device.shell_command(*INFO_SOURCES[source_name], return_output=True, as_list=False)
         if keep_cache:
             device._init_cache[source_name] = out
@@ -287,6 +293,7 @@ def extract_identity(device):
         ("device_name", "(?:\\[ro\\.product\\.name\\]: \\[)([^\\]]*)"),
         ("device_brand", "(?:\\[ro\\.product\\.brand\\]: \\[)([^\\]]*)"),
     ]
+    # Sony devices specify human-readable model name in prop key [ro.semc.product.name]
 
     for name, re_string in getprop_keys:
         value = re.search(re_string, getprop)
@@ -318,16 +325,22 @@ def extract_os(device):
     device.info_dict["kernel_version"] = kernel_version
 
     # check for aftermarket firmware
-    fire_os = re.search("(?:\\[ro\\.build\\.mktg\\.fireos\\]: \\[)([^\\]]*)", getprop)
-    if fire_os:
-        device.info_dict["aftermarket_firmware"] = "FireOS"
-        device.info_dict["aftermarket_firmware_version"] = fire_os
+    aftermarket_firmware_dict = {"FireOS":"(?:\\[ro\\.build\\.mktg\\.fireos\\]: \\[)([^\\]]*)"}
+    device.info_dict["aftermarket_firmware"] = "-none-"
+    device.info_dict["aftermarket_firmware_version"] = "-none-"
+    for os_name, re_string in aftermarket_firmware_dict.items():
+        try:
+            aftermarket_firmware = re.search(re_string, getprop).group(0)
+            device.info_dict["aftermarket_firmware"] = os_name
+            device.info_dict["aftermarket_firmware_version"] = aftermarket_firmware
+
+        except AttributeError:
+            pass
 
 
 def extract_chipset(device):
     """"""
     getprop = run_extraction_command(device, "getprop")
-
     meminfo = run_extraction_command(device, "meminfo")
     ram = re.search("(?:MemTotal\\:\\s*)([^A-z\\ ]*)", meminfo)
     if ram:
@@ -358,21 +371,21 @@ def extract_chipset(device):
     device.info_dict["cpu_abis"] = list(abilist)
 
     cpuinfo = run_extraction_command(device, "cpuinfo")
-    board = re.search("(?:\\[ro\\.board\\.platform\\]: \\[)([^\\]]*)", getprop)
-    if not board:
-        for re_ in ["(?:Hardware\\s*?\\:)([^\n\r]*)",
-                    "(?:model\\ name\\s*?\\:)([^\n\r]*)",
-                    "(?:Processor\\s*?\\:)([^\n\r]*)"]:
-            board = re.search(re_, cpuinfo)
-            if board:
-                break
+
+    #board = re.search("(?:\\[ro\\.board\\.platform\\]: \\[)([^\\]]*)", getprop)
+    for re_ in ["(?:Hardware\\s*?\\:)([^\\n\\r]*)",
+                "(?:model\\ name\\s*?\\:)([^\\n\\r]*)",
+                #"(?:Processor\\s*?\\:)([^\\n\\r]*)"
+               ]:
+        board = re.search(re_, cpuinfo)
+        if board:
+            board = board.group(1).strip()
+            break
 
     cpu_features = re.search("(?:Features\\s*?\\:)([^\\n\\r]*)", cpuinfo)
     if cpu_features:
         cpu_features = [x.strip() for x in cpu_features.group(1).split()]
 
-    if board:
-        board = board.group(1).strip()
     device.info_dict["board"] = board
     device.info_dict["cpu_features"] = cpu_features
     device.info_dict["cpu_architecture"] = cpu_arch
@@ -394,7 +407,7 @@ def extract_gpu(device):
     gpu_line = re.search("(?:GLES\\:)([^\n\r]*)", dumpsys)
 
     if gpu_line:
-        gpu_vendor, gpu_model, gles_version = gpu_line.group(1).strip().split(",")
+        gpu_vendor, gpu_model, gles_version = gpu_line.group(1).strip().split(",", 2)
 
     gles_extensions = re.search("(?:GLES\\:[^\\r\\n]*)(?:\\s*)([^\\r\\n]*)", dumpsys)
 
