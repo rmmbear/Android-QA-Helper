@@ -14,10 +14,8 @@ EXTRACTION_FUNCTIONS = {x[8::]:getattr(extract_data, x) for x in dir(extract_dat
 
 
 class DummyDevice(device_.Device):
-    _dummy_count = 0
     def __init__(self, config_dir, *args, **kwargs):
         self.config_dir = config_dir
-        self._dummy_count += 1
         self._loaded_dummy_data = False
         self.ignore_load_errors = True
 
@@ -48,10 +46,9 @@ class DummyDevice(device_.Device):
             return self._name
 
         if "identity" not in self._extracted_info_groups:
-            return "Dummy_{} - Unknown device ({})".format(self._dummy_count, self.serial)
+            return "Unknown device ({})".format(self._dummy_count, self.serial)
 
-        self._name = "".join(["Dummy_", str(self._dummy_count), " ",
-                              self.info_dict["device_manufacturer"], " - ",
+        self._name = "".join([self.info_dict["device_manufacturer"], " - ",
                               self.info_dict["device_model"], " (", self.serial,
                               ")"])
         return self._name

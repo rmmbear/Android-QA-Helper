@@ -178,7 +178,7 @@ class TestDummyDevice:
             dummy_count += 1
             device_dummy = DummyDevice(device_dir, "dummy_{}".format(dummy_count))
             device_dummy._status = "device"
-            device_dummy.load_dummy_data(skip_errors=True)
+            device_dummy.load_dummy_data()
             device_dummy.extract_data()
 
             print(device_dummy.name)
@@ -216,15 +216,15 @@ class TestDummyDevice:
                     missing_keys.append(key)
 
             if empty_keys:
-                print("Keys did not have values assigned:")
+                print("Keys did not have values assigned ({}):".format(len(empty_keys)))
                 for key in empty_keys:
                     print(" "*indent, key)
             if unexpected_keys:
-                print("Keys were not expected:")
+                print("Keys were not expected ({}):".format(len(unexpected_keys)))
                 for key in unexpected_keys:
                     print(" "*indent, key)
             if missing_keys:
-                print("Keys from INFO_KEYS were not found:")
+                print("Keys from INFO_KEYS were not found ({}):".format(len(missing_keys)))
                 for key in missing_keys:
                     print(" "*indent, key)
 
