@@ -5,8 +5,6 @@ Other modules expect that all extraction functions' names start with 'extract_'
 import re
 import helper
 
-
-
 # source: https://www.khronos.org/registry/OpenGL/index_es.php
 # last updated: 2018.01.06
 TEXTURE_COMPRESSION_IDS = {
@@ -59,6 +57,9 @@ INFO_SOURCES = {
     "third-party_apps" : ("pm", "list", "packages", "-3"),
     "screen_size" : ("wm", "size"),
     "screen_density" : ("wm", "density"),
+    "internal_sd_space" : ("df", "\"$EXTERNAL_STORAGE\""),
+    "external_sd_space" : ("df", "\"$SECONDARY_STORAGE\""),
+    "disk_space" : ("df",),                         #debug
     "build.prop" : ("cat", "/system/build.prop"),   #debug
     "dumpsys_full" : ("dumpsys",),                  #debug
     "directory_map" : ("ls", "-alR"),               #debug
@@ -512,7 +513,7 @@ def extract_storage(device):
 
 
     if not device.is_dir(internal_sd):
-        guesses = ["/mnt/sdcard", "/storage/emulated/legacy"]
+        guesses = ["/mnt/sdcard", "/storage/emulated/legacy", "/mnt/shell/emulated/0"]
 
         for guess in guesses:
             if device.is_dir(guess):
@@ -522,6 +523,29 @@ def extract_storage(device):
     device.info_dict["internal_sd_path"] = internal_sd
     device.info_dict["external_sd_path"] = external_sd
     device.info_dict["anr_trace_path"] = trace_path
+
+    #df_output = run_extraction_command(device, "disk_space")
+    #fs_dict = {filesystem : {"size":size, "used" : used, "free" : free, "blksize" : blksize} for filesystem, size, used, free, blksize in [line.split(maxsplit=4) for line in df_output.splitlines() if "permission denied" not in line.lower()]}
+    #
+    external_sd_space = run_extraction_command(device, "external_sd_space")
+    if "no such file or directory" in external_sd_space.lower() or \
+       "permission denied" in external_sd_space:
+        filesystem, size, used, free, blksize = ["Unavailable" for x in range(5)]
+    else:
+        filesystem, size, used, free, blksize = external_sd_space.strip().splitlines()[1].split(maxsplit=4)
+
+    device.info_dict["external_sd_capacity"] = size
+    device.info_dict["external_sd_free"] = free
+
+    internal_sd_space = run_extraction_command(device, "internal_sd_space")
+    if "no such file or directory" in internal_sd_space.lower() or \
+       "permission denied" in internal_sd_space:
+        filesystem, size, used, free, blksize = ["Unavailable" for x in range(5)]
+    else:
+        filesystem, size, used, free, blksize = internal_sd_space.strip().splitlines()[1].split(maxsplit=4)
+
+    device.info_dict["internal_sd_capacity"] = size
+    device.info_dict["internal_sd_free"] = free
 
 
 def extract_available_commands(device):
