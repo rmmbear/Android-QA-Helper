@@ -278,10 +278,10 @@ def debug_dump(device, args):
           "contain sensitive data. Use caution.")
     input("Press enter to continue")
 
-    from helper.tests import dump_devices
+    from helper.tests import dump_device
 
     device.extract_data()
-    dump_devices(device, args.output)
+    dump_device(device, args.output)
 
 
 REGULAR_COMMANDS = {"traces":pull_traces, "t":pull_traces,
