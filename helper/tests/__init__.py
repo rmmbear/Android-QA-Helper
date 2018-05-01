@@ -3,17 +3,15 @@ import random
 import string
 from pathlib import Path
 
-import helper.main as main_
-import helper.device as device_
-
-from helper.extract_data import INFO_SOURCES
-from helper.device import DeviceOfflineError
-
 from helper import extract_data
+from helper.extract_data import INFO_SOURCES
+from helper.device import DeviceOfflineError, Device
+
+
 EXTRACTION_FUNCTIONS = {x[8::]:getattr(extract_data, x) for x in dir(extract_data) if x.startswith("extract_")}
 
 
-class DummyDevice(device_.Device):
+class DummyDevice(Device):
     def __init__(self, config_dir, *args, **kwargs):
         self.config_dir = config_dir
         self._loaded_dummy_data = False
@@ -46,7 +44,7 @@ class DummyDevice(device_.Device):
             return self._name
 
         if "identity" not in self._extracted_info_groups:
-            return "Unknown device ({})".format(self._dummy_count, self.serial)
+            return "Unknown device ({})".format(self.serial)
 
         self._name = "".join([self.info_dict["device_manufacturer"], " - ",
                               self.info_dict["device_model"], " (", self.serial,
@@ -126,7 +124,6 @@ class DummyDevice(device_.Device):
                 self._extracted_info_groups.append(command_id)
 
         #self._init_cache = {}
-
 
 
 def get_nonexistent_path():
