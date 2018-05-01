@@ -1,5 +1,5 @@
 #   Android QA Helper - helping you test Android apps!
-#   Copyright (C) 2017 rmmbear
+#   Copyright (C) 2017-2018 rmmbear
 #
 #   This program is free software: you can redistribute it and/or modify
 #   it under the terms of the GNU General Public License as published by
@@ -28,9 +28,9 @@ LOGGER = logging.getLogger(__name__)
 
 # Program metadata
 VERSION = "0.14"
-VERSION_DATE = "2018-04-30"
+VERSION_DATE = "2018-05-01"
 VERSION_STRING = "".join(["Android Helper v", VERSION, " : ", VERSION_DATE])
-COPYRIGHT_STRING = "Copyright (c) 2017 rmmbear"
+COPYRIGHT_STRING = "Copyright (c) 2017-2018 rmmbear"
 SOURCE_STRING = "Check the source code at https://github.com/rmmbear/Android-QA-Helper"
 
 # Global config variables
@@ -133,7 +133,7 @@ def exe(executable, *args, return_output=False, as_list=True,
             # overhead. This could, although unlikely, result in mangled output
             # soo... figure out what to do here
             if sys.platform == "win32" and executable == ADB:
-                cmd_out = cmd_out.replace("\r\r\n", "\r\n")
+                cmd_out = cmd_out.replace("\r\r\n", "\n")
 
             if as_list:
                 return cmd_out.splitlines()
