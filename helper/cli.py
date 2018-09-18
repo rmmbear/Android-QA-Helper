@@ -1,5 +1,6 @@
 """"""
 import sys
+import logging
 from pathlib import Path
 from argparse import ArgumentParser
 
@@ -7,6 +8,7 @@ import helper as helper_
 import helper.main as main_
 import helper.device as device_
 
+LOGGER = logging.getLogger(__name__)
 
 HELPER_CLI_DESC = helper_.VERSION_STRING
 
@@ -117,24 +119,24 @@ CMD = COMMANDS.add_parser("scan", aliases="s", help=HELP_SCAN,
                           epilog=HELP_SCAN_DETAIL)
 
 
-HELP_DSCAN = """Show status and detailed information of connected devices."""
-HELP_DSCAN_DETAIL = """Detailed scan displays all info from normal scan as well as
-amount of available RAM, version of the OS and basic specifications of the GPU,
-CPU and display."""
-CMD = COMMANDS.add_parser("detailed-scan", parents=[OPT_DEV, OPT_OUT],
-                          aliases=["ds"], help=HELP_DSCAN,
-                          epilog=HELP_DSCAN_DETAIL)
+#HELP_DSCAN = """Show status and detailed information of connected devices."""
+#HELP_DSCAN_DETAIL = """Detailed scan displays all info from normal scan as well as
+#amount of available RAM, version of the OS and basic specifications of the GPU,
+#CPU and display."""
+#CMD = COMMANDS.add_parser("detailed-scan", parents=[OPT_DEV, OPT_OUT],
+#                          aliases=["ds"], help=HELP_DSCAN,
+#                          epilog=HELP_DSCAN_DETAIL)
 
 # TODO: Write a more detailed description of the dump function
 # It's pretty straightforward, so I don't know if there's anything else
 # worth mentioning?
 HELP_DUMP = """Dump all available device information to file."""
-CMD = COMMANDS.add_parser("dump", parents=[OPT_DEV, OPT_OUT],
+CMD = COMMANDS.add_parser("dump", aliases=["d"], parents=[OPT_DEV, OPT_OUT],
                           help=HELP_DUMP, epilog=HELP_DUMP)
 
 ### Hidden commands
 COMMANDS.add_parser("gui")
-COMMANDS.add_parser("debug-dump", parents=[OPT_OUT])
+COMMANDS.add_parser("debug-dump", parents=[OPT_DEV, OPT_OUT])
 
 # Example of caring too much about aesthetics
 for group in  PARSER._action_groups:
@@ -146,13 +148,10 @@ PARSER_NO_ARGS = PARSER.parse_args([])
 
 def pick_device():
     """Ask the user to pick a device from list of currently connected
-    devices. If there are no devices to choose from, it will return the
-    sole connected device or None, if there are no devices at all.
+    devices. If only one is available, it will be chosen automatically.
+    None is returned if there aren't any devices.
     """
-    # TODO: fix pick_devices()
-    raise NotImplementedError
-    #device_list = get_devices(stdout_, initialize, limit_init)
-    device_list = []
+    device_list = device_.get_devices(limit_init=["identity"])
     if not device_list:
         return None
 
@@ -164,9 +163,9 @@ def pick_device():
         print("Please choose which of devices below you want to work with.\n")
         for counter, device in enumerate(device_list):
             print(" ".join([counter, ":"]))
-            print(device.basic_info_string())
+            print(device.name)
 
-        print("Enter your choice: ")
+        print("Pick a device: ")
         user_choice = input().strip()
         if not user_choice.isnumeric():
             print("The answer must be a number!\n")
@@ -194,7 +193,7 @@ def install(device, args):
         if not Path(filepath).is_file():
             print("ERROR: Provided path does not point to an existing file:")
             print(filepath)
-            return False
+            return
 
     main_.install(device, *args.install, install_location=args.location,
                   keep_data=args.keep_data, installer_name=args.installer_name)
@@ -219,35 +218,54 @@ def extract_apk(device, args):
 
 
 def clean(device, args):
-    """Remove device as set in cleaner config. Batch command"""
+    """"""
     config_file = args.clean
     if not Path(config_file).is_file():
         print("Provided path does not point to an existing config file:")
         print(config_file)
-        return False
+        return
 
     main_.clean(device, config_file)
 
 
-def scan_connected(device, args):
+def scan(device, args):
     """"""
-    format_str = "{:13}{:15}{:10}{}"
-    device.extract_data(limit_to=["identity"])
-    print(format_str.format(
-        device.serial, device.info_dict["device_manufacturer"],
-        device.info_dict["device_model"], device._status))
+    format_str = "{:4}{:13}{:14}{:10}{}"
+    #             #    serial, manufacturer, model, status
+    #TODO: automatically change format string based on what's connected
+    #      the end result should be a table that automatically adjusts
+    #      column width to its contents
+    headers = ["#", "serial num", "manufacturer", "model", "status"]
+    device_list = []
+    device_ids = {x:y for x, y in device_._get_devices()}
+
+    if device:
+        device_list = [device]
+        device_ids = []
+    else:
+        device_list = device_.get_devices(True, ["identity"])
+
+    print(format_str.format(*headers))
+    if not device_ids:
+        print(format_str.format(*(5*"None")))
+        return
+
+    for count, device in enumerate(device_list):
+        try:
+            device_ids.pop(device.serial)
+        except ValueError:
+            print("Tried removing {} from {}".format(device.serial, device_ids))
+
+        print(format_str.format("{}.".format(count),
+                                device.serial,
+                                device.info_dict["device_manufacturer"],
+                                device.info_dict["device_model"],
+                                device._status))
 
 
-def scan_other():
-    """"""
-    other_devices = device_._get_devices()
-    for device in other_devices:
-        if device[1] == "device":
-            other_devices.remove(device)
-
-    if other_devices:
+    if device_ids:
         print("The following devices could not be initialized:")
-        for serial, status in other_devices:
+        for serial, status in device_ids:
             print(serial, ":", status)
         print()
 
@@ -256,21 +274,15 @@ def detailed_scan(device, args):
     """"""
     device.extract_data(limit_to=["identity"])
     print("Collecting info from", device.name, "...")
-    print(device.full_info_string())
-    print()
 
-
-def dump(device, args):
-    device.extract_data(limit_to=["identity"])
-    print("Preparing report for", device.name, "...")
-
-    device.extract_data()
-    filename = "".join([device.filename, "_REPORT"])
-    with (Path(args.output) / filename).open(mode="w") as device_report:
-        device_report.write(device.full_info_string())
-
-    print("Report saved to", str((Path(args.output) / filename).resolve()))
-    print()
+    info_string = device.full_info_string()
+    if args.output:
+        filename = "".join([device.filename, "_REPORT"])
+        with (Path(args.output) / filename).open(mode="w") as device_report:
+            device_report.write(info_string)
+        print("Report saved to", str((Path(args.output) / filename).resolve()))
+    else:
+        print(info_string)
 
 
 def debug_dump(device, args):
@@ -280,7 +292,6 @@ def debug_dump(device, args):
 
     from helper.tests import dump_device
 
-    device.extract_data()
     dump_device(device, args.output)
 
 
@@ -290,21 +301,24 @@ REGULAR_COMMANDS = {"traces":pull_traces, "t":pull_traces,
                     "extract-apk":extract_apk, "x":extract_apk,}
 
 BATCH_COMMANDS = {"clean":clean, "c":clean,
-                  "dump":dump, "d":dump,
-                  "scan":scan_connected, "s":scan_connected,
+                  "dump":detailed_scan, "d":detailed_scan,
+                  "scan":scan, "s":scan,
                   "detailed-scan":detailed_scan, "ds":detailed_scan,
                   "debug-dump":debug_dump}
 
 
 def main(args=None):
     """Parse and execute input commands."""
+    LOGGER.info("Starting parsing arguments")
     args = PARSER.parse_args(args)
+    chosen_device = None
 
     if args == PARSER_NO_ARGS:
         PARSER.parse_args(["-h"])
         return False
 
     if args.command == "gui":
+        LOGGER.info("Launching GUI")
         from helper.GUI import helper_gui
         sys.exit(helper_gui.main())
 
@@ -316,37 +330,35 @@ def main(args=None):
     if args.command not in BATCH_COMMANDS and args.command not in REGULAR_COMMANDS:
         raise NotImplementedError("The '{}' function is not yet implemented".format(args.command))
 
-    using_batch_commands = args.command not in REGULAR_COMMANDS
-    if not args.command in ("scan", "s"):
-        print("Waiting for any device to come online...")
-        device_.adb_command('wait-for-device')
+    if args.command in ("scan", "s"):
+        LOGGER.info("Scanning for devices")
+        BATCH_COMMANDS[args.command](chosen_device, args)
+        return
 
-    chosen_device = None
+    using_batch_commands = args.command in BATCH_COMMANDS
+
+    #TODO: Implement a timeout
+    print("Waiting for any device to come online...")
+    device_.adb_command('wait-for-device')
+
     connected_devices = device_.get_devices(initialize=False)
+    connected_serials = {device.serial:device for device in connected_devices}
 
-    try:
+
+    if hasattr(args, "device"):
         if args.device:
-            for device in connected_devices:
-                if device.serial == args.device:
-                    chosen_device = device
-
-            if not chosen_device:
-                print("Device with serial number", str(args.device),
-                      "was not found by Helper!")
+            LOGGER.debug("Chosen device set to '%'" % args.device)
+            try:
+                chosen_device = connected_serials[args.device]
+            except KeyError:
+                print("Device with serial number", str(args.device), "was not found by Helper!")
                 return
-    except AttributeError:
-        # Target device cannot be specified in the used command, ignore
-        pass
+
+    LOGGER.info("Starting helper with option '%s'" % args.command)
 
     if not using_batch_commands:
         if not chosen_device:
-            if len(connected_devices) == 1:
-                chosen_device = connected_devices[0]
-            else:
-                print("This command cannot be carried out with multiple devices",
-                      "- please specify a serial number with '-d' or disconnect",
-                      "unused devices.")
-                return
+            chosen_device = pick_device()
 
         try:
             return REGULAR_COMMANDS[args.command](chosen_device, args)
@@ -356,10 +368,6 @@ def main(args=None):
 
     # TODO: figure out how to better enable process continuation in batch commands after disconnect error
     # preferably without checking for specific input here
-    if args.command in ("scan", "s"):
-        format_str = "{:13}{:15}{:10}{}"
-        print(format_str.format("Serial", "Manufacturer", "Model", "Status"))
-
     if chosen_device:
         connected_devices = [chosen_device]
 
@@ -368,8 +376,3 @@ def main(args=None):
             BATCH_COMMANDS[args.command](device, args)
         except device_.DeviceOfflineError:
             print("Device", device.name, "has been suddenly disconnected!")
-
-    if args.command in ("scan", "detailed-scan", "s", "ds"):
-        scan_other()
-
-# TODO: add commands for setting various config values
