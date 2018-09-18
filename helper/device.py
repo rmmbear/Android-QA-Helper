@@ -4,7 +4,7 @@ import sys
 import logging
 from pathlib import Path
 #from collections import OrderedDict
-from time import sleep
+from time import sleep, strftime
 
 #import helper as helper_
 import helper.apk as apk_
@@ -14,6 +14,39 @@ from helper import ADB, CONFIG, VERSION, exe
 #ADB = helper_.ADB
 LOGGER = logging.getLogger(__name__)
 EXTRACTION_FUNCTIONS = {x[8::]:getattr(extract, x) for x in dir(extract) if x.startswith("extract_")}
+
+SH_FILE_TEST = """
+if [ -e "{}" ]; then
+    echo -n 1;
+    if [ -L "{}" ]; then
+        echo -n 1;
+    else echo -n 0;
+    fi;
+    if [ -r "{}" ]; then
+        echo -n 1;
+    else echo -n 0;
+    fi;
+    if [ -w "{}" ]; then
+        echo -n 1;
+    else echo -n 0;
+    fi;
+    if [ -x "{}" ]; then
+        echo -n 1;
+    else echo -n 0;
+    fi;
+    if [ -{} "{}" ]; then
+        echo -n 1;
+    else echo -n 0;
+    fi;
+else echo -n 000000;
+fi
+""".strip().replace("\n", "")
+
+SH_ECHO_GLOB = """
+for path in {}; do
+    echo -n $path\\;;
+done
+""".strip().replace("\n", "")
 
 
 def adb_command(*args, check_server=None, stdout_=sys.stdout, **kwargs):
@@ -175,8 +208,8 @@ class Device:
             return "Unknown device ({})".format(self.serial)
 
         self._name = "".join([self.info_dict["device_manufacturer"], " - ",
-                              self.info_dict["device_model"], " (", self.serial,
-                              ")"])
+                              self.info_dict["device_model"], self.serial,
+                             ])
         return self._name
 
 
@@ -186,8 +219,9 @@ class Device:
         if self._filename:
             return self._filename
 
-        unwanted_chars = '*)(/\\:|<&;"%?># '
-        filename = "".join([x if x not in unwanted_chars else "_" for x in self.name])
+        keep = [';', '$', '%', '=', '^', ']', '{', "'", '.', ',', '}', '+',
+                '#', '&', '-', '~', '!', '_', '`', '[', '@', '']
+        filename = "".join([x if x.isalnum() or x in keep else "_" for x in self.name])
         self._filename = filename
 
         return self._filename
@@ -206,28 +240,10 @@ class Device:
 
         return self._status
 
-    """
-    def info(self, index1, index2=None, nonexistent_ok=False):
-        """"""Fetch the string value for the given info variable.""""""
-        try:
-            info_container = self._info[index1]
-            if not index2:
-                if isinstance(info_container, list):
-                    return "\n".join(info_container)
-
-                return info_container
-
-            info_container = info_container[index2]
-            return ", ".join(info_container)
-        except KeyError:
-            if nonexistent_ok:
-                return "Unavailable"
-            else:
-                raise
-    """
 
     def extract_data(self, limit_to=(), force_extract=False):
         """"""
+        LOGGER.info("starting data extraction")
         for command_id, command in EXTRACTION_FUNCTIONS.items():
             if limit_to:
                 if command_id not in limit_to:
@@ -235,10 +251,10 @@ class Device:
 
             if command in self._extracted_info_groups:
                 if not force_extract:
-                    LOGGER.debug("'{}' - skipping extraction of '{}' - command already executed".format(self.name, command_id))
+                    LOGGER.info("'%s' - skipping extraction of '%s' - command already executed", self.name, command_id)
                     continue
 
-            LOGGER.info("'{}' - extracting info group '{}'".format(self.name, command_id))
+            LOGGER.info("'%s' - extracting info group '%s'", self.name, command_id)
             command(self)
             if command_id not in self._extracted_info_groups:
                 self._extracted_info_groups.append(command_id)
@@ -254,65 +270,67 @@ class Device:
 
         You can check for read, write and execute acccess by
         setting the respective check_* arguments to True. Function will
-        return True only if all specified permissions are available and
-        if the file is of specified type.
+        return True only if all queried permissions are available and
+        if the file is of given type.
 
         Symbolic links are accepted by default.
         None of the permissions are tested by default.
+
+        Return values:
+         1 file meets criteria
+         0 file does not exist
+        -1 wrong type
+        -2 symlink
+        -3 missing read permissions
+        -4 missing write permissions
+        -5 missing execute permissions
+        Negative status is returned as soon as a failed test is
+        encountered (so if all permissions are missing, only the
+        first missing permission will be reported).
         """
+        if len(file_type) != 1:
+            raise ValueError("Only one test can be carried out at a time (see the 'conditional expressions' section of the bash manual for possible tests)")
+
         if not file_path:
             file_path = "."
 
-        permissions = ""
-        if check_read:
-            permissions += "r"
-        if check_write:
-            permissions += "w"
-        if check_execute:
-            permissions += "x"
+        #outputs a 6 character-long string describing the file
+        #sample output: 101011 = exists, not symlink, read and execute permissions granted, passed custom test (file_type)
 
-        # TODO: Make starred paths work somehow
+        test = SH_FILE_TEST.format(*[file_path for x in range(5)], file_type, file_path)
 
-        # check if the file exists
-        exists = self.shell_command(
-            'if [ -e "{}" ];'.format(file_path), "then echo 1;",
-            "else echo 0;", "fi", return_output=True, as_list=False).strip()
-        exists = bool(int(exists))
-        if not exists:
+        file_status = self.shell_command(test, return_output=True, as_list=False).strip()
+
+        LOGGER.debug("file %s was tested, received: elrwxt %s", file_path, file_status)
+
+        if not len(file_status) > 1:
             return False
 
-        # check if the file is a symlink
-        symlink = self.shell_command(
-            'if [ -L "{}" ];'.format(file_path), "then echo 1;",
-            "else echo 0;", "fi", return_output=True, as_list=False).strip()
-        symlink = bool(int(symlink))
-        if symlink and not symlink_ok:
-            return False
+        #exists, is link, read permission, write permission, execute permission, custom test
+        e, l, r, w, x, t = [bool(int(x)) for x in file_status]
 
-        # check if the file is the specified type
-        is_type = self.shell_command(
-            'if [ -{} "{}" ];'.format(file_type, file_path), "then echo 1;",
-            "else echo 0;", "fi", return_output=True, as_list=False).strip()
-        is_type = bool(int(is_type))
-        if not is_type:
-            return False
+        tests = [
+            (True, e, 0),
+            (True, t, -1),
+            (not(symlink_ok), not(l), -2),
+            (check_read, r, -3),
+            (check_write, w, -4),
+            (check_execute, x, -5),
+        ]
 
-        # check if the shell user has specified permission to the file
-        for permission in permissions:
-            has_permission = self.shell_command(
-                'if [ -{} "{}" ];'.format(permission, file_path),
-                "then echo 1;", "else echo 0;", "fi", return_output=True,
-                as_list=False).strip()
-            has_permission = bool(int(has_permission))
-            if not has_permission:
-                return False
 
-        return True
+        for case in tests:
+            # converse implication
+            if not(not(case[0]) or case[1]):
+                return case[2]
+
+        # file exists and meets all criteria
+        return 1
 
 
     def is_file(self, file_path, *args, **kwargs):
-        """Check whether a path points to an existing file and whether
-        the current user has the specified permissions.
+        """Check whether given path points to an existing file and
+        current user has the specified permissions.
 
         This is the same as calling device.is_type(<path>, "f", ...)
         """
@@ -320,13 +338,36 @@ class Device:
 
 
     def is_dir(self, file_path, *args, **kwargs):
-        """Check whether a path points to an existing directory and
-        whether the current user has the specified permissions.
+        """Check whether given path points to an existing directory and
+        current user has the specified permissions.
 
         This is the same as calling device.is_type(<path>, "d", ...)
         """
         return self.is_type(file_path, "d", *args, **kwargs)
 
+
+    def glob(self, path):
+        """Return list of paths matching the expanded wildcard path.
+
+        Currently, only the '*' wildcard is supported.
+        """
+        if "*" not in path:
+            raise ValueError("Path must contain a wildcard!")
+
+        #TODO: Make "?" wildcards work
+
+        safe_path = "*".join(['"{}"'.format(x) for x in path.split("*")])
+        #safe_path = safe_path.replace("\\", "\\\\")
+
+        shell_command = SH_ECHO_GLOB.format(safe_path)
+        path_list = self.shell_command(shell_command, return_output=True, as_list=False).strip().split(";")
+        path_list = [x[:-1] for x in path_list if x]
+        try:
+            path_list.remove(path)
+        except ValueError:
+            pass
+
+        return path_list
 
 
     def reconnect(self, stdout_=sys.stdout):
@@ -337,9 +378,8 @@ class Device:
         reconnect_status = adb_command("-s", self.serial, "reconnect",
                                        return_output=True, as_list=False)
         # TODO: New versions of adb started outputting device status when reconnecting devices
-        # Which
 
-        """
+        """from time import strftime
         if reconnect_status.strip().lower() != "done":
             # I don't even know if there is a chance for unexpected output here
             stdout_.write("ERROR: ")
@@ -370,11 +410,13 @@ class Device:
     def full_info_string(self, initialize=True, indent=4):
         """Return a formatted string containing all device info"""
         # ensure all required info is available
+        LOGGER.info("Starting device info dump")
         if initialize:
             self.extract_data()
 
         indent = " " * indent
-        full_info_string = "-----Android QA Helper v.{}-----".format(VERSION)
+        full_info_string = "# Android QA Helper v.{}".format(VERSION)
+        full_info_string += "\n# Generated at {}\n".format(strftime("%Y-%m-%d %H:%M:%S"))
 
         for info_section in extract.SURFACED_VERBOSE:
             full_info_string = "".join([full_info_string, "\n", info_section[0], ":\n"])
@@ -387,7 +429,7 @@ class Device:
                     elif isinstance(info_value, (list, tuple)):
                         info_value = ", ".join(info_value)
 
-                    full_info_string = "".join([full_info_string, indent, info_name, ":", info_value, "\n"])
+                    full_info_string = "".join([full_info_string, indent, info_name, " : ", info_value, "\n"])
 
             else:
                 info_name, info_key = info_section
@@ -402,21 +444,6 @@ class Device:
 
         return full_info_string
 
-    """
-    def detailed_info_string(self, initialize=True, indent=4):
-        info = ""
-        if initialize:
-            self.extract_data()
-
-        for category_name, value_names_list in SURFACED_INFO:
-            info = "".join([info, "\n", category_name, ":"])
-            for value_name in value_names_list:
-                info = "".join([info, "\n", indent*" ", value_name, " : ",
-                                self.info(category_name, value_name,
-                                          nonexistent_ok=True)])
-
-        return info
-"""
 
     def basic_info_string(self):
         """Return formatted string containing basic device information.
