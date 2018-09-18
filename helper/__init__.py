@@ -16,22 +16,35 @@
 
 import os
 import sys
+import time
 import shutil
 import inspect
 import logging
 import subprocess
 from pathlib import Path
 
-logging.basicConfig(level=logging.WARNING)
-
-LOGGER = logging.getLogger(__name__)
-
 # Program metadata
-VERSION = "0.14"
-VERSION_DATE = "2018-05-01"
+VERSION = "0.15"
+VERSION_DATE = "2018-09-18"
 VERSION_STRING = "".join(["Android Helper v", VERSION, " : ", VERSION_DATE])
 COPYRIGHT_STRING = "Copyright (c) 2017-2018 rmmbear"
 SOURCE_STRING = "Check the source code at https://github.com/rmmbear/Android-QA-Helper"
+
+LOG_FORMAT = logging.Formatter("[%(levelname)s] T+%(relativeCreated)d: %(name)s.%(funcName)s() line:%(lineno)d %(message)s")
+LOGGER = logging.getLogger("helper")
+LOGGER.setLevel(logging.DEBUG)
+FH = logging.FileHandler("lastrun.log", mode="w")
+FH.setLevel(logging.DEBUG)
+FH.setFormatter(LOG_FORMAT)
+CH = logging.StreamHandler()
+CH.setLevel(logging.WARN)
+CH.setFormatter(LOG_FORMAT)
+
+LOGGER.addHandler(CH)
+LOGGER.addHandler(FH)
+
+LOGGER.info("----- %s : Starting %s -----", time.strftime("%Y-%m-%d %H:%M:%S"), VERSION_STRING)
+
 
 # Global config variables
 ABI_TO_ARCH = {
@@ -117,7 +130,7 @@ if sys.platform == "win32":
 def exe(executable, *args, return_output=False, as_list=True,
         stdout_=sys.stdout):
     """Run the provided executable with specified commands"""
-    LOGGER.debug("Executing {}".format([executable, *args]))
+    LOGGER.debug("Executing %s", str([executable, *args]))
     try:
         if return_output:
             cmd_out = subprocess.run((executable,) + args,
@@ -137,6 +150,7 @@ def exe(executable, *args, return_output=False, as_list=True,
 
             if as_list:
                 return cmd_out.splitlines()
+
             return cmd_out
 
         if stdout_ != sys.__stdout__:
@@ -328,6 +342,10 @@ CLEANER_CONFIG = str(Path(CLEANER_CONFIG).resolve())
 
 if EDITED_CONFIG:
     _save_config(CONFIG)
+
+
+LOGGER.info("Using ADB version %s", ADB_VERSION)
+LOGGER.info("Using AAPT version %s", AAPT_VERSION)
 
 # TODO: replace custom config files (helper, gles textures and cleaner) with cfg module
 # TODO: add an interface for editing various configs
