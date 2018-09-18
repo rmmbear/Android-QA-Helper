@@ -6,16 +6,24 @@ import pytest
 
 import helper as helper_
 import helper.device as device_
+from helper.tests import DummyDevice
 
 from helper.extract_data import INFO_KEYS, SURFACED_BRIEF, SURFACED_VERBOSE
-
-from helper.tests import DummyDevice
 
 FULL_DEVICE_CONFIG = helper_.BASE + "/tests/full_config"
 COMPATIBILITY_DIR = helper_.BASE + "/../compat_data"
 
-PHYSICAL_DEVICE_REQUIRED = pytest.mark.skipif(not device_.get_devices(initialize=False),
-                                              reason="Physical device required, none found.")
+try:
+    DUMP_DATA_AVAILABLE = bool([x for x in Path(COMPATIBILITY_DIR).iterdir() if x.is_dir])
+except:
+    DUMP_DATA_AVAILABLE = False
+
+PHYSICAL_DEVICE_REQUIRED = pytest.mark.skipif(
+    not device_.get_devices(initialize=False),
+    reason="Physical device required, none found.")
+DUMP_DATA_REQUIRED = pytest.mark.skipif(
+    not DUMP_DATA_AVAILABLE, reason="Dump data required, none found.")
+
 
 class TestExtractModule:
     def verify_info_config(self, config):
@@ -60,16 +68,16 @@ class TestExtractModule:
         bad_structure = [
             [[[]]], "12", [([],)],
             # reversed expectations
-            [["Identity", [["Model", "device_model"]]], ["CPU Cores", "cpu_core_count"]],
-            (("Identity", (("Model", "device_model"),)), ("CPU Cores", "cpu_core_count")),
+            [["Identity", [["Model", "device_model"]]], ["CPU Features", "cpu_features"]],
+            (("Identity", (("Model", "device_model"),)), ("CPU Features", "cpu_features")),
             (("Identity", (("Model", "device_model"),)),),
             [["CPU Cores", "cpu_core_count"]],
             # wrong number of items
             (["Identity", [["Model", "device_model"]], "OwO"],),
             (["Identity", [["Model", "device_model", "hewwo"]]],),
             (["Identity", [["Model"]]],),
-            [("CPU Cores", "cpu_core_count", "'sup")],
-            [("CPU Cores",)],
+            [("CPU Features", "cpu_features", "'sup")],
+            [("CPU Features",)],
         ]
         with pytest.raises(AssertionError):
             for config in bad_structure:
@@ -92,11 +100,11 @@ class TestExtractModule:
         # valid config
         valid_configs = [
             # section -> (name, key), loose (name, key)
-            (["Identity", [("Model", "device_model")]], ("CPU Cores", "cpu_core_count")),
+            (["Identity", [("Model", "device_model")]], ("CPU Features", "cpu_features")),
             # no loose tuple
             (["Identity", [["Model", "device_model"]]],),
             # only loose (name, key)
-            [("CPU Cores", "cpu_core_count")],
+            [("CPU Features", "cpu_features")],
         ]
         for config in valid_configs:
             print(config)
@@ -116,21 +124,9 @@ class TestExtractModule:
     def test_reference_existing_keys_only(self):
         """Check if the module references existing info keys."""
         extraction_module = Path(helper_.BASE) / "extract_data.py"
-
-        with extraction_module.open(mode="r", encoding="utf-8") as module:
-            extraction_code = module.read()
-
-        # a bit naive approach, but it works
-        # FIX: this will not catch indirect references
-        info_keys = re.findall("(?:device\\.info\\_dict\\[\\\")([^\\]\\\"]*)", extraction_code)
-
-        for key in info_keys:
-            assert key in INFO_KEYS
-
-
-    def test_reference_existing_keys_only_main(self):
-        """Check if the module references existing info keys."""
         extraction_module = Path(helper_.BASE) / "main.py"
+        extraction_module = Path(helper_.BASE) / "cli.py"
+        extraction_module = Path(helper_.BASE) / "apk.py"
 
         with extraction_module.open(mode="r", encoding="utf-8") as module:
             extraction_code = module.read()
@@ -141,8 +137,6 @@ class TestExtractModule:
 
         for key in info_keys:
             assert key in INFO_KEYS
-
-# TODO: rewrite everything below this comment
 
 
 class TestPhysicalDevice:
@@ -152,29 +146,33 @@ class TestPhysicalDevice:
 
         if not connected_devices:
             pytest.skip("")
+
         found_bad = False
         for p_device in connected_devices:
             for key in INFO_KEYS:
                 if not p_device.info_dict[key]:
                     found_bad = True
                     print(key, ":", [p_device.info_dict[key]])
+
         assert not found_bad
 
 
 class TestDummyDevice:
+    @DUMP_DATA_REQUIRED
     def test_full_init(self):
-        """Test device initialization from dumped data.
-        """
+        """Test device initialization using dumped data."""
         indent = 4
         dummy_count = 0
 
         device_list = {}
 
         for device_dir in Path(COMPATIBILITY_DIR).iterdir():
-            print("-----")
-            print(device_dir.name)
             if not device_dir.is_dir():
                 continue
+
+            print("-----")
+            print(device_dir.name)
+
             dummy_count += 1
             device_dummy = DummyDevice(device_dir, "dummy_{}".format(dummy_count))
             device_dummy._status = "device"
@@ -183,14 +181,13 @@ class TestDummyDevice:
 
             print(device_dummy.name)
 
-            current_time = strftime("%Y.%m.%d-%H.%M.%S")
-            with (device_dir / "__DUMMY_INFO_DUMP_{}".format(current_time)).open(mode="w", encoding="utf-8") as info_out:
+            with (device_dir / "__DUMMY_INFO_DUMP").open(mode="w", encoding="utf-8") as info_out:
                 info_out.write(device_dummy.full_info_string(initialize=False))
 
             unexpected_keys = []
             empty_keys = []
 
-            with (device_dir / "__DUMMY_INFO_DICT_{}".format(current_time)).open(mode="w", encoding="utf-8") as info_dict_out:
+            with (device_dir / "__DUMMY_INFO_DICT").open(mode="w", encoding="utf-8") as info_dict_out:
                 longest_key = 0
                 for key in device_dummy.info_dict:
                     if len(key) > longest_key:
@@ -238,6 +235,9 @@ class TestDummyDevice:
             assert bool(not device_list[device]["unexpected"])
             assert bool(not device_list[device]["missing"])
             assert bool(not device_list[device]["empty"])
+
+# TODO: rewrite everything below this comment
+
 """
 class TestDeviceInit:
     def test_full(self, config_dir=FULL_DEVICE_CONFIG, write_output=None,

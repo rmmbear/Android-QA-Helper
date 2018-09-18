@@ -149,6 +149,8 @@ def dump_device(device, directory="."):
     device_dir.mkdir(exist_ok=True)
     print()
     print("Dumping", device.name)
+    
+    #device.extract_data()
 
     for source_name, command in INFO_SOURCES.items():
         output = device.shell_command(*command, return_output=True, as_list=False)
