@@ -3,8 +3,11 @@
 Other modules expect that all extraction functions' names start with 'extract_'
 """
 import re
+import logging
+
 import helper
 
+LOGGER = logging.getLogger(__name__)
 # source: https://www.khronos.org/registry/OpenGL/index_es.php
 # last updated: 2018.01.06
 TEXTURE_COMPRESSION_IDS = {
@@ -30,14 +33,53 @@ TEXTURE_COMPRESSION_IDS = {
 }
 
 
-SH_PATH_EXE = """#shell script for finding executables in PATH
+#shell script for finding executables in PATH
+SH_PATH_EXE = """
 for dir in ${PATH//:/ }; do
     for file in $dir/*; do
         if [ -x "$file" ]; then
             echo ${file##*/};
         fi;
     done;
-done;"""
+done;
+""".strip().replace("\n", "")
+
+# shell script for extracting data from each logical cpu
+SH_CPU_DATA = """
+STARTING_PATH=/sys/devices/system/cpu;
+NUM=0;
+while true; do
+    dir=${STARTING_PATH}/cpu${NUM};
+    if [ ! -d "$dir" ]; then
+        break;
+    else
+        echo /// cpu${NUM};
+        echo ---- cpufreq ----;
+        for file in $dir/cpufreq/*; do
+            if [ ! -r "$file" ]; then
+                continue;
+            fi;
+            if [ ! -f "$file" ]; then
+                continue;
+            fi;
+
+            echo ${file##*/} : $(cat $file);
+        done;
+        echo ---- topology ----;
+        for file in $dir/topology/*; do
+            if [ ! -r "$file" ]; then
+                continue;
+            fi;
+            if [ ! -f "$file" ]; then
+                continue;
+            fi;
+
+            echo ${file##*/} : $(cat $file);
+        done;
+    fi;
+    ((NUM++));
+done;
+""".strip().replace("\n", "")
 
 
 INFO_SOURCES = {
@@ -52,6 +94,7 @@ INFO_SOURCES = {
     "kernel_version" : ("cat", "/proc/version"),
     "shell_environment" : ("printenv",),
     "available_commands" : (SH_PATH_EXE,),
+    "cpu_data" : (SH_CPU_DATA,),
     "device_features" : ("pm", "list", "features"),
     "system_apps" : ("pm", "list", "packages", "-s"),
     "third-party_apps" : ("pm", "list", "packages", "-3"),
@@ -78,6 +121,7 @@ NOTABLE_FEATURES = [
     ("VR Mode", "feature:android.software.vr.mode"),
     ("High-Performance VR Mode", "feature:android.hardware.vr.high_performance"),
     ("WiFi-Aware", "feature:android.hardware.wifi.aware"),
+    ("WiFi", "feature:android.hardware.wifi"),
 ]
 
 # information surfaced to the user in detailed scan
@@ -98,14 +142,14 @@ SURFACED_BRIEF = [
      [("API Level", "android_api_level"),
       ("Android Version", "android_version"),
       ("Aftermarket Firmware", "aftermarket_firmware"),
+      ("Aftermarket Firmware Version", "aftermarket_firmware_version"),
      ]
     ],
     ["Chipset",
      [("Board", "board"),
       ("RAM", "ram_capacity"),
       ("CPU Architecture", "cpu_architecture"),
-      ("Cores", "cpu_core_count"),
-      ("Base Clock Frequency", "cpu_base_frequency"),
+      ("CPU Summary", "cpu_summary"),
       ("GPU Vendor", "gpu_vendor"),
       ("GPU Model", "gpu_model"),
       ("OpenGL ES Version", "gles_version"),
@@ -144,6 +188,7 @@ SURFACED_VERBOSE = [
      [("API Level", "android_api_level"),
       ("Android Version", "android_version"),
       ("Aftermarket Firmware", "aftermarket_firmware"),
+      ("Aftermarket Firmware Version", "aftermarket_firmware_version"),
       ("Build ID", "android_build_id"),
       ("Build Fingerprint", "android_build_fingerprint"),
       ("Kernel Version", "kernel_version"),
@@ -152,17 +197,20 @@ SURFACED_VERBOSE = [
     ["Chipset",
      [("Board", "board"),
       ("RAM", "ram_capacity"),
-      ("CPU Architecture", "cpu_architecture"),
-      ("Cores", "cpu_core_count"),
-      ("Min Clock Frequency", "cpu_min_frequency"),
-      ("Base Clock Frequency", "cpu_base_frequency"),
-      ("Max Clock Frequency", "cpu_max_frequency"),
-      ("Available ABIs", "cpu_abis"),
-      ("CPU Features", "cpu_features"),
       ("GPU Vendor", "gpu_vendor"),
       ("GPU Model", "gpu_model"),
       ("OpenGL ES Version", "gles_version"),
       ("Known Texture Compression Types", "gles_texture_compressions"),
+      ("CPU Summary", "cpu_summary"),
+      ("CPU Architecture", "cpu_architecture"),
+      ("CPU Clock Range", "cpu_clock_range"),
+      ("Available ABIs", "cpu_abis"),
+      ("CPU Features", "cpu_features"),
+      # Some chipset include multiple CPUs that it switches between depending on power needed for given task
+      # in such cases, following entries will be added for each cpu
+      # ("CPU# Core Count", "cpu#_core_count"),
+      # ("CPU# Clock Range", "cpu#_clock_range"),
+      # ("CPU# Clock Jump intervals", "cpu#_clock_intervals"),
      ]
     ],
     ["Display",
@@ -201,11 +249,14 @@ INFO_KEYS = [
     "board",
     "cpu_abis",
     "cpu_architecture",
-    "cpu_base_frequency",
-    "cpu_core_count",
+    "cpu_clock_range",
     "cpu_features",
     "cpu_max_frequency",
     "cpu_min_frequency",
+    "cpu_summary",
+    #"cpu#_clock_intervals",
+    #"cpu#_clock_range",
+    #"cpu#_core_count",
     "device_brand",
     "device_device",
     "device_features",
@@ -239,18 +290,6 @@ INFO_KEYS = [
     #"gpu_ram",
     #"ram_type",
 ]
-
-KNOWN_COMPRESSION_NAMES = {}
-
-def load_compression_names(surfaceflinger_dump):
-    """"""
-    extensions = []
-    for identifier, name in KNOWN_COMPRESSION_NAMES.items():
-        if identifier in surfaceflinger_dump:
-            extensions.append(name)
-
-    return extensions
-
 
 def abi_to_arch(abi):
     """"""
@@ -325,15 +364,38 @@ def extract_os(device):
     kernel_version = run_extraction_command(device, "kernel_version").strip()
     device.info_dict["kernel_version"] = kernel_version
 
-    # check for aftermarket firmware
-    aftermarket_firmware_dict = {"FireOS":"(?:\\[ro\\.build\\.mktg\\.fireos\\]: \\[)([^\\]]*)"}
+    aftermarket_firmware_dict = {"FireOS":"(?:\\[ro\\.build\\.version\\.fireos\\]\\:\\s*\\[)([^\\]]*)",
+                                 "MIUI":"(?:\\[ro\\.miui\\.ui\\.version\\.name\\]\\:\\s*\\[)([^\\]]*)",
+                                 "OxygenOS":"(?:\\[ro\\.oxygen\\.version\\]\\:\\s*\\[)([^\\]]*)",
+                                 "ColorOS":"(?:\\[ro\\.build\\.version\\.opporom\\]\\:\\s*\\[)([^\\]]*)",
+                                 "CyanogenMod":"(?:\\[ro\\.cm\\.version\\]\\:\\s*\\[)([^\\]]*)",
+                                 "LineageOS":"(?:\\[ro\\.lineage\\.version\\]\\:\\s*\\[)([^\\]]*)",
+                                 "AOKP":"(?:\\[ro\\.aokp\\.version\\]\\:\\s*\\[)([^\\]]*)",
+                                 "Paranoid Android":"(?:\\[ro\\.pa\\.version\\]\\:\\s*\\[)([^\\]]*)",
+                                 "OmniRom":"(?:\\[ro\\.omni\\.version\\]\\:\\s*\\[)([^\\]]*)",
+                                 "Resurrection Remix OS":"(?:\\[ro\\.rr\\.version\\]\\:\\s*\\[)([^\\]]*)",
+                                 #AliOS
+                                 #LeWaOS
+                                 #Baidu Yi
+                                 #CopperheadOS
+                                 "Unrecognized ROM":"(?:\\[ro\\.modversion\\]\\:\\s*\\[)([^\\]]*)",
+                                }
+
     device.info_dict["aftermarket_firmware"] = "-none-"
     device.info_dict["aftermarket_firmware_version"] = "-none-"
+
     for os_name, re_string in aftermarket_firmware_dict.items():
         try:
-            aftermarket_firmware = re.search(re_string, getprop).group(0)
+            aftermarket_firmware = re.search(re_string, getprop).group(1)
             device.info_dict["aftermarket_firmware"] = os_name
             device.info_dict["aftermarket_firmware_version"] = aftermarket_firmware
+
+            if os_name != "Unrecognized ROM":
+                detailed_version = re.search("(?:\\[ro\\.modversion\\]\\:\\s*\\[)([^\\]]*)", getprop).group(1)
+                # skip modversion if it's already contained in version or if modversion = <OSname> + <version>
+                if detailed_version not in device.info_dict["aftermarket_firmware_version"] or \
+                    detailed_version.endswith(device.info_dict["aftermarket_firmware_version"]):
+                        device.info_dict["aftermarket_firmware_version"] += " ({})".format(detailed_version)
 
         except AttributeError:
             pass
@@ -353,7 +415,7 @@ def extract_chipset(device):
     cpu_arch = None
 
     if abilist:
-        abilist = [x.strip() for x in abilist.group(1).strip().split(",")]
+        abilist = [x.strip() for x in abilist.group(1).split(",")]
     else:
         abilist = []
 
@@ -363,22 +425,24 @@ def extract_chipset(device):
         try:
             cpu_arch = helper.ABI_TO_ARCH[abi1]
         except KeyError:
-            pass
+            cpu_arch = "UNKNOWN (ABI: {})".format(abi1)
     if abi2:
         abi2 = abi2.group(1).strip()
         abilist.append(abi1)
 
+    abilist.sort()
     abilist = set(abilist)
     device.info_dict["cpu_abis"] = list(abilist)
 
     cpuinfo = run_extraction_command(device, "cpuinfo")
 
-    #board = re.search("(?:\\[ro\\.board\\.platform\\]: \\[)([^\\]]*)", getprop)
-    for re_ in ["(?:Hardware\\s*?\\:)([^\\n\\r]*)",
-                "(?:model\\ name\\s*?\\:)([^\\n\\r]*)",
+    re_sources = {"cpuinfo":cpuinfo, "getprop":getprop}
+    for re_ in [("(?:Hardware\\s*?\\:)([^\\n\\r]*)", "cpuinfo"),
+                ("(?:model\\ name\\s*?\\:)([^\\n\\r]*)", "cpuinfo"),
+                ("(?:\\[ro\\.board\\.platform\\]\\: \\[)([^\\]]*)", "getprop"),
                 #"(?:Processor\\s*?\\:)([^\\n\\r]*)"
                ]:
-        board = re.search(re_, cpuinfo)
+        board = re.search(re_[0], re_sources[re_[1]])
         if board:
             board = board.group(1).strip()
             break
@@ -391,14 +455,126 @@ def extract_chipset(device):
     device.info_dict["cpu_features"] = cpu_features
     device.info_dict["cpu_architecture"] = cpu_arch
 
-    max_frequency = run_extraction_command(device, "max_cpu_freq")
-    if max_frequency:
-        device.info_dict["cpu_max_frequency"] = max_frequency.strip()
+    #max_frequency = run_extraction_command(device, "max_cpu_freq")
+    #if max_frequency:
+    #    device.info_dict["cpu_max_frequency"] = max_frequency.strip()
 
-    core_count = run_extraction_command(device, "possible_cpu_cores")
-    max_cores = re.search("(?:\\-)([0-9]*)", core_count)
-    if max_cores:
-        device.info_dict["cpu_core_count"] = str(int(max_cores.group(1).strip()) + 1)
+    #core_count = run_extraction_command(device, "possible_cpu_cores")
+    #max_cores = re.search("(?:\\-)([0-9]*)", core_count)
+    #if max_cores:
+    #    device.info_dict["cpu_core_count"] = str(int(max_cores.group(1).strip()) + 1)
+
+
+def extract_cpu(device):
+    """"""
+
+    cpu_dict = {}
+    phys_cpu_dict = {}
+    max_frequency = 0
+    min_frequency = 99999999999
+
+
+    shell_out = run_extraction_command(device, "cpu_data")
+    if not shell_out:
+        return
+
+    shell_out = shell_out.split("/// cpu")[1::]
+
+    for cpu in shell_out:
+        cpu = cpu.strip().splitlines()
+        #print(cpu)
+        cpu_id = int(cpu[0].strip())
+        cpu_dict[cpu_id] = {}
+
+        for line in cpu[1::]:
+            if line.startswith("----"):
+                continue
+
+            line = line.strip().split(" : ", maxsplit=1)
+            if len(line) != 2:
+                LOGGER.warn("Unexpected output found while extracting cpu data: %s" % str([line]))
+                # above is most likely happening when cores are put to sleep - those files then become unavailable
+                # first core should always be awake
+                #TODO: Ivestigate whether similar can happen when cpus are suddenly switched in multi-cpu chipset
+                # it most likely does
+                #TODO: which probably means that info from only one cpu can be scanned at a time
+                # grumble grumble
+
+                continue
+            cpu_dict[cpu_id][line[0]] = line[1]
+
+    current_id = 0
+    phys_id = 0
+    while True:
+        try:
+            cpu_dict[current_id]
+        except KeyError:
+            break
+        current_cpu_dict = cpu_dict[current_id]
+
+        phys_id = cpu_dict[current_id]['physical_package_id']
+        phys_cpu_dict[phys_id] = {}
+        phys_cpu_dict[phys_id]['max_frequency'] = int(current_cpu_dict['cpuinfo_max_freq'].strip())
+        phys_cpu_dict[phys_id]['min_frequency'] = int(current_cpu_dict['cpuinfo_min_freq'].strip())
+        phys_cpu_dict[phys_id]['clock_range'] = " - ".join([str(int(current_cpu_dict['cpuinfo_min_freq']) / (1000000)), str(int(current_cpu_dict['cpuinfo_max_freq']) / (1000000))]) + " GHz"
+        phys_cpu_dict[phys_id]['clock_intervals'] = [int(x.strip()) for x in current_cpu_dict['scaling_available_frequencies'].strip().split(" ")]
+        x, y = current_cpu_dict['core_siblings_list'].strip().split("-", maxsplit=1)
+        phys_cpu_dict[phys_id]['cores'] = [z for z in range(int(x), int(y)+1)]
+        phys_cpu_dict[phys_id]['core_count'] = len(phys_cpu_dict[phys_id]['cores'])
+
+        current_id = phys_cpu_dict[phys_id]['cores'][-1] + 1
+
+    #print(phys_cpu_dict)
+    device.info_dict["cpu_summary"] = []
+    for cpu_id, cpu in phys_cpu_dict.items():
+        device.info_dict["cpu{}_max_frequency".format(current_id)] = cpu["max_frequency"] / (1000000)
+        if cpu["max_frequency"] > max_frequency:
+            max_frequency = cpu["max_frequency"]
+        device.info_dict["cpu{}_min_frequency".format(current_id)] = cpu["min_frequency"] / (1000000)
+        if cpu["min_frequency"] < min_frequency:
+            min_frequency = cpu["min_frequency"]
+
+        device.info_dict["cpu{}_clock_intervals".format(current_id)] = cpu["clock_intervals"]
+        device.info_dict["cpu{}_core_count".format(current_id)] = cpu["core_count"]
+
+        device.info_dict["cpu_summary"].append("{}-core {} MHz".format(cpu["core_count"], cpu["max_frequency"] / (1000000)))
+        #print(device.info_dict["cpu_summary"])
+
+
+    device.info_dict["cpu_clock_range"] = " - ".join([str(min_frequency / (1000000)), str(max_frequency / (1000000))]) + " GHz"
+
+
+    #"cpu_clock_range",
+    #"cpu_max_frequency",
+    #"cpu_min_frequency",
+    #"cpu_summary",
+
+    #"cpu#_clock_intervals",
+    #"cpu#_clock_range",
+    #"cpu#_core_count",
+
+
+# example cpu_dict entry
+"""
+'affected_cpus': '0 1 2 3'
+'cpuinfo_max_freq': '1300000'
+'cpuinfo_min_freq': '598000'
+'cpuinfo_transition_latency': '1000'
+'related_cpus': '0 1 2 3'
+'scaling_available_frequencies': '1300000 1196000 1040000 747500 598000'
+'scaling_available_governors': 'userspace powersave hotplug performance'
+'scaling_cur_freq': '598000'
+'scaling_driver': 'mt-cpufreq'
+'scaling_governor': 'hotplug'
+'scaling_min_freq': '598000'
+'scaling_setspeed': '<unsupported>'
+'core_id': '0'
+'core_siblings': 'f'
+'core_siblings_list': '0-3'
+'physical_package_id': '0'
+'thread_siblings': '1'
+'thread_siblings_list': '0'
+"""
 
 
 def extract_gpu(device):
@@ -409,6 +585,10 @@ def extract_gpu(device):
 
     if gpu_line:
         gpu_vendor, gpu_model, gles_version = gpu_line.group(1).strip().split(",", 2)
+        device.info_dict["gpu_vendor"] = gpu_vendor.strip()
+        device.info_dict["gpu_model"] = gpu_model.strip()
+        device.info_dict["gles_version"] = gles_version.strip()
+
 
     gles_extensions = re.search("(?:GLES\\:[^\\r\\n]*)(?:\\s*)([^\\r\\n]*)", dumpsys)
 
@@ -425,10 +605,6 @@ def extract_gpu(device):
                 # extension is not a type of texture compression, continue
                 continue
 
-    device.info_dict["gpu_vendor"] = gpu_vendor
-    device.info_dict["gpu_model"] = gpu_model
-    device.info_dict["gles_version"] = gles_version
-
 
 def extract_display(device):
     """"""
@@ -436,8 +612,8 @@ def extract_display(device):
     density = re.search("(?:\\[ro\\.sf\\.lcd_density\\]: \\[)([^\\]]*)", getprop)
 
     dumpsys = run_extraction_command(device, "surfaceflinger_dump")
-    x_dpi = re.search("(?:x-dpi)([^\\n]*)", dumpsys)
-    y_dpi = re.search("(?:y-dpi)([^\\n]*)", dumpsys)
+    x_dpi = re.search("(?:x-dpi\\s*\\:\\s*)([^\\n]*)", dumpsys)
+    y_dpi = re.search("(?:y-dpi\\s*\\:\\s*)([^\\n]*)", dumpsys)
     resolution = re.search("(?:Display\\[0\\] :)([^,]*)", dumpsys)
 
     if not resolution:
@@ -481,6 +657,7 @@ def extract_storage(device):
     internal_sd = None
     external_sd = None
     trace_path = None
+    filesystem, size, used, free, blksize = [None for x in range(5)]
     shell_env = run_extraction_command(device, "shell_environment")
 
     try:
@@ -532,7 +709,11 @@ def extract_storage(device):
        "permission denied" in external_sd_space:
         filesystem, size, used, free, blksize = ["Unavailable" for x in range(5)]
     else:
-        filesystem, size, used, free, blksize = external_sd_space.strip().splitlines()[1].split(maxsplit=4)
+        try:
+            filesystem, size, used, free, blksize = external_sd_space.strip().splitlines()[1].split(maxsplit=4)
+        except IndexError:
+            pass
+
 
     device.info_dict["external_sd_capacity"] = size
     device.info_dict["external_sd_free"] = free
@@ -542,7 +723,10 @@ def extract_storage(device):
        "permission denied" in internal_sd_space:
         filesystem, size, used, free, blksize = ["Unavailable" for x in range(5)]
     else:
-        filesystem, size, used, free, blksize = internal_sd_space.strip().splitlines()[1].split(maxsplit=4)
+        try:
+            filesystem, size, used, free, blksize = internal_sd_space.strip().splitlines()[1].split(maxsplit=4)
+        except IndexError:
+            pass
 
     device.info_dict["internal_sd_capacity"] = size
     device.info_dict["internal_sd_free"] = free
