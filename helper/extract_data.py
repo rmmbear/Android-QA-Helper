@@ -492,6 +492,10 @@ def extract_cpu(device):
 
             line = line.strip().split(" : ", maxsplit=1)
             if len(line) != 2:
+                if len(line) == 1 and not line[0]:
+                    #skip empty lines
+                    continue
+
                 LOGGER.warn("Unexpected output found while extracting cpu data: %s" % str([line]))
                 # above is most likely happening when cores are put to sleep - those files then become unavailable
                 # first core should always be awake
@@ -500,9 +504,11 @@ def extract_cpu(device):
                 #TODO: which probably means that info from only one cpu can be scanned at a time
                 # grumble grumble
 
+                # update: 2018.09.19 - the answer is "depends", need more compat data
                 continue
             cpu_dict[cpu_id][line[0]] = line[1]
 
+    #print(cpu_dict)
     current_id = 0
     phys_id = 0
     while True:
@@ -512,10 +518,48 @@ def extract_cpu(device):
             break
         current_cpu_dict = cpu_dict[current_id]
 
+        if not current_cpu_dict:
+            count = 0
+            broken_name = "_unknown{}"
+            while True:
+                n_broken_name = broken_name.format(count)
+                if n_broken_name in phys_cpu_dict:
+                    continue
+
+                broken_name = n_broken_name
+                break
+            phys_cpu_dict[broken_name] = {
+                'max_frequency':0,
+                'min_frequency':999999,
+                'clock_range':"Unknown",
+                'clock_intervals':"Unknown",
+                'cores':"Unknown",
+            }
+
+            unknown_cores = 1
+            while True:
+                try:
+                    cpu_dict[current_id + unknown_cores]
+                except KeyError:
+                    break
+
+                next_dict = cpu_dict[current_id + unknown_cores]
+
+                if next_dict:
+                    break
+
+                unknown_cores += 1
+
+
+            phys_cpu_dict[broken_name]['core_count'] = unknown_cores
+            current_id += unknown_cores
+            continue
+
         phys_id = cpu_dict[current_id]['physical_package_id']
+
         phys_cpu_dict[phys_id] = {}
-        phys_cpu_dict[phys_id]['max_frequency'] = int(current_cpu_dict['cpuinfo_max_freq'].strip())
-        phys_cpu_dict[phys_id]['min_frequency'] = int(current_cpu_dict['cpuinfo_min_freq'].strip())
+        phys_cpu_dict[phys_id]['max_frequency'] = int(current_cpu_dict['cpuinfo_max_freq'].strip()) / (1000000)
+        phys_cpu_dict[phys_id]['min_frequency'] = int(current_cpu_dict['cpuinfo_min_freq'].strip()) / (1000000)
         phys_cpu_dict[phys_id]['clock_range'] = " - ".join([str(int(current_cpu_dict['cpuinfo_min_freq']) / (1000000)), str(int(current_cpu_dict['cpuinfo_max_freq']) / (1000000))]) + " GHz"
         phys_cpu_dict[phys_id]['clock_intervals'] = [int(x.strip()) for x in current_cpu_dict['scaling_available_frequencies'].strip().split(" ")]
         x, y = current_cpu_dict['core_siblings_list'].strip().split("-", maxsplit=1)
@@ -527,21 +571,21 @@ def extract_cpu(device):
     #print(phys_cpu_dict)
     device.info_dict["cpu_summary"] = []
     for cpu_id, cpu in phys_cpu_dict.items():
-        device.info_dict["cpu{}_max_frequency".format(current_id)] = cpu["max_frequency"] / (1000000)
+        device.info_dict["cpu{}_max_frequency".format(cpu_id)] = cpu["max_frequency"]
         if cpu["max_frequency"] > max_frequency:
             max_frequency = cpu["max_frequency"]
-        device.info_dict["cpu{}_min_frequency".format(current_id)] = cpu["min_frequency"] / (1000000)
+        device.info_dict["cpu{}_min_frequency".format(cpu_id)] = cpu["min_frequency"]
         if cpu["min_frequency"] < min_frequency:
             min_frequency = cpu["min_frequency"]
 
-        device.info_dict["cpu{}_clock_intervals".format(current_id)] = cpu["clock_intervals"]
-        device.info_dict["cpu{}_core_count".format(current_id)] = cpu["core_count"]
+        device.info_dict["cpu{}_clock_intervals".format(cpu_id)] = cpu["clock_intervals"]
+        device.info_dict["cpu{}_core_count".format(cpu_id)] = cpu["core_count"]
 
-        device.info_dict["cpu_summary"].append("{}-core {} MHz".format(cpu["core_count"], cpu["max_frequency"] / (1000000)))
+        device.info_dict["cpu_summary"].append("{}-core {} MHz".format(cpu["core_count"], cpu["max_frequency"]))
         #print(device.info_dict["cpu_summary"])
 
 
-    device.info_dict["cpu_clock_range"] = " - ".join([str(min_frequency / (1000000)), str(max_frequency / (1000000))]) + " GHz"
+    device.info_dict["cpu_clock_range"] = " - ".join([str(min_frequency), str(max_frequency)]) + " GHz"
 
 
     #"cpu_clock_range",
@@ -673,6 +717,8 @@ def extract_storage(device):
     getprop = run_extraction_command(device, "getprop")
     try:
         trace_path = re.search("(?:\\[dalvik\\.vm\\.stack\\-trace\\-file\\]: \\[)([^\\]]*)", getprop).group(1).strip()
+        # TODO: Some devices specify only the directory containing the trace file and not the file itself
+        # Check whether there is any difference in traces on those devices
     except AttributeError:
         pass
 
@@ -725,7 +771,7 @@ def extract_storage(device):
     else:
         try:
             filesystem, size, used, free, blksize = internal_sd_space.strip().splitlines()[1].split(maxsplit=4)
-        except IndexError:
+        except (IndexError, ValueError):
             pass
 
     device.info_dict["internal_sd_capacity"] = size

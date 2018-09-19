@@ -25,7 +25,7 @@ from pathlib import Path
 
 # Program metadata
 VERSION = "0.15"
-VERSION_DATE = "2018-09-18"
+VERSION_DATE = "2018-09-19"
 VERSION_STRING = "".join(["Android Helper v", VERSION, " : ", VERSION_DATE])
 COPYRIGHT_STRING = "Copyright (c) 2017-2018 rmmbear"
 SOURCE_STRING = "Check the source code at https://github.com/rmmbear/Android-QA-Helper"
