@@ -25,7 +25,7 @@ from pathlib import Path
 
 # Program metadata
 VERSION = "0.15"
-VERSION_DATE = "2018-09-19"
+VERSION_DATE = "2018-10-03"
 VERSION_STRING = "".join(["Android Helper v", VERSION, " : ", VERSION_DATE])
 COPYRIGHT_STRING = "Copyright (c) 2017-2018 rmmbear"
 SOURCE_STRING = "Check the source code at https://github.com/rmmbear/Android-QA-Helper"
@@ -130,7 +130,9 @@ if sys.platform == "win32":
 def exe(executable, *args, return_output=False, as_list=True,
         stdout_=sys.stdout):
     """Run the provided executable with specified commands"""
+    #if executable not in (ADB, AAPT):
     LOGGER.debug("Executing %s", str([executable, *args]))
+
     try:
         if return_output:
             cmd_out = subprocess.run((executable,) + args,
@@ -145,8 +147,8 @@ def exe(executable, *args, return_output=False, as_list=True,
             # replace it, which means that every adb command would gain some
             # overhead. This could, although unlikely, result in mangled output
             # soo... figure out what to do here
-            if sys.platform == "win32" and executable == ADB:
-                cmd_out = cmd_out.replace("\r\r\n", "\n")
+            #if sys.platform == "win32" and executable == ADB:
+            #    cmd_out = cmd_out.replace("\r\r\n", "\n")
 
             if as_list:
                 return cmd_out.splitlines()

@@ -59,8 +59,7 @@ class DummyDevice(Device):
 
 
     def adb_command(self, *args, **kwargs):
-        """Same as adb_command(*args), but specific to the given device.
-        """
+        """Always return a blank string for dummy adb commands."""
         print(args, kwargs)
         if self.status != "device":
             raise DeviceOfflineError("Called adb command while device {} was offline".format(self.serial), self.serial)
@@ -69,9 +68,7 @@ class DummyDevice(Device):
 
 
     def shell_command(self, *args, **kwargs):
-        """Same as adb_command(["shell", *args]), but specific to the
-        given device.
-        """
+        """Always return a blank string for dummy shell commands."""
         if self.status != "device":
             raise DeviceOfflineError("Called shell command while device {} was offline".format(self.serial), self.serial)
         #return command_output
@@ -80,7 +77,8 @@ class DummyDevice(Device):
 
     def is_type(self, file_path, file_type, check_read=False,
                 check_write=False, check_execute=False, symlink_ok=True):
-
+        """Always return True for dummy path queries."""
+        #LOGGER.debug("% : queried % with kwargs %", self.name, args, kwargs)
         return True
 
 
@@ -96,11 +94,8 @@ class DummyDevice(Device):
                 with (Path(config_dir) / source_name).open(mode="r", encoding="utf-8") as dummy_data:
                     self._init_cache[source_name] = dummy_data.read()
             except FileNotFoundError:
-                if self.ignore_load_errors:
-                    #print("WARNING: ", Path(config_dir) / source_name)
-                    #print("Could not open the file")
-                    pass
-                else:
+                #LOGGER.error("Could not open %", config_dir)
+                if not self.ignore_load_errors:
                     raise
 
 
@@ -137,10 +132,11 @@ def get_nonexistent_path():
             return str(nonexistent_path.resolve())
 
 
-def dump_device(device, directory="."):
+def dump_device(device, directory=".", full=False):
     """Dump device data to files.
     What is dumped is controlled by extract_data's INFO_SOURCES.
-    This data is meant to be loaded into DummyDevice for debugging and compatibility tests.
+    This data is meant to be loaded into DummyDevice for debugging and
+    compatibility tests.
     """
     Path(directory).mkdir(exist_ok=True)
 
@@ -149,10 +145,13 @@ def dump_device(device, directory="."):
     device_dir.mkdir(exist_ok=True)
     print()
     print("Dumping", device.name)
-    
+
     #device.extract_data()
 
     for source_name, command in INFO_SOURCES.items():
+        if source_name.startswith("debug") and not full:
+            continue
+
         output = device.shell_command(*command, return_output=True, as_list=False)
 
         with Path(device_dir, source_name).open(mode="w", encoding="utf-8") as dump_file:

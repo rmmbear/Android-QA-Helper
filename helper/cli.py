@@ -136,7 +136,9 @@ CMD = COMMANDS.add_parser("dump", aliases=["d"], parents=[OPT_DEV, OPT_OUT],
 
 ### Hidden commands
 COMMANDS.add_parser("gui")
-COMMANDS.add_parser("debug-dump", parents=[OPT_DEV, OPT_OUT])
+CMD = COMMANDS.add_parser("debug-dump", parents=[OPT_DEV, OPT_OUT])
+CMD.add_argument("--full", action="store_true")
+CMD = COMMANDS.add_parser("run-tests")
 
 # Example of caring too much about aesthetics
 for group in  PARSER._action_groups:
@@ -158,22 +160,21 @@ def pick_device():
     if len(device_list) == 1:
         return device_list[0]
 
-    while True:
-        print("Multiple devices detected!\n")
-        print("Please choose which of devices below you want to work with.\n")
-        for counter, device in enumerate(device_list):
-            print(" ".join([counter, ":"]))
-            print(device.name)
+    print("Multiple devices detected!\n")
+    print("Please choose which of devices below you want to work with.\n")
+    for counter, device in enumerate(device_list):
+        print(" ".join([str(counter), ":", device.name]))
 
+    while True:
         print("Pick a device: ")
         user_choice = input().strip()
         if not user_choice.isnumeric():
-            print("The answer must be a number!\n")
+            print("The answer must be a number!")
             continue
 
         user_choice = int(user_choice)
         if user_choice < 0  or user_choice >= len(device_list):
-            print("Answer must be one of the above numbers!\n")
+            print("Answer must be one of the above numbers!")
             continue
 
         return device_list[user_choice]
@@ -264,8 +265,8 @@ def scan(device, args):
 
 
     if device_ids:
-        print("The following devices could not be initialized:")
-        for serial, status in device_ids:
+        print("\nThe following devices could not be initialized:")
+        for serial, status in device_ids.items():
             print(serial, ":", status)
         print()
 
@@ -286,13 +287,21 @@ def detailed_scan(device, args):
 
 
 def debug_dump(device, args):
-    print("Before continuing, please remember that ALL dumped files may",
-          "contain sensitive data. Use caution.")
-    input("Press enter to continue")
+    print("Please remember that ALL dumped files may contain sensitive data. Use caution.")
 
     from helper.tests import dump_device
 
-    dump_device(device, args.output)
+    dump_device(device, args.output, args.full)
+
+def run_tests():
+    try:
+        import pytest
+    except ImportError:
+        print("Could not import pytest, cannot run tests")
+        return
+    sys.argv = [sys.argv[0]]
+    pytest.main()
+
 
 
 REGULAR_COMMANDS = {"traces":pull_traces, "t":pull_traces,
@@ -327,19 +336,20 @@ def main(args=None):
             print("ERROR: The provided path does not point to an existing directory!")
             return False
 
-    if args.command not in BATCH_COMMANDS and args.command not in REGULAR_COMMANDS:
-        raise NotImplementedError("The '{}' function is not yet implemented".format(args.command))
-
     if args.command in ("scan", "s"):
         LOGGER.info("Scanning for devices")
         BATCH_COMMANDS[args.command](chosen_device, args)
+        return
+
+    if args.command in ("run-tests"):
+        run_tests()
         return
 
     using_batch_commands = args.command in BATCH_COMMANDS
 
     #TODO: Implement a timeout
     print("Waiting for any device to come online...")
-    device_.adb_command('wait-for-device')
+    device_.adb_command('wait-for-device', return_output=True)
 
     connected_devices = device_.get_devices(initialize=False)
     connected_serials = {device.serial:device for device in connected_devices}
@@ -376,3 +386,8 @@ def main(args=None):
             BATCH_COMMANDS[args.command](device, args)
         except device_.DeviceOfflineError:
             print("Device", device.name, "has been suddenly disconnected!")
+
+#TODO: Implement screenshot command
+#TODO: Implement app inspector as separate command
+#TODO: Implement keyboard and keyboard-interactive
+#      Enter text into textfields on Android device using PC's keyboard
