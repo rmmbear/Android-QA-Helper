@@ -17,7 +17,6 @@ from PyQt5 import QtWidgets, QtCore
 
 import helper.main as main_
 import helper.device as device_
-import helper.GUI.qdarkstyle as qtdark
 from helper.GUI.main_window import Ui_MainWindow as MainWindow_
 from helper.GUI.device_tab import Ui_Form as DeviceTab_
 
@@ -350,8 +349,11 @@ class MainWin(QtWidgets.QMainWindow):
 
     def add_new_device(self, device):
         """Create and add a new device tab to tab widget."""
-        device.device_init()
-        model = device.info("Product", "Model")
+        #raise NotImplementedError
+
+        #device.device_init()
+
+        model = device.info_dict("Product", "Model")
         if model is None:
             model = "Unknown model"
         manufacturer = device.info("Product", "Manufacturer")
@@ -420,8 +422,6 @@ class MainWin(QtWidgets.QMainWindow):
 def main():
     app = QtWidgets.QApplication(sys.argv)
     window = MainWin()
-
-    app.setStyleSheet(qtdark.load_stylesheet())
 
     window.show()
     sys.exit(app.exec_())
