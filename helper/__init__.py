@@ -25,7 +25,7 @@ from pathlib import Path
 
 # Program metadata
 VERSION = "0.15"
-VERSION_DATE = "2018-10-03"
+VERSION_DATE = "2018-10-03 15:07"
 VERSION_STRING = "".join(["Android Helper v", VERSION, " : ", VERSION_DATE])
 COPYRIGHT_STRING = "Copyright (c) 2017-2018 rmmbear"
 SOURCE_STRING = "Check the source code at https://github.com/rmmbear/Android-QA-Helper"
@@ -130,8 +130,8 @@ if sys.platform == "win32":
 def exe(executable, *args, return_output=False, as_list=True,
         stdout_=sys.stdout):
     """Run the provided executable with specified commands"""
-    #if executable not in (ADB, AAPT):
-    LOGGER.debug("Executing %s", str([executable, *args]))
+    if executable not in (ADB, AAPT):
+        LOGGER.debug("Executing %s", str([executable, *args]))
 
     try:
         if return_output:

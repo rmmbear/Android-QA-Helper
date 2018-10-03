@@ -55,6 +55,7 @@ def adb_command(*args, check_server=None, stdout_=sys.stdout, **kwargs):
     If check_server is true, function will first make sure that an ADB
     server is available before executing the command.
     """
+    LOGGER.debug("Executing %s", str(["ADB", *args]))
     if check_server is None:
         check_server = False
         try:
@@ -207,7 +208,7 @@ class Device:
         if "identity" not in self._extracted_info_groups:
             return "Unknown device ({})".format(self.serial)
 
-        self._name = "".join([self.info_dict["device_manufacturer"], " - ",
+        self._name = " - ".join([self.info_dict["device_manufacturer"],
                               self.info_dict["device_model"], self.serial,
                              ])
         return self._name
@@ -243,7 +244,7 @@ class Device:
 
     def extract_data(self, limit_to=(), force_extract=False):
         """"""
-        LOGGER.info("starting data extraction")
+        LOGGER.info("%s - starting data extraction", self.name)
         for command_id, command in EXTRACTION_FUNCTIONS.items():
             if limit_to:
                 if command_id not in limit_to:
@@ -253,6 +254,7 @@ class Device:
                 if not force_extract:
                     LOGGER.info("'%s' - skipping extraction of '%s' - command already executed", self.name, command_id)
                     continue
+                LOGGER.info("'%s' - extraction of the next group has been forced ", self.name)
 
             LOGGER.info("'%s' - extracting info group '%s'", self.name, command_id)
             command(self)
@@ -317,7 +319,6 @@ class Device:
             (check_write, w, -4),
             (check_execute, x, -5),
         ]
-
 
         for case in tests:
             # converse implication
@@ -410,7 +411,6 @@ class Device:
     def full_info_string(self, initialize=True, indent=4):
         """Return a formatted string containing all device info"""
         # ensure all required info is available
-        LOGGER.info("Starting device info dump")
         if initialize:
             self.extract_data()
 

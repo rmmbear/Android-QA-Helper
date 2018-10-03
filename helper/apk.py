@@ -1,10 +1,12 @@
 """Module for analyzing apk packages with aapt"""
 import re
 import sys
+import logging
 from pathlib import Path
 
 import helper as helper_
 
+LOGGER = logging.getLogger(__name__)
 AAPT = helper_.AAPT
 
 # last updated: 2017.07.19
@@ -38,8 +40,10 @@ android.permission.WRITE_EXTERNAL_STORAGE""".splitlines()
 
 # API Level: Android Version, Version Code, Human Readable Name
 # https://developer.android.com/guide/topics/manifest/uses-sdk-element.html
-# Last updated: 2017.11.23
+# Last updated: 2018.09.29
 API_LEVEL_MATRIX = {
+    #29 : ("next", "next", "next"),
+    28 : ("9", "P", "Pie"),
     27 : ("8.1", "O_MR1", "Oreo"),
     26 : ("8.0", "O", "Oreo"),
     25 : ("7.1", "N_MR1", "Nougat"),
@@ -66,11 +70,13 @@ API_LEVEL_MATRIX = {
     4  : ("1.6", "DONUT", "Donut"),
     3  : ("1.5", "CUPCAKE", "Cupcake"),
     2  : ("1.1", "BASE_1_1", "Base"),
-    1  : ("1.0", "BASE", "Base")}
+    1  : ("1.0", "BASE", "Base")
+    }
 
 
 def aapt_command(*args, stdout_=sys.stdout, **kwargs):
-    """Execute an AAPT command, and return -- or don't -- its result."""
+    """Execute AAPT command."""
+    LOGGER.debug("Executing %s", str(["AAPT", *args]))
     try:
         return helper_.exe(AAPT, *args, **kwargs)
     except FileNotFoundError:
@@ -105,8 +111,10 @@ class App:
         self.max_sdk = '0'
         self.target_sdk = '0'
         self.used_permissions = {}
+        #self.used_libraries = {}
+        #self.used_opt_libraries = {}
         self.used_implied_features = ()
-        self.used_optional_features = ()
+        self.used_opt_features = ()
         self.used_features = ()
         self.supported_abis = ()
         self.supported_texture_compressions = ()
@@ -114,7 +122,7 @@ class App:
         self.from_file()
 
 
-    def _from_device(self, device, limited_init=True):
+    def from_device(self, device, limited_init=True):
         raise NotImplementedError()
         # TODO: implement initialization from device
         dump = device.shell_command("dumpsys", "package", self.app_name,
@@ -173,7 +181,7 @@ class App:
             "supported_texture_compressions" : "(?:supports\\-gl\\-texture\\:\\')([^\\']*)",
             "used_permissions" : "(?:uses\\-permission\\:\\ name\\=\\')([^\\']*)(?:.*max\\-sdkVersion\\=\\')?([^\\']*)",
             "used_implied_features" : "(?:uses\\-implied\\-feature\\:\\ name\\=\\')([^\\']*)(?:.*reason\\=\\')?([^\\']*)",
-            "used_optional_features" : "(?:uses\\-feature\\-not\\-required\\:\\ name\\=\\')([^\\']*)",
+            "used_opt_features" : "(?:uses\\-feature\\-not\\-required\\:\\ name\\=\\')([^\\']*)",
             "used_features" : "(?:uses\\-feature\\:\\ name\\=\\')([^\\']*)",
             }
 
