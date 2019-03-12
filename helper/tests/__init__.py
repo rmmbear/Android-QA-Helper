@@ -1,13 +1,14 @@
 import sys
 import random
 import string
+import logging
 from pathlib import Path
 
 from helper import extract_data
 from helper.extract_data import INFO_SOURCES
 from helper.device import DeviceOfflineError, Device
 
-
+LOGGER = logging.getLogger(__name__)
 EXTRACTION_FUNCTIONS = {x[8::]:getattr(extract_data, x) for x in dir(extract_data) if x.startswith("extract_")}
 
 
@@ -94,7 +95,7 @@ class DummyDevice(Device):
                 with (Path(config_dir) / source_name).open(mode="r", encoding="utf-8") as dummy_data:
                     self._init_cache[source_name] = dummy_data.read()
             except FileNotFoundError:
-                #LOGGER.error("Could not open %", config_dir)
+                LOGGER.error("Could not open %s", "/".join([str(config_dir), source_name]))
                 if not self.ignore_load_errors:
                     raise
 
@@ -110,10 +111,9 @@ class DummyDevice(Device):
 
             if command in self._extracted_info_groups:
                 if not force_extract:
-            #        LOGGER.debug("'{}' - skipping extraction of '{}' - command already executed".format(self.name, command_id))
+                    #LOGGER.debug("'%s' - skipping extraction of '%s' - command already executed", self.name, command_id)
                     continue
 
-            #LOGGER.info("'{}' - extracting info group '{}'".format(self.name, command_id))
             command(self)
             if command_id not in self._extracted_info_groups:
                 self._extracted_info_groups.append(command_id)
