@@ -14,6 +14,7 @@
 #   You should have received a copy of the GNU General Public License
 #   along with this program. If not, see <http://www.gnu.org/licenses/>.
 
+
 import os
 import sys
 import time
@@ -105,17 +106,20 @@ remove : /mnt/sdcard/*_anr_*.txt
 remove : /data/local/tmp/helper_*
 """
 
-def _get_script_dir():
-    """"""
+def _get_working_dir():
+    """Return string representing the current working directory.
+    If frozen, this will be the same directory as the base executable
+    otherwise it will be one directory above the source code.
+    """
     if getattr(sys, 'frozen', False):
-        path = os.path.abspath(sys.executable)
+        cwd = Path(sys.executable).parent
     else:
-        path = inspect.getabsfile(_get_script_dir)
+        cwd = Path(inspect.getabsfile(_get_working_dir)).parent / ".."
 
-    path = os.path.realpath(path)
-    return os.path.dirname(path)
+    return str(cwd.resolve())
 
-BASE = _get_script_dir()
+
+BASE = _get_working_dir()
 ADB = BASE + "/../adb/adb"
 AAPT = BASE + "/../aapt/aapt"
 CONFIG = BASE + "/../helper_config"
