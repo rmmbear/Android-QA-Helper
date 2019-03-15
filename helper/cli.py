@@ -121,13 +121,34 @@ COMMANDS.add_parser(
     help="Dump all available device information to file.",
     epilog="Dump all available device information to file.")
 
+CMD = COMMANDS.add_parser(
+    "shell", aliases=["sh"], parents=[OPT_DEVICE],
+    help="Issue a shell command for a device.",
+    epilog="Issue a shell command for a device.")
+
+CMD.add_argument(
+    "command_", nargs="+", metavar="command",
+    help="""Note: put "--" as the first argument to suppress argument parsing
+    (necessary if your shell command contains dashes).""")
+
+CMD = COMMANDS.add_parser(
+    "adb", parents=[OPT_DEVICE],
+    help="Issue an adb command for a device.",
+    epilog="Issue an adb command for a device.")
+
+CMD .add_argument(
+    "command_", nargs="+", metavar="command",
+    help="""Note: put "--" as the first argument to suppress argument parsing
+    (necessary if your shell command contains dashes).""")
+
+
 ### Hidden commands
 #COMMANDS.add_parser("gui")
 CMD = COMMANDS.add_parser("debug-dump", parents=[OPT_DEVICE, OPT_OUTPUT])
 CMD.add_argument("--full", action="store_true")
-CMD = COMMANDS.add_parser("run-tests")
+COMMANDS.add_parser("run-tests")
 
-
+del CMD
 PARSER_NO_ARGS = PARSER.parse_args([])
 
 
@@ -281,6 +302,12 @@ def run_tests():
     pytest.main()
 
 
+def shell_command(device, args):
+    """"""
+    print()
+    device.shell_command(*args.command_, return_output=False, check_server=False)
+
+
 def adb_command(args):
     """"""
     device_.adb_command(*args.command_, return_output=False, check_server=False)
@@ -295,7 +322,7 @@ COMMAND_DICT = { #command : (function, required_devices),
     "extract":(extract_apk, 1), "x":(extract_apk, 1),
     "install":(install, 1), "i":(install, 1),
     "record":(record, 1), "r":(record, 1),
-    #"shell":(shell_command, 1), "sh":(shell_command, 1),
+    "shell":(shell_command, 1), "sh":(shell_command, 1),
     "traces":(pull_traces, 1), "t":(pull_traces, 1),
     #Multi device commands
     #these commands will run even when only one device is available
