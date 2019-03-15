@@ -108,8 +108,9 @@ remove : /data/local/tmp/helper_*
 
 def _get_working_dir():
     """Return string representing the current working directory.
-    If frozen, this will be the same directory as the base executable
-    otherwise it will be one directory above the source code.
+    If frozen, this will be the same directory as the one containing
+    base executable, otherwise it will be one directory above the source
+    code.
     """
     if getattr(sys, 'frozen', False):
         cwd = Path(sys.executable).parent
@@ -120,9 +121,9 @@ def _get_working_dir():
 
 
 BASE = _get_working_dir()
-ADB = BASE + "/../adb/adb"
-AAPT = BASE + "/../aapt/aapt"
-CONFIG = BASE + "/../helper_config"
+ADB = BASE + "/bin/adb/adb"
+AAPT = BASE + "/bin/aapt/aapt"
+CONFIG = BASE + "/helper_config"
 CLEANER_CONFIG = BASE + "/../cleaner_config"
 #COMPRESSION_DEFINITIONS = BASE + "/../compression_identifiers"
 
@@ -317,8 +318,8 @@ def _save_config(config):
 
 
 # Create the necessary directories and files if they don't yet exist
-Path(ADB).parent.mkdir(exist_ok=True)
-Path(AAPT).parent.mkdir(exist_ok=True)
+Path(ADB).parent.mkdir(parents=True, exist_ok=True)
+Path(AAPT).parent.mkdir(parents=True, exist_ok=True)
 Path(CONFIG).touch(exist_ok=True)
 
 #if not Path(COMPRESSION_DEFINITIONS).is_file():
