@@ -212,7 +212,7 @@ def clean(device, args):
     main_.clean(device, config_file)
 
 
-def scan(device, args):
+def scan(args):
     """"""
     format_str = "{:4}{:13}{:14}{:10}{}"
     #             #    serial, manufacturer, model, status
@@ -220,14 +220,8 @@ def scan(device, args):
     #      the end result should be a table that automatically adjusts
     #      column width to its contents
     headers = ["#", "serial num", "manufacturer", "model", "status"]
-    device_list = []
-    device_ids = {x:y for x, y in device_._get_devices()}
-
-    if device:
-        device_list = [device]
-        device_ids = []
-    else:
-        device_list = device_.get_devices(True, ["identity"])
+    device_list = device_.get_devices(True, limit_init=["identity"])
+    device_ids = {device.serial:device for device in device_list}
 
     print(format_str.format(*headers))
     if not device_ids:
@@ -240,11 +234,11 @@ def scan(device, args):
         except ValueError:
             print("Tried removing {} from {}".format(device.serial, device_ids))
 
-        print(format_str.format("{}.".format(count),
-                                device.serial,
-                                device.info_dict["device_manufacturer"],
-                                device.info_dict["device_model"],
-                                device._status))
+        print(format_str.format(
+            "{}.".format(count), device.serial,
+            device.info_dict["device_manufacturer"],
+            device.info_dict["device_model"],
+            device._status))
 
 
     if device_ids:
@@ -276,6 +270,7 @@ def debug_dump(device, args):
 
     dump_device(device, args.output, args.full)
 
+
 def run_tests():
     try:
         import pytest
@@ -286,28 +281,40 @@ def run_tests():
     pytest.main()
 
 
+def adb_command(args):
+    """"""
+    device_.adb_command(*args.command_, return_output=False, check_server=False)
 
-REGULAR_COMMANDS = {"traces":pull_traces, "t":pull_traces,
-                    "record":record, "r":record,
-                    "install":install, "i":install,
-                    "extract-apk":extract_apk, "x":extract_apk,}
 
-BATCH_COMMANDS = {"clean":clean, "c":clean,
-                  "dump":detailed_scan, "d":detailed_scan,
-                  "scan":scan, "s":scan,
-                  "detailed-scan":detailed_scan, "ds":detailed_scan,
-                  "debug-dump":debug_dump}
+COMMAND_DICT = { #command : (function, required_devices),
+    #No device commands
+    "adb":(adb_command, 0),
+    "run-tests":(run_tests, 0),
+    "scan":(scan, 0), "s": (scan, 0),
+    #Single device commands
+    "extract":(extract_apk, 1), "x":(extract_apk, 1),
+    "install":(install, 1), "i":(install, 1),
+    "record":(record, 1), "r":(record, 1),
+    #"shell":(shell_command, 1), "sh":(shell_command, 1),
+    "traces":(pull_traces, 1), "t":(pull_traces, 1),
+    #Multi device commands
+    #these commands will run even when only one device is available
+    "clean":(clean, 2), "c":(clean, 2),
+    "debug-dump":(debug_dump, 2),
+    "dump":(detailed_scan, 2), "d":(detailed_scan, 2),
+}
 
 
 def main(args=None):
     """Parse and execute input commands."""
     LOGGER.info("Starting parsing arguments")
     args = PARSER.parse_args(args)
-    chosen_device = None
+
+    LOGGER.info("Starting helper with option '%s'", args.command)
 
     if args == PARSER_NO_ARGS:
         PARSER.parse_args(["-h"])
-        return False
+        return
 
     #if args.command == "gui":
     #    LOGGER.info("Launching GUI")
@@ -317,18 +324,16 @@ def main(args=None):
     if hasattr(args, "output"):
         if not Path(args.output[0]).is_dir():
             print("ERROR: The provided path does not point to an existing directory!")
-            return False
+            return
 
-    if args.command in ("scan", "s"):
-        LOGGER.info("Scanning for devices")
-        BATCH_COMMANDS[args.command](chosen_device, args)
+    command, required_devices = COMMAND_DICT[args.command]
+
+    #No devices required, call function directly
+    if required_devices == 0:
+        command(args)
         return
 
-    if args.command == "run-tests":
-        run_tests()
-        return
-
-    using_batch_commands = args.command in BATCH_COMMANDS
+    chosen_device = None
 
     #TODO: Implement a timeout
     print("Waiting for any device to come online...")
@@ -337,38 +342,33 @@ def main(args=None):
     connected_devices = device_.get_devices(initialize=False)
     connected_serials = {device.serial:device for device in connected_devices}
 
-
     if hasattr(args, "device"):
         if args.device:
-            LOGGER.debug("Chosen device set to '%'" % args.device)
+            LOGGER.debug("Chosen device set to '%s'", args.device)
             try:
                 chosen_device = connected_serials[args.device]
             except KeyError:
                 print("Device with serial number", str(args.device), "was not found by Helper!")
                 return
 
-    LOGGER.info("Starting helper with option '%s'" % args.command)
-
-    if not using_batch_commands:
+    #TODO: implement concurrent commands
+    if required_devices == 1:
         if not chosen_device:
             chosen_device = pick_device()
 
         try:
-            return REGULAR_COMMANDS[args.command](chosen_device, args)
+            command(chosen_device, args)
         except device_.DeviceOfflineError:
             print("Device has been suddenly disconnected!")
-            return False
 
-    # TODO: figure out how to better enable process continuation in batch commands after disconnect error
-    # preferably without checking for specific input here
-    if chosen_device:
-        connected_devices = [chosen_device]
-
-    for device in connected_devices:
-        try:
-            BATCH_COMMANDS[args.command](device, args)
-        except device_.DeviceOfflineError:
-            print("Device", device.name, "has been suddenly disconnected!")
+    if required_devices == 2:
+        if chosen_device:
+            connected_devices = [chosen_device]
+        for device in connected_devices:
+            try:
+                command(device, args)
+            except device_.DeviceOfflineError:
+                print("Device", device.name, "has been suddenly disconnected!")
 
 #TODO: Implement screenshot command
 #TODO: Implement app inspector as separate command
