@@ -129,7 +129,7 @@ if sys.platform == "win32":
 
 def exe(executable, *args, return_output=False, as_list=True,
         stdout_=sys.stdout):
-    """Run the provided executable with specified commands"""
+    """"""
     if executable not in (ADB, AAPT):
         LOGGER.debug("Executing %s", str([executable, *args]))
 
@@ -329,6 +329,7 @@ if not Path(CLEANER_CONFIG).is_file():
 CONFIG = CONFIG
 _load_config(CONFIG)
 
+"""
 if not _check_adb():
     print("Please place a valid ADB executable (and its DLLs on Windows) into the default adb location (", str(Path(BASE + "/../adb").resolve()))
     print("or edit the helper_config file manually.")
@@ -338,6 +339,7 @@ if not _check_aapt() in (None, True):
     print("or edit the helper_config file manually.")
 
     sys.exit()
+"""
 
 CLEANER_CONFIG = str(Path(CLEANER_CONFIG).resolve())
 #COMPRESSION_DEFINITIONS = str(Path(COMPRESSION_DEFINITIONS).resolve())
