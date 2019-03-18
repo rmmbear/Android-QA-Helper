@@ -314,7 +314,7 @@ class App:
             lines = "".join([lines, indent*" ", req_feature, "\n"])
 
         lines = "".join([lines, "\nOptional features:\n"])
-        for opt_feature in self.used_optional_features:
+        for opt_feature in self.used_opt_features:
             lines = "".join([lines, indent*" ", opt_feature, "\n"])
 
         used_dangerous = set(ANDROID_DANGEROUS_PERMISSIONS).intersection(self.used_permissions)
