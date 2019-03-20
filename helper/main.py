@@ -6,7 +6,6 @@ from time import strftime
 import helper as helper_
 from helper import apk as apk_
 
-
 def install(device, *items, install_location="automatic", keep_data=False,
             installer_name="android.helper", stdout_=sys.stdout):
     """Install apps.
@@ -39,7 +38,7 @@ def install(device, *items, install_location="automatic", keep_data=False,
 
     # Take care of apk files(s)
     for apk_file in apk_list:
-        stdout_.write("".join(["\nINSTALLING: ", apk_file.app_name, "\n"]))
+        stdout_.write(f"\nINSTALLING: {apk_file.app_name}\n")
 
         if not install_app(device, apk_file, install_location, installer_name,
                            keep_data, stdout_=stdout_):
@@ -50,14 +49,13 @@ def install(device, *items, install_location="automatic", keep_data=False,
     if installed:
         if installed > 1:
             stdout_.write(
-                " ".join(["\nSuccesfully installed", str(installed), "out of",
-                          str(len(apk_list)), "provided apks:\n"]))
+                f"\nSuccesfully installed {installed} out of {len(apk_list)} provided apks:\n")
         else:
             stdout_.write("\nSuccesfully installed ")
 
         for apk_file in apk_list:
             if apk_file.app_name not in install_failure:
-                stdout_.write("".join([apk_file.app_name, "\n"]))
+                stdout_.write(f"{apk_file.app_name}\n")
 
     if install_failure:
         if len(install_failure) > 1:
@@ -66,7 +64,7 @@ def install(device, *items, install_location="automatic", keep_data=False,
             stdout_.write("\nCould not install ")
 
         for app_name in install_failure:
-            stdout_.write("".join([app_name, "\n"]))
+            stdout_.write(f"{app_name}\n")
 
         return None
 
@@ -85,8 +83,8 @@ def install(device, *items, install_location="automatic", keep_data=False,
                 stdout_.write("ERROR: Failed to copy " + obb_file + "\n")
                 return False
 
-        stdout_.write(" ".join(["\nSuccesfully copied obb files for",
-                                apk_file.display_name, "!\n"]))
+        stdout_.write(
+            f"\nSuccesfully copied obb files for {apk_file.display_name}!\n")
 
 
 def install_app(device, apk_file, install_location="automatic",
@@ -108,7 +106,7 @@ def install_app(device, apk_file, install_location="automatic",
     device.extract_data(limit_to=["installed_packages"])
 
     if apk_file.app_name in device.info_dict["third-party_apps"]:
-        stdout_.write(" ".join(["WARNING: Different version of the app already installed\n"]))
+        stdout_.write("WARNING: Different version of the app already installed\n")
         if not uninstall_app(device, apk_file, keep_data, stdout_=stdout_):
             stdout_.write("ERROR: Could not uninstall the app!\n")
             return False
@@ -126,11 +124,11 @@ def install_app(device, apk_file, install_location="automatic",
         stdout_.write("ERROR: Could not copy apk file to device\n")
         return False
 
-    stdout_.write(" ".join(["Installing", apk_file.display_name, "...\n"]))
-    stdout_.write(" ".join(["Please check your device, as it may now ask",
-                            "you to confirm the installation.\n"]))
+    stdout_.write(f"Installing {apk_file.display_name}...\n")
+    stdout_.write(
+        f"Please check your device, as it may now ask you to confirm the installation.\n")
 
-    destination = '"{}"'.format(destination)
+    destination = f"'{destination}'"
     device.shell_command("pm", "install", "-r", "-i", installer_name,
                          possible_install_locations[install_location],
                          destination, stdout_=stdout_)
@@ -165,15 +163,15 @@ def push_obb(device, obb_file, app_name, stdout_=sys.stdout):
         return False
 
     obb_name = str(Path(obb_file).name)
-    obb_target_file = "/".join([device.info_dict["internal_sd_path"], "Android/obb",
-                                app_name, obb_name])
+    obb_target_file = "/".join([
+        device.info_dict["internal_sd_path"], "Android/obb", app_name, obb_name])
 
     #pushing obb in two steps - some devices block adb push directly to obb folder
     device.adb_command("push", obb_file, device.info_dict["internal_sd_path"] + "/" + obb_name,
                        stdout_=stdout_)
     device.shell_command(
-        "mv", "".join(['"', device.info_dict["internal_sd_path"], "/", obb_name, '"']),
-        "".join(['"', obb_target_file, '"']), stdout_=stdout_)
+        "mv", f"'{device.info_dict['internal_sd_path']}/{obb_name}'"),
+        f"'{obb_target_file}'", stdout_=stdout_)
 
     if device.is_file(obb_target_file):
         return True
@@ -200,8 +198,7 @@ def record(device, output=".", name=None, silent=False, stdout_=sys.stdout):
 
     if 'screenrecord' not in device.info_dict["shell_commands"]:
         stdout_.write(
-            " ".join(["This device's shell does not have the 'screenrecord'",
-                      "command."]))
+            f"This device's shell does not have the 'screenrecord' command.")
         if int(device.info_dict["android_api_level"]) < 19:
             stdout_.write(
                 " ".join(["The command was introduced with API level 19 (",
@@ -238,7 +235,8 @@ def record(device, output=".", name=None, silent=False, stdout_=sys.stdout):
         filename = "".join([device.filename, "_screenrecord_",
                             strftime("%Y.%m.%d_%H.%M.%S"), ".mp4"])
 
-    remote_recording = "".join([device.info_dict["internal_sd_path"] + "/" + filename])
+    remote_recording = "".join([
+        device.info_dict["internal_sd_path"], "/", filename])
 
     try:
         device.shell_command("screenrecord", "--verbose", remote_recording,
@@ -307,7 +305,7 @@ def clear_app_data(device, app, stdout_=sys.stdout):
     device.extract_data(limit_to=["installed_packages"])
 
     stdout_.write(
-        "".join(["Clearing application data: ", display_name, "... "]))
+        f"Clearing application data: {display_name}... ")
     stdout_.flush()
 
     process_log = device.shell_command(
@@ -349,12 +347,11 @@ def uninstall_app(device, app, keep_data=False, stdout_=sys.stdout):
 
     if app_name in device.info_dict["system_apps"]:
         system_app = True
-        stdout_.write(" ".join([display_name, "is a system app and cannot be",
-                                "removed completely.\n"]))
-        stdout_.write(" ".join(["Resetting", display_name,
-                                "to factory version..."]))
+        stdout_.write(
+            f"{display_name} is a system app and cannot be removed completely.\n")
+        stdout_.write(f"Resetting {display_name} to factory version...")
     else:
-        stdout_.write("".join(["Uninstalling ", display_name, "... "]))
+        stdout_.write(f"Uninstalling {display_name}...")
 
     stdout_.flush()
 
@@ -397,7 +394,7 @@ def remove(device, target, recursive=False, stdout_=sys.stdout):
     else:
         recursive = ""
 
-    stdout_.write(" ".join(["Removing", target, "... "]))
+    stdout_.write(f"Removing {target}...")
     stdout_.flush()
 
     # TODO: commented out is the solution that should be more reliable
@@ -431,17 +428,17 @@ def remove(device, target, recursive=False, stdout_=sys.stdout):
     #    return True
 
     stdout_.write("Unexpected error:\n")
-    stdout_.write("".join([result, "\n"]))
+    stdout_.write(f"{result}\n")
     return False
 
 
 def replace(device, remote, local, stdout_=sys.stdout):
     """Replace remote file with user-provided one."""
     if not remove(device, remote, stdout_=stdout_):
-        stdout_.write("".join(["Cannot replace ", remote, "\n"]))
+        stdout_.write(f"Cannot replace {remote}\n")
         return False
 
-    stdout_.write(" ".join(["Placing", Path(local).name, "in its place..."]))
+    stdout_.write(f"Placing {Path(local).name} in its place...")
     stdout_.flush()
 
     device.adb_command("push", local, remote, stdout_=stdout_)
@@ -488,7 +485,7 @@ def parse_cleaner_config(config=helper_.CLEANER_CONFIG):
 
         pair = line.split(":", maxsplit=1)
         if len(pair) != 2:
-            bad_config.append(" ".join(["Line", str(count), ": No value"]))
+            bad_config.append(f"Line {count}: No value")
             continue
 
         key = pair[0].strip()
@@ -496,11 +493,11 @@ def parse_cleaner_config(config=helper_.CLEANER_CONFIG):
 
         if key not in CLEANER_OPTIONS:
             bad_config.append(
-                " ".join(["Line", str(count), ": Unknown command"]))
+                f"Line {count}: Unknown command")
             continue
 
         if not value:
-            bad_config.append(" ".join(["Line", str(count), ": No value"]))
+            bad_config.append(f"Line {str(count)}: No value")
             continue
 
         if key not in parsed_config:
@@ -521,15 +518,12 @@ def parse_cleaner_config(config=helper_.CLEANER_CONFIG):
             if expected == "1":
                 plural = ""
             bad_config.append(
-                " ".join(["Line", str(count), ": Expected", expected,
-                          "argument{} but got".format(plural), got]))
+                f"Line{count}: Expected {expected} argument{plural} but got {got}")
             continue
 
         parsed_config[key].append(items)
 
-    if bad_config:
-        bad_config.append("")
-    return (parsed_config, "\n".join(bad_config))
+    return (parsed_config, bad_config)
 
 
 def clean(device, config=None, parsed_config=None, force=False,
@@ -547,9 +541,8 @@ def clean(device, config=None, parsed_config=None, force=False,
         parsed_config, bad_config = parse_cleaner_config(config=config)
 
     if bad_config:
-        stdout_.write("".join(["Errors encountered in the config file (",
-                               config, "):\n"]))
-        stdout_.write(bad_config)
+        stdout_.write(f"Errors encountered in the config file ({config}):\n")
+        stdout_.write("\n".join(bad_config))
         stdout_.write("Aborting cleaning!\n")
         return False
 
@@ -569,13 +562,13 @@ def clean(device, config=None, parsed_config=None, force=False,
             if key not in parsed_config:
                 continue
             for item in parsed_config[key]:
-                stdout_.write(" ".join([str(action), ":", str(item[0]), "\n"]))
+                stdout_.write(f"{action} : {item[0]} \n")
 
         if "replace" in parsed_config:
             for pair in parsed_config["replace"]:
-                stdout_.write("".join(["\nThe file: ", pair[0], "\n"]))
-                stdout_.write("".join([indent * " ", "will be replaced with:\n"]))
-                stdout_.write("".join([indent * 2 * " ", pair[1], "\n"]))
+                stdout_.write(f"\nThe file: {pair[0]}\n")
+                stdout_.write(f"{indent * ' '}will be replaced with:\n")
+                stdout_.write(f"{indent * '  '}{pair[1]} \n")
 
         stdout_.write("\nContinue?\n")
 
@@ -584,7 +577,7 @@ def clean(device, config=None, parsed_config=None, force=False,
             if usr_choice == "N":
                 stdout_.write("Cleaning canceled!\n")
                 return False
-            elif usr_choice == "Y":
+            if usr_choice == "Y":
                 break
 
     for option, items in parsed_config.items():

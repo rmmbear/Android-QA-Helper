@@ -27,7 +27,7 @@ from pathlib import Path
 # Program metadata
 VERSION = "0.15"
 VERSION_DATE = "2018-10-03 15:07"
-VERSION_STRING = "".join(["Android Helper v", VERSION, " : ", VERSION_DATE])
+VERSION_STRING = f"Android Helper v{VERSION} : {VERSION_DATE}"
 COPYRIGHT_STRING = "Copyright (c) 2017-2018 rmmbear"
 SOURCE_STRING = "Check the source code at https://github.com/rmmbear/Android-QA-Helper"
 
@@ -226,7 +226,7 @@ def _check_adb():
         version_name = version_name.group().strip()
 
         if version_code:
-            " ".join([version_name, version_code.group().strip()])
+            f"{version_name} {version_code.group().strip()}"
 
         globals()["ADB_VERSION"] = version_name
 
@@ -313,8 +313,7 @@ def _save_config(config):
     with open(config, mode="w", encoding="utf-8") as config_file:
         for name in HELPER_CONFIG_VARS:
             value = globals()[name]
-
-            config_file.write("".join([name, "=", str(value), "\n"]))
+            config_file.write(f"{name}={value}\n")
 
 
 # Create the necessary directories and files if they don't yet exist

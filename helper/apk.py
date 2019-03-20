@@ -80,16 +80,17 @@ def aapt_command(*args, stdout_=sys.stdout, **kwargs):
     try:
         return helper_.exe(AAPT, *args, **kwargs)
     except FileNotFoundError:
-        stdout_.write("".join(["Helper expected AAPT to be located in '", AAPT,
-                               "' but could not find it.\n"]))
-        sys.exit()
-    except (PermissionError, OSError):
         stdout_.write(
-            " ".join(["Helper could not launch AAPT. Please make sure the",
-                      "following path is correct and points to an actual AAPT",
-                      "binary:", AAPT, "To fix this issue you may need to",
-                      "edit or delete the helper config file, located at:",
-                      helper_.CONFIG]))
+            f"Helper expected AAPT to be located in '{AAPT}' but could not find it.\n")
+        sys.exit()
+    except PermissionError:
+        stdout_.write(f"permission error encountered while trying to execute")
+    except OSError:
+        stdout_.write(
+            "Helper could not launch AAPT. Please make sure the following path "
+            f"is correct and points to an actual AAPT binary: {AAPT} . To fix "
+            "this issue you may need to edit or delete the helper config file, "
+            "located at: {helper_.CONFIG}")
         sys.exit()
 
 
@@ -143,13 +144,13 @@ class App:
         # not much can be read from the app while on device
         # so lets get the app to host and check it out!
         if not limited_init:
-            apk_path = device.shell_command("pm", "path", self.app_name,
-                                            return_output=True, as_list=False)
+            apk_path = device.shell_command(
+                "pm", "path", self.app_name, return_output=True, as_list=False)
             apk_path = re.search("(?:package\\:)(.*)", apk_path)
 
             if apk_path:
                 self.device_path = apk_path.group().strip()
-                local_path = "".join(["./", device.filename])
+                local_path = f"./{device.filename}"
                 device.adb_command("pull", self.device_path, local_path)
                 self.host_path = local_path
                 self.from_file()
@@ -161,7 +162,7 @@ class App:
                             return_output=True, as_list=False)
 
         if "error: dump failed" in dump.lower():
-            unknown = "Unknown! ({})".format(Path(self.host_path).name)
+            unknown = "Unknown! ({Path(self.host_path).name})"
             self.app_name = unknown
             self.display_name = unknown
 
@@ -229,16 +230,16 @@ class App:
         if int(self.min_sdk):
             if int(self.min_sdk) > int(device_sdk):
                 compatible = False
-                reasons.append(" ".join(["API level of at least", self.min_sdk,
-                                         "is required but the device has",
-                                         device_sdk]))
+                reasons.append(
+                    f"API level of at least {self.min_sdk} is required but "
+                    f"the device uses {device_sdk}")
 
         if int(self.max_sdk):
             if int(device_sdk) > int(self.max_sdk):
                 compatible = False
-                reasons.append(" ".join(["API level of at most", self.max_sdk,
-                                         "is allowed but the device has",
-                                         device_sdk]))
+                reasons.append(
+                    f"API level of at most {self.max_sdk} is allowed but "
+                    f"the device uses {device_sdk}")
 
         # check if device uses one of supported abis
         if self.supported_abis:
@@ -251,8 +252,7 @@ class App:
             if not len(unique_abis) < len(all_abis):
                 compatible = False
                 reasons.append(
-                    " ".join(["Device does not use supported abis",
-                              str(self.supported_abis)]))
+                    f"Device does not use supported abis ({self.supported_abis})")
 
         # check if device uses one of supported texture compressions
         if self.supported_texture_compressions:
@@ -265,30 +265,31 @@ class App:
             if not len(unique_textures) < len(all_textures):
                 compatible = False
                 reasons.append(
-                    " ".join(["Device does not use supported texture",
-                              "compressions",
-                              str(self.supported_texture_compressions)]))
+                    f"Device does not use supported texture compressions"
+                    f"{self.supported_texture_compressions}")
 
         # check if all features are available
         for feature in self.used_features:
             if feature not in device.info_dict["device_features"]:
                 compatible = False
-                reasons.append(" ".join(["Feature", feature,
-                                         "not available on device"]))
+                reasons.append(
+                    f"Feature {feature} not available on device")
 
         return (compatible, reasons)
 
 
     def get_report(self, extended=False, indent=4):
         """Return a formatted string containing all known app info."""
-        line1 = "".join([self.display_name, " v.", self.version_name, " (", self.version_code, ")"])
-        line2 = "".join(["App ID: ", self.app_name])
+        line1 = f"{self.display_name}  v. {self.version_name} ({self.version_code})"
+        line2 = f"App ID: {self.app_name}"
 
         if not extended:
-            return line1 + "\n" + line2
+            return "\n".join((line1, line2))
 
         lines = "\n".join([line1, line2])
 
+        #TODO: replace this mess with a loop
+        # keep a list of strings and join them all at the end
         target_version = API_LEVEL_MATRIX[int(self.target_sdk)][0]
         target_version_name = API_LEVEL_MATRIX[int(self.target_sdk)][2]
         lines = "".join([lines, "\nTargeted Android version: ", target_version,

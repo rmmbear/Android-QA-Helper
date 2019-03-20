@@ -1,4 +1,5 @@
-""""""
+"""
+"""
 import re
 import sys
 import logging
@@ -97,7 +98,7 @@ def _get_devices(stdout_=sys.stdout):
         if first_line.lower() != "list of devices attached":
             stdout_.write(first_line + "\n")
             if device_specs:
-                stdout_.write("\n".join(device_specs))
+                stdout_.write(f"{device_specs}\n")
                 return []
 
     for device_line in device_specs:
@@ -107,11 +108,10 @@ def _get_devices(stdout_=sys.stdout):
         device = device_line.split(maxsplit=1)
         if device[1] not in ("device", "unauthorized", "offline"):
             if not "no permissions" in device[1]:
-                stdout_.write(" ".join(["ERROR: helper received unexpected",
-                                        "output while scanning for devices:\n"]
-                                      )
-                             )
-                stdout_.write("".join(["      ", device_line + "\n"]))
+                stdout_.write(
+                    " ".join(["ERROR: helper received unexpected",
+                              "output while scanning for devices:\n"]))
+                stdout_.write(f"      {device_line}\n")
                 device[1] = "unknown error"
 
         device_list.append((device[0].strip(), device[1].strip()))
@@ -172,12 +172,14 @@ class Device:
         """Same as adb_command(*args), but specific to the given device.
         """
         if self.status != "device":
-            raise DeviceOfflineError("Called adb command while device {} was offline".format(self.serial), self.serial)
+            raise DeviceOfflineError(
+                "Called adb command while device {} was offline".format(self.serial), self.serial)
 
         command_output = adb_command("-s", self.serial, *args, **kwargs)
 
         if self.status != "device":
-            raise DeviceOfflineError("Device {} became offline after adb command".format(self.serial), self.serial)
+            raise DeviceOfflineError(
+                "Device {} became offline after adb command".format(self.serial), self.serial)
 
         return command_output
 
@@ -187,12 +189,14 @@ class Device:
         given device.
         """
         if self.status != "device":
-            raise DeviceOfflineError("Called adb command while device {} was offline".format(self.serial), self.serial)
+            raise DeviceOfflineError(
+                "Called adb command while device {} was offline".format(self.serial), self.serial)
 
         command_output = adb_command("-s", self.serial, "shell", *args, **kwargs)
 
         if self.status != "device":
-            raise DeviceOfflineError("Device {} became offline after adb command".format(self.serial), self.serial)
+            raise DeviceOfflineError(
+                "Device {} became offline after adb command".format(self.serial), self.serial)
 
         return command_output
 
@@ -208,9 +212,9 @@ class Device:
         if "identity" not in self._extracted_info_groups:
             return "Unknown device ({})".format(self.serial)
 
-        self._name = " - ".join([self.info_dict["device_manufacturer"],
-                              self.info_dict["device_model"], self.serial,
-                             ])
+        self._name = " - ".join(
+            [self.info_dict["device_manufacturer"], self.info_dict["device_model"],
+             self.serial])
         return self._name
 
 
@@ -357,7 +361,7 @@ class Device:
 
         #TODO: Make "?" wildcards work
 
-        safe_path = "*".join(['"{}"'.format(x) for x in path.split("*")])
+        safe_path = "*".join([f'"x"' for x in path.split("*")])
         #safe_path = safe_path.replace("\\", "\\\\")
 
         shell_command = SH_ECHO_GLOB.format(safe_path)
@@ -419,7 +423,7 @@ class Device:
         full_info_string += "\n# Generated at {}\n".format(strftime("%Y-%m-%d %H:%M:%S"))
 
         for info_section in extract.SURFACED_VERBOSE:
-            full_info_string = "".join([full_info_string, "\n", info_section[0], ":\n"])
+            full_info_string = f"{full_info_string}\n{info_section[0]}:\n"
             if isinstance(info_section, list):
                 for info_name, info_key in info_section[1]:
                     info_value = self.info_dict[info_key]
@@ -488,7 +492,7 @@ class Device:
 
         if app_name not in self.info_dict["system_apps"] and\
            app_name not in self.info_dict["third-party_apps"]:
-            stdout_.write(" ".join([app_name, "not in list of installed apps.\n"]))
+            stdout_.write(f"{app_name} not in list of installed apps.\n")
             return False
 
         app_path = self.shell_command(
@@ -502,7 +506,7 @@ class Device:
 
         app_path = package_line.group()
 
-        filename = "".join([app_name, "(", Path(app_path).stem, ").apk"])
+        filename = f"{app_name} ({Path(app_path).stem}).apk"
         out_file = Path(out_dir, filename)
 
         stdout_.write("Copying {}'s apk file...\n".format(app_name))
@@ -518,21 +522,22 @@ class Device:
     def launch_app(self, app, stdout_=sys.stdout):
         """Launch an app"""
 
-        intent = "".join([app.app_name, "/", app.launchable_activity])
+        intent = f"{app.app_name}/{app.launchable_activity}"
 
-        launch_log = self.shell_command("am", "start", "-n", intent,
-                                        return_output=True, as_list=False)
+        launch_log = self.shell_command(
+            "am", "start", "-n", intent, return_output=True, as_list=False)
 
         #TODO: make error detection prettier
-        if "".join(["Starting: Intent { cmp=", intent, " }"]) in launch_log:
+        if "".join(("Starting: Intent { cmp=", intent, "}")) in launch_log:
             if "Error type" in launch_log:
                 stdout_.write("ERROR: App was not launched!\n")
 
-                if "".join(["Activity class {", intent, "} does not exist"]) in launch_log:
+                if f"Activity class {{intent}} does not exist" in launch_log:
                     stdout_.write("Either the app is not installed or the launch activity does not exist\n")
-                    stdout_.write("Intent: {}\n".format(intent))
+                    stdout_.write(f"Intent: {intent}")
                 else:
-                    stdout_.write("AM LOG:\n{}\n".format(re.search("(?:Error type [0-9]*)(.*)", launch_log, re.DOTALL).group(1)))
+                    am_log = re.search("(?:Error type [0-9]*)(.*)", launch_log, re.DOTALL).group(1)
+                    stdout_.write(f"AM LOG:\n{am_log}\n")
             elif "Activity not started, its current task has been brought to the front" in launch_log:
                 stdout_.write("App already running, bringing it to front.\n")
                 return True
@@ -545,6 +550,6 @@ class Device:
             else:
                 stdout_.write("ERROR: Unknown error!\n")
                 if launch_log:
-                    stdout_.write("AM LOG:\n{}\n".format(launch_log))
+                    stdout_.write(f"AM LOG:\n{launch_log}\n")
 
         return False

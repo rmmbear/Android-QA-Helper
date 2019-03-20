@@ -167,7 +167,7 @@ def pick_device():
     print("Multiple devices detected!\n")
     print("Please choose which of devices below you want to work with.\n")
     for counter, device in enumerate(device_list):
-        print(" ".join([str(counter), ":", device.name]))
+        print(f"{counter} : {device.name}"
 
     while True:
         print("Pick a device: ")
@@ -187,7 +187,8 @@ def pick_device():
 def record(device, args):
     destination = main_.record(device, args.output)
     if destination:
-        print("Recorded video was saved to:", destination, sep="\n")
+        print("Recorded video was saved to:")
+        print(destination)
         return destination
 
     return False
@@ -219,7 +220,8 @@ def extract_apk(device, args):
     for app_name in args.extract_apk:
         out = device.extract_apk(app_name, args.output)
         if out:
-            print("Package saved to", out)
+            print("Package saved to:")
+            print(out)
 
 
 def clean(device, args):
@@ -236,7 +238,7 @@ def clean(device, args):
 def scan(args):
     """"""
     format_str = "{:4}{:13}{:14}{:10}{}"
-    #             #    serial, manufacturer, model, status
+    #       #, serial, manufacturer, model, status
     #TODO: automatically change format string based on what's connected
     #      the end result should be a table that automatically adjusts
     #      column width to its contents
@@ -253,7 +255,7 @@ def scan(args):
         try:
             device_ids.pop(device.serial)
         except ValueError:
-            print("Tried removing {} from {}".format(device.serial, device_ids))
+            print(f"Tried removing {device.serial} from {device_ids}")
 
         print(format_str.format(
             "{}.".format(count), device.serial,
@@ -265,21 +267,22 @@ def scan(args):
     if device_ids:
         print("\nThe following devices could not be initialized:")
         for serial, status in device_ids.items():
-            print(serial, ":", status)
+            print(f"{serial} : {status}")
         print()
 
 
 def detailed_scan(device, args):
     """"""
     device.extract_data(limit_to=["identity"])
-    print("Collecting info from", device.name, "...")
+    print(f"Collecting info from {device.name} ...")
 
     info_string = device.full_info_string()
     if args.output:
-        filename = "".join([device.filename, "_REPORT"])
-        with (Path(args.output) / filename).open(mode="w") as device_report:
+        filename = f"{device.filename}_REPORT"
+        output_path = Path(args.output) / filename).resolve()
+        with output_path.open(mode="w") as device_report:
             device_report.write(info_string)
-        print("Report saved to", str((Path(args.output) / filename).resolve()))
+        print(f"Report saved to {str(output_path)}")
     else:
         print(info_string)
 
@@ -337,7 +340,7 @@ def main(args=None):
     LOGGER.info("Starting parsing arguments")
     args = PARSER.parse_args(args)
 
-    LOGGER.info("Starting helper with option '%s'", args.command)
+    LOGGER.info(f"Starting helper with option '{args.command}")
 
     if args == PARSER_NO_ARGS:
         PARSER.parse_args(["-h"])
@@ -371,11 +374,11 @@ def main(args=None):
 
     if hasattr(args, "device"):
         if args.device:
-            LOGGER.debug("Chosen device set to '%s'", args.device)
+            LOGGER.debug(f"Chosen device set to '{args.device}'")
             try:
                 chosen_device = connected_serials[args.device]
             except KeyError:
-                print("Device with serial number", str(args.device), "was not found by Helper!")
+                print(f"Device with serial number {args.device} was not found by Helper!")
                 return
 
     #TODO: implement concurrent commands
@@ -395,7 +398,7 @@ def main(args=None):
             try:
                 command(device, args)
             except device_.DeviceOfflineError:
-                print("Device", device.name, "has been suddenly disconnected!")
+                print(f"Device {device.name} has been suddenly disconnected!")
 
 #TODO: Implement screenshot command
 #TODO: Implement app inspector as separate command
