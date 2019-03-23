@@ -102,10 +102,14 @@ INFO_SOURCES = {
     "screen_density" : ("wm", "density"),
     "internal_sd_space" : ("df", "\"$EXTERNAL_STORAGE\""),
     "external_sd_space" : ("df", "\"$SECONDARY_STORAGE\""),
-    "disk_space" : ("df",),                         #debug
-    "build.prop" : ("cat", "/system/build.prop"),   #debug
-    "dumpsys_full" : ("dumpsys",),                  #debug
-    "directory_map" : ("ls", "-alR"),               #debug
+    #debug info included in debug dump
+    "build.prop" : ("cat", "/system/build.prop"),
+    "disk_space" : ("df",),
+    #debug info included only in full debug dump
+    "debug_dumpsys_full" : ("dumpsys",),
+    "debug_directory_map" : ("ls", "-alR"),
+    "debug_permission_list" : ("pm", "list", "permissions"),
+    "debug_device_instrumentation" : ("pm", "list", "instrumentation"),
     }
 
 # list of features that one might be looking for in a device
