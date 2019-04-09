@@ -1,6 +1,7 @@
 """
 
-Other modules expect that all extraction functions' names start with 'extract_'
+Other modules expect that all extraction functions' names start with
+'extract_'.
 """
 import re
 import logging
@@ -210,7 +211,7 @@ SURFACED_VERBOSE = [
       ("CPU Clock Range", "cpu_clock_range"),
       ("Available ABIs", "cpu_abis"),
       ("CPU Features", "cpu_features"),
-      # Some chipset include multiple CPUs that it switches between depending on power needed for given task
+      # Some chipsets include multiple CPUs that device switches between depending on power needed for given task
       # in such cases, following entries will be added for each cpu
       # ("CPU# Core Count", "cpu#_core_count"),
       # ("CPU# Clock Range", "cpu#_clock_range"),
@@ -298,7 +299,7 @@ INFO_KEYS = [
 def abi_to_arch(abi):
     """"""
     if abi not in helper.ABI_TO_ARCH:
-        return "Unknown ({})".format(abi)
+        return "Unknown ({abi})"
 
     return helper.ABI_TO_ARCH[abi]
 
@@ -346,6 +347,8 @@ def extract_identity(device):
 
         value = value.group(1).strip()
         device.info_dict[name] = value
+
+    device.info_dict["device_serial_number"] = device.serial
 
 
 def extract_os(device):
@@ -398,8 +401,8 @@ def extract_os(device):
                 detailed_version = re.search("(?:\\[ro\\.modversion\\]\\:\\s*\\[)([^\\]]*)", getprop).group(1)
                 # skip modversion if it's already contained in version or if modversion = <OSname> + <version>
                 if detailed_version not in device.info_dict["aftermarket_firmware_version"] or \
-                    detailed_version.endswith(device.info_dict["aftermarket_firmware_version"]):
-                        device.info_dict["aftermarket_firmware_version"] += " ({})".format(detailed_version)
+                   detailed_version.endswith(device.info_dict["aftermarket_firmware_version"]):
+                    device.info_dict["aftermarket_firmware_version"] += f" ({detailed_version})"
 
         except AttributeError:
             pass
@@ -412,6 +415,8 @@ def extract_chipset(device):
     ram = re.search("(?:MemTotal\\:\\s*)([^A-z\\ ]*)", meminfo)
     if ram:
         device.info_dict["ram_capacity"] = ram.group(1).strip()
+
+    ram_type = "ro.boot.hardware.ddr"
 
     abi1 = re.search("(?:\\[ro\\.product\\.cpu\\.abi\\]: \\[)([^\\]]*)", getprop)
     abi2 = re.search("(?:\\[ro\\.product\\.cpu\\.abi2\\]\\: \\[)([^\\]]*)", getprop)
@@ -429,7 +434,7 @@ def extract_chipset(device):
         try:
             cpu_arch = helper.ABI_TO_ARCH[abi1]
         except KeyError:
-            cpu_arch = "UNKNOWN (ABI: {})".format(abi1)
+            cpu_arch = "UNKNOWN (ABI: {abi1})"
     if abi2:
         abi2 = abi2.group(1).strip()
         abilist.append(abi1)
@@ -486,7 +491,6 @@ def extract_cpu(device):
 
     for cpu in shell_out:
         cpu = cpu.strip().splitlines()
-        #print(cpu)
         cpu_id = int(cpu[0].strip())
         cpu_dict[cpu_id] = {}
 
@@ -500,7 +504,7 @@ def extract_cpu(device):
                     #skip empty lines
                     continue
 
-                LOGGER.warn("Unexpected output found while extracting cpu data: %s" % str([line]))
+                LOGGER.warning("Unexpected output found while extracting cpu data: %s", str([line]))
                 # above is most likely happening when cores are put to sleep - those files then become unavailable
                 # first core should always be awake
                 #TODO: Ivestigate whether similar can happen when cpus are suddenly switched in multi-cpu chipset
@@ -512,7 +516,6 @@ def extract_cpu(device):
                 continue
             cpu_dict[cpu_id][line[0]] = line[1]
 
-    #print(cpu_dict)
     current_id = 0
     phys_id = 0
     while True:
@@ -786,7 +789,7 @@ def extract_available_commands(device):
     """Extract a list of available shell commands."""
     device.info_dict["shell_commands"] = []
 
-    commands = run_extraction_command(device, "available_commands", use_cache=False, keep_cache=False).splitlines()
+    commands = run_extraction_command(device, "available_commands").splitlines()
     device.info_dict["shell_commands"] = commands
 
 
@@ -805,10 +808,11 @@ def extract_system_packages(device):
 
     device.info_dict["system_apps"] = []
 
-    for package in run_extraction_command(device, "system_apps", use_cache=False, keep_cache=False).splitlines():
+    for package in run_extraction_command(device, "system_apps").splitlines():
         try:
             app = package.split("package:", maxsplit=1)[1]
         except IndexError:
+            LOGGER.warning("Could not split package line: %s", package)
             continue
 
         device.info_dict["system_apps"].append(app.strip())
@@ -818,10 +822,14 @@ def extract_thirdparty_packages(device):
     """"""
     device.info_dict["third-party_apps"] = []
 
-    for package in run_extraction_command(device, "third-party_apps", use_cache=False, keep_cache=False).splitlines():
+    for count, package in enumerate(run_extraction_command(device, "third-party_apps", use_cache=False, keep_cache=False).splitlines()):
         try:
             app = package.split("package:", maxsplit=1)[1]
         except IndexError:
+            LOGGER.warning("Could not split package line: %s", package)
             continue
 
         device.info_dict["third-party_apps"].append(app.strip())
+
+    if count == 0:
+        device.info_dict["third-party_apps"] = "-none-"
