@@ -256,12 +256,17 @@ INFO_KEYS = [
     "cpu_architecture",
     "cpu_clock_range",
     "cpu_features",
-    "cpu_max_frequency",
-    "cpu_min_frequency",
     "cpu_summary",
+    "cpu0_clock_intervals",
+    "cpu0_clock_range",
+    "cpu0_core_count",
+    "cpu0_max_frequency",
+    "cpu0_min_frequency",
     #"cpu#_clock_intervals",
     #"cpu#_clock_range",
     #"cpu#_core_count",
+    #"cpu#_max_frequency",
+    #"cpu#_min_frequency",
     "device_brand",
     "device_device",
     "device_features",
@@ -525,19 +530,27 @@ def extract_cpu(device):
             break
         current_cpu_dict = cpu_dict[current_id]
 
+        try:
+            current_cpu_dict['cpuinfo_max_freq']
+            current_cpu_dict['cpuinfo_min_freq']
+            current_cpu_dict['scaling_available_frequencies']
+        except KeyError:
+            current_cpu_dict = {}
+
         if not current_cpu_dict:
             count = 0
             broken_name = "_unknown{}"
-            while True:
-                n_broken_name = broken_name.format(count)
-                if n_broken_name in phys_cpu_dict:
-                    continue
 
-                broken_name = n_broken_name
-                break
+            n_broken_name = broken_name.format(count)
+            while n_broken_name in phys_cpu_dict:
+                count += 1
+                n_broken_name = broken_name.format(count)
+
+            broken_name = n_broken_name
+
             phys_cpu_dict[broken_name] = {
                 'max_frequency':0,
-                'min_frequency':999999,
+                'min_frequency':0,
                 'clock_range':"Unknown",
                 'clock_intervals':"Unknown",
                 'cores':"Unknown",
@@ -552,8 +565,14 @@ def extract_cpu(device):
 
                 next_dict = cpu_dict[current_id + unknown_cores]
 
-                if next_dict:
-                    break
+                try:
+                    current_cpu_dict['cpuinfo_max_freq']
+                    current_cpu_dict['cpuinfo_min_freq']
+                    current_cpu_dict['scaling_available_frequencies']
+                    if next_dict:
+                        break
+                except KeyError:
+                    pass
 
                 unknown_cores += 1
 
@@ -575,24 +594,23 @@ def extract_cpu(device):
 
         current_id = phys_cpu_dict[phys_id]['cores'][-1] + 1
 
-    #print(phys_cpu_dict)
     device.info_dict["cpu_summary"] = []
     for cpu_id, cpu in phys_cpu_dict.items():
-        device.info_dict["cpu{}_max_frequency".format(cpu_id)] = cpu["max_frequency"]
+        device.info_dict[f"cpu{cpu_id}_max_frequency"] = cpu["max_frequency"]
         if cpu["max_frequency"] > max_frequency:
             max_frequency = cpu["max_frequency"]
-        device.info_dict["cpu{}_min_frequency".format(cpu_id)] = cpu["min_frequency"]
+        device.info_dict[f"cpu{cpu_id}_min_frequency"] = cpu["min_frequency"]
         if cpu["min_frequency"] < min_frequency:
             min_frequency = cpu["min_frequency"]
 
-        device.info_dict["cpu{}_clock_intervals".format(cpu_id)] = cpu["clock_intervals"]
-        device.info_dict["cpu{}_core_count".format(cpu_id)] = cpu["core_count"]
+        device.info_dict[f"cpu{cpu_id}_clock_intervals"] = cpu["clock_intervals"]
+        device.info_dict[f"cpu{cpu_id}_core_count"] = cpu["core_count"]
 
-        device.info_dict["cpu_summary"].append("{}-core {} MHz".format(cpu["core_count"], cpu["max_frequency"]))
-        #print(device.info_dict["cpu_summary"])
+        device.info_dict["cpu_summary"].append(
+            "{}-core {} MHz".format(cpu["core_count"], cpu["max_frequency"]))
 
-
-    device.info_dict["cpu_clock_range"] = " - ".join([str(min_frequency), str(max_frequency)]) + " GHz"
+    device.info_dict["cpu_clock_range"] = " - ".join(
+        [str(min_frequency), str(max_frequency)]) + " GHz"
 
 
     #"cpu_clock_range",
