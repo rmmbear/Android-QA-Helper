@@ -97,6 +97,7 @@ INFO_SOURCES = {
     "available_commands" : (SH_PATH_EXE,),
     "cpu_data" : (SH_CPU_DATA,),
     "device_features" : ("pm", "list", "features"),
+    "device_libraries" : ("pm", "list", "libraries"),
     "system_apps" : ("pm", "list", "packages", "-s"),
     "third-party_apps" : ("pm", "list", "packages", "-3"),
     "screen_size" : ("wm", "size"),
