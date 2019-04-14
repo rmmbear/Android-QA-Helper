@@ -120,12 +120,12 @@ def _get_working_dir():
     return str(cwd.resolve())
 
 
-BASE = _get_working_dir()
-ADB = BASE + "/bin/adb/adb"
-AAPT = BASE + "/bin/aapt/aapt"
-CONFIG = BASE + "/helper_config"
-CLEANER_CONFIG = BASE + "/../cleaner_config"
-#COMPRESSION_DEFINITIONS = BASE + "/../compression_identifiers"
+CWD = _get_working_dir()
+ADB = CWD + "/bin/adb/adb"
+AAPT = CWD + "/bin/aapt/aapt"
+CONFIG = CWD + "/helper_config"
+CLEANER_CONFIG = CWD + "/../cleaner_config"
+#COMPRESSION_DEFINITIONS = CWD + "/../compression_identifiers"
 
 if sys.platform == "win32":
     AAPT += ".exe"
@@ -335,11 +335,11 @@ _load_config(CONFIG)
 
 """
 if not _check_adb():
-    print("Please place a valid ADB executable (and its DLLs on Windows) into the default adb location (", str(Path(BASE + "/../adb").resolve()))
+    print("Please place a valid ADB executable (and its DLLs on Windows) into the default adb location (", str(Path(CWD + "/../adb").resolve()))
     print("or edit the helper_config file manually.")
     sys.exit()
 if not _check_aapt() in (None, True):
-    print("Please place a valid AAPT executable into the default adb location (", str(Path(BASE + "/../aapt").resolve()))
+    print("Please place a valid AAPT executable into the default adb location (", str(Path(CWD + "/../aapt").resolve()))
     print("or edit the helper_config file manually.")
 
     sys.exit()
