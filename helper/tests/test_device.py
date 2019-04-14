@@ -10,8 +10,8 @@ from helper.tests import DummyDevice
 
 from helper.extract_data import INFO_KEYS, SURFACED_BRIEF, SURFACED_VERBOSE
 
-FULL_DEVICE_CONFIG = helper_.BASE + "/tests/full_config"
-COMPATIBILITY_DIR = helper_.BASE + "/../compat_data"
+FULL_DEVICE_CONFIG = helper_.CWD + "/tests/full_config"
+COMPATIBILITY_DIR = helper_.CWD + "/../compat_data"
 
 try:
     DUMP_DATA_AVAILABLE = bool([x for x in Path(COMPATIBILITY_DIR).iterdir() if x.is_dir])
@@ -123,10 +123,10 @@ class TestExtractModule:
 
     def test_reference_existing_keys_only(self):
         """Check if the module references existing info keys."""
-        extraction_module = Path(helper_.BASE) / "extract_data.py"
-        extraction_module = Path(helper_.BASE) / "main.py"
-        extraction_module = Path(helper_.BASE) / "cli.py"
-        extraction_module = Path(helper_.BASE) / "apk.py"
+        extraction_module = Path(helper_.CWD) / "extract_data.py"
+        extraction_module = Path(helper_.CWD) / "main.py"
+        extraction_module = Path(helper_.CWD) / "cli.py"
+        extraction_module = Path(helper_.CWD) / "apk.py"
 
         with extraction_module.open(mode="r", encoding="utf-8") as module:
             extraction_code = module.read()

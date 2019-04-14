@@ -170,7 +170,7 @@ def push_obb(device, obb_file, app_name, stdout_=sys.stdout):
     device.adb_command("push", obb_file, device.info_dict["internal_sd_path"] + "/" + obb_name,
                        stdout_=stdout_)
     device.shell_command(
-        "mv", f"'{device.info_dict['internal_sd_path']}/{obb_name}'"),
+        "mv", f"'{device.info_dict['internal_sd_path']}/{obb_name}'",
         f"'{obb_target_file}'", stdout_=stdout_)
 
     if device.is_file(obb_target_file):

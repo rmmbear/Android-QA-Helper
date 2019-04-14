@@ -167,7 +167,7 @@ def pick_device():
     print("Multiple devices detected!\n")
     print("Please choose which of devices below you want to work with.\n")
     for counter, device in enumerate(device_list):
-        print(f"{counter} : {device.name}"
+        print(f"{counter} : {device.name}")
 
     while True:
         print("Pick a device: ")
@@ -263,7 +263,6 @@ def scan(args):
             device.info_dict["device_model"],
             device._status))
 
-
     if device_ids:
         print("\nThe following devices could not be initialized:")
         for serial, status in device_ids.items():
@@ -279,7 +278,7 @@ def detailed_scan(device, args):
     info_string = device.full_info_string()
     if args.output:
         filename = f"{device.filename}_REPORT"
-        output_path = Path(args.output) / filename).resolve()
+        output_path = (Path(args.output) / filename).resolve()
         with output_path.open(mode="w") as device_report:
             device_report.write(info_string)
         print(f"Report saved to {str(output_path)}")
