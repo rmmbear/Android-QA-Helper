@@ -2,7 +2,6 @@
 import re
 import sys
 import logging
-from pathlib import Path
 
 import helper as helper_
 
@@ -77,21 +76,7 @@ API_LEVEL_MATRIX = {
 def aapt_command(*args, stdout_=sys.stdout, **kwargs):
     """Execute AAPT command."""
     LOGGER.debug("Executing %s", str(["AAPT", *args]))
-    try:
-        return helper_.exe(AAPT, *args, **kwargs)
-    except FileNotFoundError:
-        stdout_.write(
-            f"Helper expected AAPT to be located in '{AAPT}' but could not find it.\n")
-        sys.exit()
-    except PermissionError:
-        stdout_.write(f"permission error encountered while trying to execute")
-    except OSError:
-        stdout_.write(
-            "Helper could not launch AAPT. Please make sure the following path "
-            f"is correct and points to an actual AAPT binary: {AAPT} . To fix "
-            "this issue you may need to edit or delete the helper config file, "
-            "located at: {helper_.CONFIG}")
-        sys.exit()
+    return helper_.exe(AAPT, *args, **kwargs)
 
 
 class App:

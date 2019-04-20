@@ -124,7 +124,7 @@ CWD = _get_working_dir()
 ADB = CWD + "/bin/adb/adb"
 AAPT = CWD + "/bin/aapt/aapt"
 CONFIG = CWD + "/helper_config"
-CLEANER_CONFIG = CWD + "/../cleaner_config"
+CLEANER_CONFIG = CWD + "/cleaner_config"
 #COMPRESSION_DEFINITIONS = CWD + "/../compression_identifiers"
 
 if sys.platform == "win32":
@@ -134,7 +134,9 @@ if sys.platform == "win32":
 
 def exe(executable, *args, return_output=False, as_list=True,
         stdout_=sys.stdout):
-    """"""
+    """Run provided file as executable.
+    Return string containing the output of executed command.
+    """
     if executable not in (ADB, AAPT):
         LOGGER.debug("Executing %s", str([executable, *args]))
 
@@ -170,11 +172,28 @@ def exe(executable, *args, return_output=False, as_list=True,
                     stdout_.write(line.decode("utf-8", "replace"))
         else:
             subprocess.run((executable,) + args)
-    except PermissionError:
-        stdout_.write("ERROR: cannot execute the provided binary!\n")
-        stdout_.write(executable + "\n")
-        stdout_.write("Please check the integrity of the above file and restart this program.\n\n")
+
         return ""
+    except PermissionError:
+        stdout_.write(
+            "ERROR: Could not execute the provided binary due permission error!\n"
+            "   Please make sure the current user has necessary permissions!\n")
+        sys.exit()
+    except FileNotFoundError:
+        stdout_.write(
+            f"ERROR: Provided executable does not exist: {executable}.\n")
+        sys.exit()
+    except OSError as error:
+        stdout_.write(
+            "ERROR: Could not execute provided file due to an OS Error.\n"
+            f"    Executable's path: {AAPT}\n"
+            f"    OSError error number: {error.errno}\n"
+            f"    Error message: {error}")
+        if error.errno == 8:
+            stdout_.write(
+                "    This is most likely because the file is not in executable format!\n")
+
+        sys.exit()
 
 
 def _load_config(config):

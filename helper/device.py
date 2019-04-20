@@ -65,23 +65,11 @@ def adb_command(*args, check_server=None, stdout_=sys.stdout, **kwargs):
         except KeyError:
             pass
 
-    try:
-        if check_server:
-            exe(ADB, "start-server", return_output=True)
+    if check_server:
+        # return_output set to True to suppress printing
+        exe(ADB, "start-server", return_output=True)
 
-        return exe(ADB, *args, **kwargs)
-    except FileNotFoundError:
-        stdout_.write("".join(["Helper expected ADB to be located in '", ADB,
-                               "' but could not find it.\n"]))
-        sys.exit()
-    except (PermissionError, OSError):
-        stdout_.write(
-            " ".join(["Helper could not launch ADB. Please make sure the",
-                      "following path is correct and points to an actual ADB",
-                      "binary:", ADB, "To fix this issue you may need to edit",
-                      "or delete the helper config file, located at:",
-                      CONFIG]))
-        sys.exit()
+    return exe(ADB, *args, **kwargs)
 
 
 def _get_devices(stdout_=sys.stdout):
