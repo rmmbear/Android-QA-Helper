@@ -339,7 +339,7 @@ def main(args=None):
     LOGGER.info("Starting parsing arguments")
     args = PARSER.parse_args(args)
 
-    LOGGER.info(f"Starting helper with option '{args.command}")
+    LOGGER.info("Starting helper with option %s", args.command)
 
     if args == PARSER_NO_ARGS:
         PARSER.parse_args(["-h"])
@@ -373,7 +373,7 @@ def main(args=None):
 
     if hasattr(args, "device"):
         if args.device:
-            LOGGER.debug(f"Chosen device set to '{args.device}'")
+            LOGGER.debug("Chosen device set to %s", args.device)
             try:
                 chosen_device = connected_serials[args.device]
             except KeyError:
