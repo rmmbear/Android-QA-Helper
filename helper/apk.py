@@ -10,7 +10,8 @@ AAPT = helper_.AAPT
 
 # last updated: 2017.07.19
 # https://developer.android.com/reference/android/Manifest.permission.html
-ANDROID_DANGEROUS_PERMISSIONS = """android.permission.ACCESS_COARSE_LOCATION
+ANDROID_DANGEROUS_PERMISSIONS = """
+android.permission.ACCESS_COARSE_LOCATION
 android.permission.ACCESS_FINE_LOCATION
 com.android.voicemail.permission.ADD_VOICEMAIL
 android.permission.ANSWER_PHONE_CALLS
@@ -35,7 +36,8 @@ android.permission.USE_SIP
 android.permission.WRITE_CALENDAR
 android.permission.WRITE_CALL_LOG
 android.permission.WRITE_CONTACTS
-android.permission.WRITE_EXTERNAL_STORAGE""".splitlines()
+android.permission.WRITE_EXTERNAL_STORAGE
+""".strip().splitlines()
 
 # API Level: Android Version, Version Code, Human Readable Name
 # https://developer.android.com/guide/topics/manifest/uses-sdk-element.html
@@ -70,7 +72,7 @@ API_LEVEL_MATRIX = {
     3  : ("1.5", "CUPCAKE", "Cupcake"),
     2  : ("1.1", "BASE_1_1", "Base"),
     1  : ("1.0", "BASE", "Base")
-    }
+}
 
 
 def aapt_command(*args, stdout_=sys.stdout, **kwargs):
@@ -265,55 +267,54 @@ class App:
 
     def get_report(self, extended=False, indent=4):
         """Return a formatted string containing all known app info."""
-        line1 = f"{self.display_name}  v. {self.version_name} ({self.version_code})"
-        line2 = f"App ID: {self.app_name}"
+        lines = []
+        lines.append(f"{self.display_name}  v. {self.version_name} ({self.version_code})")
+        lines.append(f"App ID: {self.app_name}")
 
         if not extended:
-            return "\n".join((line1, line2))
-
-        lines = "\n".join([line1, line2])
+            return "\n".join(lines)
 
         #TODO: replace this mess with a loop
         # keep a list of strings and join them all at the end
+
+
         target_version = API_LEVEL_MATRIX[int(self.target_sdk)][0]
         target_version_name = API_LEVEL_MATRIX[int(self.target_sdk)][2]
-        lines = "".join([lines, "\nTargeted Android version: ", target_version,
-                         " (", target_version_name, ", API Level ",
-                         self.target_sdk, ")"])
+        lines.append(
+            f"Targeted Android version: {target_version} "
+            f"({target_version_name} API Level {self.target_sdk})")
 
         lowest_version = API_LEVEL_MATRIX[int(self.min_sdk)][0]
         lowest_version_name = API_LEVEL_MATRIX[int(self.min_sdk)][2]
-        lines = "".join([lines, "\nLowest supported version: ", lowest_version,
-                         " (", lowest_version_name, ", API Level ",
-                         self.min_sdk, ")"])
+        lines.append(
+            f"Lowest supported version: {lowest_version} "
+            f"({lowest_version_name} API Level {self.min_sdk})")
 
-        lines = "".join([lines, "\nSupported CPU ABIs: ",
-                         ", ".join(self.supported_abis), "\n"])
+        lines.append(f"Supported CPU ABIs: {', '.join(self.supported_abis)}")
 
-        lines = "".join([lines, "\nUsed texture compressions:\n"])
+        lines.append("Used texture compressions:")
         for compression in self.supported_texture_compressions:
-            lines = "".join([lines, indent*" ", compression, "\n"])
+            lines.append(f"{indent*' '}{compression}")
 
-
-        lines = "".join([lines, "\nRequired features:\n"])
+        lines.append("Required features:")
         for req_feature in self.used_features:
-            lines = "".join([lines, indent*" ", req_feature, "\n"])
+            lines.append(f"{indent*' '}{req_feature}")
 
-        lines = "".join([lines, "\nOptional features:\n"])
+        lines.append("Optional features:")
         for opt_feature in self.used_opt_features:
-            lines = "".join([lines, indent*" ", opt_feature, "\n"])
+            lines.append(f"{indent*' '}{opt_feature}")
 
         used_dangerous = set(ANDROID_DANGEROUS_PERMISSIONS).intersection(self.used_permissions)
 
-        lines = "".join([lines, "\nRequired dangerous permissions:\n"])
+        lines.append("Required dangerous permissions:")
         for dang_permission in used_dangerous:
-            lines = "".join([lines, indent*" ", dang_permission, "\n"])
+            lines.append(f"{indent*' '}{dang_permission}")
 
-        lines = "".join([lines, "\nRequired permissions:\n"])
+        lines.append("Required permissions:")
         for permission in self.used_permissions:
             if permission in used_dangerous:
                 continue
 
-            lines = "".join([lines, indent*" ", permission, "\n"])
+            lines.append(f"{indent*' '}{permission}")
 
-        return lines
+        return "\n".join(lines)
