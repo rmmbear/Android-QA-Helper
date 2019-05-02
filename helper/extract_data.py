@@ -4,11 +4,15 @@ Other modules expect that all extraction functions' names start with
 'extract_'.
 """
 import re
+import string
 import logging
 
 import helper
 
 LOGGER = logging.getLogger(__name__)
+
+SIZE_PREFIXES = {x:1024**y for y, x in enumerate("KMGTP")}
+
 # source: https://www.khronos.org/registry/OpenGL/index_es.php
 # last updated: 2018.01.06
 TEXTURE_COMPRESSION_IDS = {
@@ -326,10 +330,133 @@ def run_extraction_command(device, source_name, use_cache=True, keep_cache=True)
         if not isinstance(device, Device):
             return ""
 
-        out = device.shell_command(*INFO_SOURCES[source_name], return_output=True, as_list=False)
+        out = device.shell_command(
+            *INFO_SOURCES[source_name], return_output=True, as_list=False)
         if keep_cache:
             device._init_cache[source_name] = out
         return out
+
+
+def bytes_to_human(byte_size: int) -> str:
+    """Convert bytes to human readable size.
+    1KB = 1024B
+    """
+    for power, letter in enumerate(" KMGTPEZY"):
+        if byte_size < 1024**(power+1):
+            break
+    return f"{byte_size/1024**power:.2f}{letter.strip()}B"
+
+
+def parse_df_output(df_output: str) -> list:
+    """For some infuriating reason, some vendors opt to include a
+    version of df that does not accept any options, so we need to
+    manually detect size formatting used in the output.
+    May they burn in hell forever.
+
+    Return list of four-element tuples. All sizes are in bytes,
+    1KB = 1024B.
+    tuple[0] = file system
+    tuple[1] = total space
+    tuple[2] = used space
+    tuple[3] = free space
+    """
+    #TODO: do a second pass on this function
+    df_output = [x.split() for x in df_output.splitlines()]
+    index_row = [x.lower() for x in df_output.pop(0)]
+
+    string_to_size = {
+        "1k-blocks":1024,
+        "1024-blocks":1024,
+        "512-blocks":512,
+    }
+    known_size_multiplier = 0
+    for name, size in string_to_size.items():
+        if name in index_row:
+            known_size_multiplier = size
+    # assume human-readable values if header does not reveal block size
+
+    total_column, used_column, free_column = None, None, None
+    for index, column_name in enumerate(index_row):
+        column_name = column_name.lower()
+
+        if column_name in ["1k-blocks", "512-blocks", "1024-blocks", "size"]:
+            total_column = index
+        if column_name in ["used", "%used"]:
+            used_column = index
+        if column_name in ["free", "available", "avail"]:
+            free_column = index
+
+    # check for missing columns
+    if sum((int(bool(x)) for x in (total_column, used_column, free_column))) < 3:
+        LOGGER.error("Could not find indices of all columns")
+        LOGGER.error("size: %s, used: %s, free: %s", total_column, used_column, free_column)
+        LOGGER.error("Index row is: %s", index_row)
+
+    re_search = re.compile("([0-9.]+)([%A-z]*)")
+    lines = []
+    for row in df_output:
+        #TODO: improve error-checking
+        if "denied" in row:
+            lines.append((row[0], -1, -1, -1))
+            continue
+
+        accepted_chars = string.ascii_lowercase + string.digits + ",.%"
+        accepted_chars = set(accepted_chars)
+        #print(accepted_chars)
+
+        if total_column:
+            total_val = row[total_column].lower()
+            # if returns non-empty set, the string contained invalid characters
+            if set(total_val) - accepted_chars:
+                total_val = ""
+        if used_column:
+            used_val = row[used_column].lower()
+            if set(used_val) - accepted_chars:
+                used_val = ""
+        if free_column:
+            free_val = row[free_column].lower()
+            if set(free_val) - accepted_chars:
+                free_val = ""
+
+        # convert values to bytes
+        #TODO: and third, and fourth pass on this
+        # this if-else soup is somehow easier to understand than my previous solution
+        if total_val:
+            if known_size_multiplier:
+                total_val = float(total_val)* known_size_multiplier
+            else:
+                total_val, total_unit = re_search.search(row[total_column]).groups()
+                if total_unit:
+                    total_val = float(total_val) * SIZE_PREFIXES[total_unit.upper()]
+        else:
+            total_val = -1
+
+        if used_val:
+            if "%" in used_val:
+                used_val = re_search.search(used_val).group(1)
+                used_val = float(used_val) * total_val * 100
+            elif known_size_multiplier:
+                used_val = float(used_val) * known_size_multiplier
+            else:
+                used_val, used_unit = re_search.search(used_val).groups()
+                if used_unit:
+                    used_val = float(used_val) * SIZE_PREFIXES[used_unit.upper()]
+        else:
+            used_val = -1
+
+        if free_val:
+            if known_size_multiplier:
+                free_val = float(free_val) * known_size_multiplier
+            else:
+                free_val, free_unit = re_search.search(free_val).groups()
+                if free_unit:
+                    free_val = float(free_val) * SIZE_PREFIXES[free_unit.upper()]
+        else:
+            free_val = -1
+
+        lines.append((row[0], int(total_val), int(used_val), int(free_val)))
+
+    return lines
 
 
 def extract_identity(device):
@@ -840,7 +967,7 @@ def extract_system_packages(device):
 def extract_thirdparty_packages(device):
     """"""
     device.info_dict["third-party_apps"] = []
-
+    count = 0
     for count, package in enumerate(run_extraction_command(device, "third-party_apps", use_cache=False, keep_cache=False).splitlines()):
         try:
             app = package.split("package:", maxsplit=1)[1]
