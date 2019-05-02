@@ -347,7 +347,7 @@ def bytes_to_human(byte_size: int) -> str:
     return f"{byte_size/1024**power:.2f}{letter.strip()}B"
 
 
-def parse_df_output(df_output: str) -> list:
+def df_parser(df_output: str) -> list:
     """For some infuriating reason, some vendors opt to include a
     version of df that does not accept any options, so we need to
     manually detect size formatting used in the output.
@@ -394,15 +394,13 @@ def parse_df_output(df_output: str) -> list:
 
     re_search = re.compile("([0-9.]+)([%A-z]*)")
     lines = []
+    accepted_chars = string.ascii_lowercase + string.digits + ",.%"
+    accepted_chars = set(accepted_chars)
     for row in df_output:
         #TODO: improve error-checking
         if "denied" in row:
             lines.append((row[0], -1, -1, -1))
             continue
-
-        accepted_chars = string.ascii_lowercase + string.digits + ",.%"
-        accepted_chars = set(accepted_chars)
-        #print(accepted_chars)
 
         if total_column:
             total_val = row[total_column].lower()
