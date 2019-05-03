@@ -10,7 +10,7 @@ from time import sleep, strftime
 #import helper as helper_
 import helper.apk as apk_
 import helper.extract_data as extract
-from helper import ADB, CONFIG, VERSION, exe
+from helper import ADB, VERSION, exe
 
 #ADB = helper_.ADB
 LOGGER = logging.getLogger(__name__)
@@ -50,7 +50,7 @@ done
 """.strip().replace("\n", "")
 
 
-def adb_command(*args, check_server=None, stdout_=sys.stdout, **kwargs):
+def adb_command(*args, check_server=None, **kwargs):
     """Execute an ADB command.
 
     If check_server is true, function will first make sure that an ADB

@@ -14,7 +14,6 @@
 #   You should have received a copy of the GNU General Public License
 #   along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-
 import os
 import sys
 import time
@@ -26,9 +25,7 @@ from pathlib import Path
 
 # Program metadata
 VERSION = "0.15"
-VERSION_DATE = "2018-10-03 15:07"
-VERSION_STRING = f"Android Helper v{VERSION} : {VERSION_DATE}"
-COPYRIGHT_STRING = "Copyright (c) 2017-2018 rmmbear"
+VERSION_STRING = f"Android Helper v{VERSION}"
 SOURCE_STRING = "Check the source code at https://github.com/rmmbear/Android-QA-Helper"
 
 LOG_FORMAT = logging.Formatter("[%(levelname)s] T+%(relativeCreated)d: %(name)s.%(funcName)s() line:%(lineno)d %(message)s")
@@ -121,11 +118,10 @@ def _get_working_dir():
 
 
 CWD = _get_working_dir()
-ADB = CWD + "/bin/adb/adb"
-AAPT = CWD + "/bin/aapt/aapt"
+ADB = CWD + "/bin/adb"
+AAPT = CWD + "/bin/aapt"
 CONFIG = CWD + "/helper_config"
 CLEANER_CONFIG = CWD + "/cleaner_config"
-#COMPRESSION_DEFINITIONS = CWD + "/../compression_identifiers"
 
 if sys.platform == "win32":
     AAPT += ".exe"
@@ -192,7 +188,7 @@ def exe(executable, *args, return_output=False, as_list=True,
         if error.errno == 8:
             stdout_.write(
                 "    This is most likely because the file is not in executable format!\n")
-
+        #TODO: should either re-raise the error or throw a custom one
         sys.exit()
 
 
@@ -227,9 +223,6 @@ Path(ADB).parent.mkdir(parents=True, exist_ok=True)
 Path(AAPT).parent.mkdir(parents=True, exist_ok=True)
 Path(CONFIG).touch(exist_ok=True)
 
-#if not Path(COMPRESSION_DEFINITIONS).is_file():
-#    with Path(COMPRESSION_DEFINITIONS).open(mode="w", encoding="utf-8") as texture_file:
-#        texture_file.write(DEFAULT_COMPRESSION_IDENTIFIERS)
 
 if not Path(CLEANER_CONFIG).is_file():
     with Path(CLEANER_CONFIG).open(mode="w", encoding="utf-8") as cleaner_file:
@@ -240,11 +233,9 @@ CONFIG = CONFIG
 _load_config(CONFIG)
 
 CLEANER_CONFIG = str(Path(CLEANER_CONFIG).resolve())
-#COMPRESSION_DEFINITIONS = str(Path(COMPRESSION_DEFINITIONS).resolve())
 
 if EDITED_CONFIG:
     _save_config(CONFIG)
-
 
 LOGGER.info("Using ADB version %s", ADB_VERSION)
 LOGGER.info("Using AAPT version %s", AAPT_VERSION)
