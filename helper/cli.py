@@ -252,10 +252,7 @@ def scan(args):
         return
 
     for count, device in enumerate(device_list):
-        try:
-            device_ids.pop(device.serial)
-        except ValueError:
-            print(f"Tried removing {device.serial} from {device_ids}")
+        del device_ids[device.serial]
 
         print(format_str.format(
             "{}.".format(count), device.serial,
