@@ -79,7 +79,20 @@ def test_df_parser():
     tmpfs                            1643696       144    1643552   1% /run/user/975
     /dev/sda1                      960186400  47752496  863589360   6% /mnt/storage
     000.000.000.000:/mnt/M1       1682687488     18432 1682669056   1% /home/m"""
-    test3_results = [(None,None,None,None)]
+    test3_results = [
+        ("devtmpfs", 8170452*1024, 0, 8170452*1024),
+        ("tmpfs", 8218492*1024, 360816*1024, 7857676*1024),
+        ("tmpfs", 8218492*1024, 1728*1024, 8216764*1024),
+        ("tmpfs", 8218492*1024, 0, 8218492*1024),
+        ("/dev/mapper/fedora--main-root", 30832548*1024, 11873020*1024, 17370280*1024),
+        ("tmpfs", 8218492*1024, 21740*1024, 8196752*1024),
+        ("/dev/nvme0n1p1", 487634*1024, 200156*1024, 257782*1024),
+        ("/dev/nvme0n1p2", 204580*1024, 18344*1024, 186236*1024),
+        ("/dev/mapper/fedora--main-home", 199182696*1024, 149976092*1024, 39019036*1024),
+        ("tmpfs", 1643696*1024, 144*1024, 1643552*1024),
+        ("/dev/sda1", 960186400*1024, 47752496*1024, 863589360*1024),
+        ("000.000.000.000:/mnt/M1", 1682687488*1024, 18432*1024, 1682669056*1024),
+    ]
 
     test4 = """Filesystem          Size  Used Avail Use% Mounted on
     devtmpfs                       7.8G     0  7.8G   0% /dev
@@ -94,21 +107,35 @@ def test_df_parser():
     tmpfs                          1.6G  144K  1.6G   1% /run/user/975
     /dev/sda1                       916    55   861   6% /mnt/storage
     000.000.000.000:/mnt/M1        1.6T   18M  1.6T   1% /home/m"""
-    test4_results = [(None,None,None,None)]
+    test4_results = [
+        ("devtmpfs", G(7.8), 0, G(7.8)),
+        ("tmpfs", G(7.9), M(321), G(7.6)),
+        ("tmpfs", G(7.9), M(1.7), G(7.9)),
+        ("tmpfs", G(7.9), 0, G(7.9)),
+        ("/dev/mapper/fedora--main-root", G(30), G(12), G(17)),
+        ("tmpfs", G(7.9), M(22), G(7.9)),
+        ("/dev/nvme0n1p1", M(477), M(196), M(252)),
+        ("/dev/nvme0n1p2", M(200), M(18), M(182)),
+        ("/dev/mapper/fedora--main-home", G(190), G(144), G(38)),
+        ("tmpfs", G(1.6), K(144), G(1.6)),
+        ("/dev/sda1", 916, 55, 861),
+        ("000.000.000.000:/mnt/M1", T(1.6), M(18), T(1.6)),
+    ]
 
     test_cases = [
         test1,
         test2,
-        #test3,test4
+        test3,
+        test4,
     ]
     test_results = [
         test1_results,
         test2_results,
-        #test3_results,test4_results
+        test3_results,
+        test4_results,
     ]
 
     for test_case, expected_results in zip(test_cases, test_results):
         actual_results = df_parser(test_case)
         for line_actual, line_expected in zip(actual_results, expected_results):
-            #print(line_actual, line_expected)
             assert line_actual == line_expected
