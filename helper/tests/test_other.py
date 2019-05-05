@@ -54,7 +54,17 @@ def test_df_parser():
     /dev/hd10opt      131072     75360   43%      649     8% /opt
     /dev/oraHome    16777216   6999616   59%    64843     8% /oraHome
     /dev/T600      348127232  86530624   76%     4949     1% /oradata"""
-    test2_results = [(None,None,None,None)]
+    test2_results = [
+        ("/dev/hd4", 131072*512, int(131072*512*0.18), 107536*512),
+        ("/dev/hd2", 4325376*512, int(4325376*512*0.50), 2165800*512),
+        ("/dev/hd9var", 262144*512, int(262144*512*0.08), 242320*512),
+        ("/dev/hd3", 131072*512, int(131072*512*0.02), 129192*512),
+        ("/dev/hd1", 262144*512, int(262144*512*0.01), 260944*512),
+        ("/proc", -1, -1, -1),
+        ("/dev/hd10opt", 131072*512, int(131072*512*0.43), 75360*512),
+        ("/dev/oraHome", 16777216*512, int(16777216*512*0.59), 6999616*512),
+        ("/dev/T600", 348127232*512, int(348127232*512*0.76), 86530624*512),
+    ]
 
     test3 = """Filesystem          1K-blocks      Used  Available Use% Mounted on
     devtmpfs                         8170452         0    8170452   0% /dev
@@ -88,11 +98,13 @@ def test_df_parser():
 
     test_cases = [
         test1,
-        #test2,test3,test4
+        test2,
+        #test3,test4
     ]
     test_results = [
         test1_results,
-        #test2_results,test3_results,test4_results
+        test2_results,
+        #test3_results,test4_results
     ]
 
     for test_case, expected_results in zip(test_cases, test_results):
