@@ -11,7 +11,7 @@ import helper
 
 LOGGER = logging.getLogger(__name__)
 
-SIZE_PREFIXES = {x:1024**y for y, x in enumerate("KMGTP")}
+SIZE_PREFIXES = {x:1024**(y+1) for y, x in enumerate("KMGTP")}
 
 # source: https://www.khronos.org/registry/OpenGL/index_es.php
 # last updated: 2018.01.06
@@ -502,22 +502,23 @@ def extract_os(device):
     kernel_version = run_extraction_command(device, "kernel_version").strip()
     device.info_dict["kernel_version"] = kernel_version
 
-    aftermarket_firmware_dict = {"FireOS":"(?:\\[ro\\.build\\.version\\.fireos\\]\\:\\s*\\[)([^\\]]*)",
-                                 "MIUI":"(?:\\[ro\\.miui\\.ui\\.version\\.name\\]\\:\\s*\\[)([^\\]]*)",
-                                 "OxygenOS":"(?:\\[ro\\.oxygen\\.version\\]\\:\\s*\\[)([^\\]]*)",
-                                 "ColorOS":"(?:\\[ro\\.build\\.version\\.opporom\\]\\:\\s*\\[)([^\\]]*)",
-                                 "CyanogenMod":"(?:\\[ro\\.cm\\.version\\]\\:\\s*\\[)([^\\]]*)",
-                                 "LineageOS":"(?:\\[ro\\.lineage\\.version\\]\\:\\s*\\[)([^\\]]*)",
-                                 "AOKP":"(?:\\[ro\\.aokp\\.version\\]\\:\\s*\\[)([^\\]]*)",
-                                 "Paranoid Android":"(?:\\[ro\\.pa\\.version\\]\\:\\s*\\[)([^\\]]*)",
-                                 "OmniRom":"(?:\\[ro\\.omni\\.version\\]\\:\\s*\\[)([^\\]]*)",
-                                 "Resurrection Remix OS":"(?:\\[ro\\.rr\\.version\\]\\:\\s*\\[)([^\\]]*)",
-                                 #AliOS
-                                 #LeWaOS
-                                 #Baidu Yi
-                                 #CopperheadOS
-                                 "Unrecognized ROM":"(?:\\[ro\\.modversion\\]\\:\\s*\\[)([^\\]]*)",
-                                }
+    aftermarket_firmware_dict = {
+        "FireOS":"(?:\\[ro\\.build\\.version\\.fireos\\]\\:\\s*\\[)([^\\]]*)",
+        "MIUI":"(?:\\[ro\\.miui\\.ui\\.version\\.name\\]\\:\\s*\\[)([^\\]]*)",
+        "OxygenOS":"(?:\\[ro\\.oxygen\\.version\\]\\:\\s*\\[)([^\\]]*)",
+        "ColorOS":"(?:\\[ro\\.build\\.version\\.opporom\\]\\:\\s*\\[)([^\\]]*)",
+        "CyanogenMod":"(?:\\[ro\\.cm\\.version\\]\\:\\s*\\[)([^\\]]*)",
+        "LineageOS":"(?:\\[ro\\.lineage\\.version\\]\\:\\s*\\[)([^\\]]*)",
+        "AOKP":"(?:\\[ro\\.aokp\\.version\\]\\:\\s*\\[)([^\\]]*)",
+        "Paranoid Android":"(?:\\[ro\\.pa\\.version\\]\\:\\s*\\[)([^\\]]*)",
+        "OmniRom":"(?:\\[ro\\.omni\\.version\\]\\:\\s*\\[)([^\\]]*)",
+        "Resurrection Remix OS":"(?:\\[ro\\.rr\\.version\\]\\:\\s*\\[)([^\\]]*)",
+        #AliOS
+        #LeWaOS
+        #Baidu Yi
+        #CopperheadOS
+        "Unrecognized ROM":"(?:\\[ro\\.modversion\\]\\:\\s*\\[)([^\\]]*)",
+    }
 
     device.info_dict["aftermarket_firmware"] = "-none-"
     device.info_dict["aftermarket_firmware_version"] = "-none-"
@@ -607,7 +608,6 @@ def extract_chipset(device):
 
 def extract_cpu(device):
     """"""
-
     cpu_dict = {}
     phys_cpu_dict = {}
     max_frequency = 0
@@ -784,7 +784,6 @@ def extract_gpu(device):
         device.info_dict["gpu_model"] = gpu_model.strip()
         device.info_dict["gles_version"] = gles_version.strip()
 
-
     gles_extensions = re.search("(?:GLES\\:[^\\r\\n]*)(?:\\s*)([^\\r\\n]*)", dumpsys)
 
     if gles_extensions:
@@ -898,9 +897,6 @@ def extract_storage(device):
     device.info_dict["external_sd_path"] = external_sd
     device.info_dict["anr_trace_path"] = trace_path
 
-    #df_output = run_extraction_command(device, "disk_space")
-    #fs_dict = {filesystem : {"size":size, "used" : used, "free" : free, "blksize" : blksize} for filesystem, size, used, free, blksize in [line.split(maxsplit=4) for line in df_output.splitlines() if "permission denied" not in line.lower()]}
-    #
     external_sd_space = run_extraction_command(device, "external_sd_space")
     if "no such file or directory" in external_sd_space.lower() or \
        "permission denied" in external_sd_space:
