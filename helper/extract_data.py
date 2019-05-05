@@ -11,7 +11,7 @@ import helper
 
 LOGGER = logging.getLogger(__name__)
 
-SIZE_PREFIXES = {x:1024**(y+1) for y, x in enumerate("KMGTP")}
+SIZE_PREFIXES = {x:1024**y for y, x in enumerate(" KMGTP")}
 
 # source: https://www.khronos.org/registry/OpenGL/index_es.php
 # last updated: 2018.01.06
@@ -430,9 +430,10 @@ def df_parser(df_output: str) -> list:
             total_val = -1
 
         if used_val:
+            #TODO:subtract available from total instead of calculating from percentages
             if "%" in used_val:
                 used_val = re_search.search(used_val).group(1)
-                used_val = float(used_val) * total_val * 100
+                used_val = float(used_val) * total_val / 100
             elif known_size_multiplier:
                 used_val = float(used_val) * known_size_multiplier
             else:
