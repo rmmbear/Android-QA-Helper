@@ -245,6 +245,8 @@ def scan(args):
     headers = ["#", "serial num", "manufacturer", "model", "status"]
     device_list = device_.get_devices(True, limit_init=["identity"])
     device_ids = {device.serial:device for device in device_list}
+    #FIXME: unauthorized devices are not shown
+    #FIXME: broken output when no devices are connected
 
     print(format_str.format(*headers))
     if not device_ids:
@@ -360,6 +362,7 @@ def main(args=None):
         return
 
     chosen_device = None
+    #FIXME: do not initialize other devices when performing actions on specific device
 
     #TODO: Implement a timeout
     print("Waiting for any device to come online...")
