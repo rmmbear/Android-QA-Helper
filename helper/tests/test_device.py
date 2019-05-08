@@ -13,6 +13,7 @@ from helper.extract_data import INFO_KEYS, SURFACED_BRIEF, SURFACED_VERBOSE
 FULL_DEVICE_CONFIG = helper_.CWD + "/tests/full_config"
 COMPATIBILITY_DIR = helper_.CWD + "/../compat_data"
 
+
 try:
     DUMP_DATA_AVAILABLE = bool([x for x in Path(COMPATIBILITY_DIR).iterdir() if x.is_dir])
 except:
@@ -20,7 +21,7 @@ except:
 
 PHYSICAL_DEVICE_REQUIRED = pytest.mark.skipif(
     not device_.get_devices(initialize=False),
-    reason="Physical device required, none found.")
+    reason="Physical (or emulated) device required, none found.")
 DUMP_DATA_REQUIRED = pytest.mark.skipif(
     not DUMP_DATA_AVAILABLE, reason="Dump data required, none found.")
 
@@ -122,11 +123,11 @@ class TestExtractModule:
 
 
     def test_reference_existing_keys_only(self):
-        """Check if the module references existing info keys."""
-        extraction_module = Path(helper_.CWD) / "extract_data.py"
-        extraction_module = Path(helper_.CWD) / "main.py"
-        extraction_module = Path(helper_.CWD) / "cli.py"
-        extraction_module = Path(helper_.CWD) / "apk.py"
+        """Check if the modules references existing info keys."""
+        extraction_module = Path(helper_.CWD) / "helper/extract_data.py"
+        extraction_module = Path(helper_.CWD) / "helper/main.py"
+        extraction_module = Path(helper_.CWD) / "helper/cli.py"
+        extraction_module = Path(helper_.CWD) / "helper/apk.py"
 
         with extraction_module.open(mode="r", encoding="utf-8") as module:
             extraction_code = module.read()
