@@ -6,6 +6,11 @@ from time import strftime
 import helper as helper_
 from helper import apk as apk_
 
+#FIXME: Sprinkle this module with custom exception classes
+# to replace the current approach of printing status messages everywhere
+
+
+#FIXME: install should take two positional arguments: apk file and obb file list
 def install(device, *items, install_location="automatic", keep_data=False,
             installer_name="android.helper", stdout_=sys.stdout):
     """Install apps.
@@ -14,6 +19,8 @@ def install(device, *items, install_location="automatic", keep_data=False,
     """
     apk_list = []
     obb_list = []
+
+    #FIXME: input handling should be done in cli instead
 
     for item in items:
         if item[-3:].lower() == "apk":
@@ -95,7 +102,7 @@ def install_app(device, apk_file, install_location="automatic",
                                   "internal":"-f"}
 
     if apk_file.app_name.startswith("Unknown"):
-        stdout_.write("WARNING: This app does not appear to be a valid .apk archive\n")
+        LOGGER.warning("This app does not appear to be a valid .apk archive")
     else:
         is_compatible = apk_file.check_compatibility(device)
         if not is_compatible[0]:
@@ -224,6 +231,11 @@ def record(device, output=".", name=None, silent=False, stdout_=sys.stdout):
                       "captured). Press 'ctrl + c' to stop recording.",
                       "Recording will be automatically stopped after three",
                       "minutes.\n"]))
+
+
+        #FIXME: remove interface-related code
+        # this must only live in GUI/CLI modules
+        # although a countdown could be useful
         try:
             input("Press enter whenever you are ready to record.\n")
         except KeyboardInterrupt:
@@ -238,6 +250,7 @@ def record(device, output=".", name=None, silent=False, stdout_=sys.stdout):
     remote_recording = "".join([
         device.info_dict["internal_sd_path"], "/", filename])
 
+    #FIXME: handle DeviceOfflineError
     try:
         device.shell_command("screenrecord", "--verbose", remote_recording,
                              stdout_=stdout_)
@@ -476,7 +489,11 @@ def parse_cleaner_config(config=helper_.CLEANER_CONFIG):
     """
     parsed_config = {}
     bad_config = []
-
+    #FIXME: time for a rewrite
+    # shout-outs to past me for this very naive and unnecessarily commplicated
+    # implementation od a domain-specific-language without knowing what a dsl is
+    #TODO: translate paths prvoided in the config into actual paths on device
+    #
     for count, line in enumerate(open(config, mode="r").readlines()):
         if line.strip().startswith("#") or not line.strip():
             continue
@@ -536,7 +553,7 @@ def clean(device, config=None, parsed_config=None, force=False,
 
     if config is None:
         config = helper_.CLEANER_CONFIG
-
+    #TODO: separate this function from the parser entirely
     if not parsed_config:
         parsed_config, bad_config = parse_cleaner_config(config=config)
 
@@ -550,6 +567,8 @@ def clean(device, config=None, parsed_config=None, force=False,
         stdout_.write("Empty config! Cannot clean!\n")
         return False
 
+    #FIXME: remove interface-related code
+    # this must only live in GUI/CLI modules
     # Ask user to confirm cleaning
     if not force:
         stdout_.write("The following actions will be performed:\n")
