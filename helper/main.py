@@ -1,102 +1,47 @@
 """Main module combining operations on apks and devices"""
 import sys
+import logging
 from pathlib import Path
 from time import strftime
 
 import helper as helper_
-from helper import apk as apk_
+from helper.apk import App
+
+LOGGER = logging.getLogger(__name__)
 
 #FIXME: Sprinkle this module with custom exception classes
 # to replace the current approach of printing status messages everywhere
 
 
 #FIXME: install should take two positional arguments: apk file and obb file list
-def install(device, *items, install_location="automatic", keep_data=False,
-            installer_name="android.helper", stdout_=sys.stdout):
-    """Install apps.
-    Accepts either a list of apk files, or list with one apk and as many
-    obb files as you like.
+def install(device, apk_file, obb_files=(), install_location="automatic",
+            stdout_=sys.stdout, **kwargs):
+    """Install an app.
     """
-    apk_list = []
-    obb_list = []
+    apk_file = App(apk_file)
+    stdout_.write(f"\nINSTALLING: {apk_file.app_name}\n")
 
-    #FIXME: input handling should be done in cli instead
-
-    for item in items:
-        if item[-3:].lower() == "apk":
-            apk_list.append(apk_.App(item))
-
-        if item[-3:].lower() == "obb":
-            obb_list.append(item)
-
-    if len(apk_list) > 1 and obb_list:
-        stdout_.write("ERROR: APK ambiguity!")
-        stdout_.write(
-            "Please specify only one apk for installation with obb files!\n")
-        return False
-
-    # TODO: Accommodate for situations where aapt is not available
-
-    if not apk_list:
-        stdout_.write("ERROR: No APKs found among provided files, aborting!\n")
-        return False
-
-    install_failure = []
-
-    # Take care of apk files(s)
-    for apk_file in apk_list:
-        stdout_.write(f"\nINSTALLING: {apk_file.app_name}\n")
-
-        if not install_app(device, apk_file, install_location, installer_name,
-                           keep_data, stdout_=stdout_):
-            install_failure.append(apk_file.app_name)
-
-    installed = len(apk_list) - len(install_failure)
-
-    if installed:
-        if installed > 1:
-            stdout_.write(
-                f"\nSuccesfully installed {installed} out of {len(apk_list)} provided apks:\n")
-        else:
-            stdout_.write("\nSuccesfully installed ")
-
-        for apk_file in apk_list:
-            if apk_file.app_name not in install_failure:
-                stdout_.write(f"{apk_file.app_name}\n")
-
-    if install_failure:
-        if len(install_failure) > 1:
-            stdout_.write("The following apks could not be installed:\n")
-        else:
-            stdout_.write("\nCould not install ")
-
-        for app_name in install_failure:
-            stdout_.write(f"{app_name}\n")
-
-        return None
-
-    # take care of obb file(s)
-    if obb_list:
-        apk_file = apk_list[0]
-        if apk_file.app_name.startswith("Unknown"):
-            stdout_.write("ERROR: Unknown app name, cannot push obb files!\n")
-            return False
-
-        stdout_.write("\nCopying obb files...\n")
-        device.extract_data(limit_to=["storage"])
-
-        for obb_file in obb_list:
-            if not push_obb(device, obb_file, apk_file.app_name, stdout_=stdout_):
-                stdout_.write("ERROR: Failed to copy " + obb_file + "\n")
+    if install_app(device, apk_file, **kwargs):
+        if obb_files:
+            if apk_file.app_name.startswith("Unknown"):
+                stdout_.write("ERROR: Unknown app name, cannot push obb files!\n")
+                #TODO: remove the app if installation cannot be completed
                 return False
 
-        stdout_.write(
-            f"\nSuccesfully copied obb files for {apk_file.display_name}!\n")
+            stdout_.write("\nCopying obb files...\n")
+            for obb in obb_files:
+                if not push_obb(device, obb, apk_file.app_name, stdout_=stdout_):
+                    stdout_.write("ERROR: Failed to copy " + obb + "\n")
+                    return False
+
+        stdout_.write(f"\nSuccesfully installed {apk_file.app_name}\n")
+        return True
+
+    return False
 
 
 def install_app(device, apk_file, install_location="automatic",
-                installer_name="android.helper", keep_data=False,
-                stdout_=sys.stdout):
+                installer_name="android.helper", keep_data=False, stdout_=sys.stdout):
     """Install an application from a local apk file."""
     possible_install_locations = {"automatic":"", "external":"-s",
                                   "internal":"-f"}
@@ -142,7 +87,7 @@ def install_app(device, apk_file, install_location="automatic",
     device.shell_command("rm", destination, stdout_=stdout_)
 
 
-    device.extract_data(limit_to=["installed_packages"])
+    device.extract_data(limit_to=["installed_packages"], force_extract=True)
 
     # TODO: detect installation failure for system apps
     if apk_file.app_name not in device.info_dict["third-party_apps"]:

@@ -10,9 +10,10 @@ import helper.device as device_
 
 LOGGER = logging.getLogger(__name__)
 
-HELPER_CLI_DESC = helper_.VERSION_STRING
-
-PARSER = ArgumentParser(prog="helper", description=HELPER_CLI_DESC)
+PARSER = ArgumentParser(
+    prog="helper", description=helper_.VERSION_STRING,
+    epilog=""
+)
 PARSER.add_argument(
     "-v", "--version", action="version", version=helper_.VERSION_STRING)
 
@@ -35,15 +36,19 @@ OPT_OUTPUT.add_argument(
 ### Helper Commands definitions
 CMD = COMMANDS.add_parser(
     "install", parents=[OPT_DEVICE, OPT_OUTPUT], aliases=["i"],
-    help="Install one or more apps on a device.",
-    epilog="""If another version of the app being installed is already on the
-    device, helper will attempt to remove it and all its data first before
-    replacing them. Note that system apps can only be replaced with newer
-    versions and the '--replace_system_apps' option must be specified.""")
+    help="Install an app on connected device.",
+    epilog="""If another version of the app is already on the device, helper
+    will attempt to remove it and all its data first before replacing it.
+    Note that system apps can only be replaced with newer versions and the
+    '--replace-system-apps' argument must be used.""")
 
 CMD.add_argument(
-    "install", nargs="+", metavar="files",
-    help=".apk file(s) or one apk and its obb expansion file(s).")
+    "install", metavar="APK",
+    help=".apk file.")
+
+CMD.add_argument(
+    "--obb", nargs="+", metavar="OBB",
+    help="Keep data and cache directories when replacing apps.")
 
 CMD.add_argument(
     "--keep-data", action="store_true",
@@ -195,13 +200,11 @@ def record(device, args):
 
 
 def install(device, args):
-    for filepath in args.install:
-        if not Path(filepath).is_file():
-            print("ERROR: Provided path does not point to an existing file:")
-            print(filepath)
-            return
-
-    main_.install(device, *args.install, install_location=args.location,
+    if not Path(args.install).is_file():
+        print("ERROR: Provided path does not point to an existing file:")
+        print(args.install)
+        return
+    main_.install(device, args.install, args.obb, install_location=args.location,
                   keep_data=args.keep_data, installer_name=args.installer_name)
 
 
