@@ -25,8 +25,8 @@ listed above will need to be used (links should still be working)
 import sys
 import logging
 import hashlib
-
 from pathlib import Path
+from urllib.parse import urljoin
 import xml.etree.ElementTree as ET
 from xml.etree.ElementTree import ParseError as XMLParseError
 
@@ -119,7 +119,7 @@ def find_packages(repository=DEFAULT_REPOSITORY, api_level="",
     <package type> : {
         api_level : 'x.x.x',
         platform : 'windows' OR 'linux' OR 'macosx',
-        url : <url relative to repository's url>,
+        url : <direct url to the package>,
         checksum : <sha1 checksum>,
         size : <size in bytes>
     }
@@ -183,9 +183,10 @@ def find_packages(repository=DEFAULT_REPOSITORY, api_level="",
 
                 if platform == accept_platform:
                     package_info["platform"] = platform
-                    package_info["url"] = archive.find(default_ns+"url").text
                     package_info["checksum"] = archive.find(default_ns+"checksum").text
                     package_info["size"] = archive.find(default_ns+"size").text
+                    package_info["url"] = archive.find(default_ns+"url").text
+                    package_info["url"] = urljoin(repository, package_info["url"])
                     break
 
             package_dict[tag] = package_info
