@@ -114,7 +114,15 @@ def generate_sha1_hash(file_path, chunk_size=None):
 def find_packages(repository=DEFAULT_REPOSITORY, api_level="",
                   desired_packages=("build-tool", "platform-tool"),
                   accept_platform=HOST_PLATFORM, disable_previews=False):
-    """
+    """Find the newest package that matches the api_level requirement.
+    Returned dict has the following structure, all values are strings:
+    <package type> : {
+        api_level : 'x.x.x',
+        platform : 'windows' OR 'linux' OR 'macosx',
+        url : <url relative to repository's url>,
+        checksum : <sha1 checksum>,
+        size : <size in bytes>
+    }
     """
     if not repository.startswith("http") and Path(repository).is_file():
         with open(repository, mode="r") as local_xml:
