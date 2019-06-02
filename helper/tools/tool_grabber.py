@@ -29,6 +29,8 @@ import hashlib
 from pathlib import Path
 from zipfile import ZipFile
 from urllib.parse import urljoin
+from argparse import ArgumentParser
+
 import xml.etree.ElementTree as ET
 from xml.etree.ElementTree import ParseError as XMLParseError
 
@@ -276,4 +278,78 @@ def extract_tools(package_path, package_type, platform, extract_to=DEFAULT_EXTRA
 
     return str(extract_path)
 
-#TODO: make this a cli utility
+
+def main(arguments=None):
+    parser = ArgumentParser(prog="ToolGrabber")
+    parser.add_argument(
+        "--tool", choices=["adb", "aapt", "all"], default="all",
+        help="Pick which tool will be downloaded. Defaults to 'all' (will download both adb and aapt).")
+    parser.add_argument(
+        "--download-dir", nargs=1, type=str, default=DEFAULT_DOWNLOAD_DIR, metavar="DIR",
+        help=f"Place downloaded archives in specified directory, instead of in '{DEFAULT_DOWNLOAD_DIR}'")
+    parser.add_argument(
+        "--extract-dir", nargs=1, type=str, default=DEFAULT_EXTRACT_DIR, metavar="DIR",
+        help=f"Place extracted tools in specified directory, instead of in'{DEFAULT_EXTRACT_DIR}'")
+    parser.add_argument(
+        "--disable-previews", action="store_true",
+        help="""Disable preview builds (also know as 'release candidates', abbreviated to rc).
+                By default an rc build will be picked if it is the newest availablebuilds""")
+    parser.add_argument(
+        "--no-extract", action="store_true",
+        help="""Do not extract tools from downloaded packages.""")
+    parser.add_argument(
+        "--platform", choices=["windows", "macosx", "linux"], default=HOST_PLATFORM,
+        help=f"""Download packages meant for specified OS instead of the host's OS
+                 Detected OS for this host: {HOST_PLATFORM}""")
+    parser.add_argument(
+        "--api-level", nargs=1, default="", type=str, metavar="X[.X[.X]]",
+        help="""Make grabber retrieve packages matching the specified API level (newest package
+                is picked when API level is not specified). This value must be provided in this
+                format: <major>.<minor>.<micro> Micro and minor can be left out - grabber will
+                then pick the newest _matching_ package. Note that latest available version of
+                either packages should be fine for most uses""")
+    parser.add_argument(
+        "--repository", nargs=1, default=DEFAULT_REPOSITORY, metavar="XML",
+        help=f"""Make grabber use the provided repository file instead of the
+                 default one ({DEFAULT_REPOSITORY})""")
+
+    args = parser.parse_args(arguments)
+
+    if args.platform not in ["windows", "linux", "macosx"]:
+        LOGGER.error("Platform is not supported: %s", HOST_PLATFORM)
+
+    tool_to_package = {
+        "adb":("platform-tool",),
+        "aapt":("build-tool",),
+        "all":("platform-tool", "build-tool"),
+    }
+    desired_packages = tool_to_package[args.tool]
+    known_packages = find_packages(
+        args.repository, args.api_level, desired_packages, args.platform, args.disable_previews
+    )
+
+    downloaded_packages = []
+    for package_type, package_dict in known_packages.items():
+        if not package_dict:
+            LOGGER.error("Could not find any matching %s package", package_type)
+            continue
+
+        package_path = download_package(
+            package_dict["url"], package_dict["size"], package_dict["checksum"],
+            download_to=args.download_dir)
+
+        if not package_path:
+            continue
+
+        if args.no_extract:
+            downloaded_packages.append(package_path)
+            continue
+
+        tool_path = extract_tools(
+            package_path, package_type, package_dict["platform"], args.extract_dir)
+        if tool_path:
+            downloaded_packages.append(package_type)
+
+    if downloaded_packages:
+        print("DONE! Your tools can be found in:")
+        print(args.extract_dir)
