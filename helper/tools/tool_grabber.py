@@ -23,9 +23,11 @@ listed above will need to be used (links should still be working)
 """
 
 import sys
+import shutil
 import logging
 import hashlib
 from pathlib import Path
+from zipfile import ZipFile
 from urllib.parse import urljoin
 import xml.etree.ElementTree as ET
 from xml.etree.ElementTree import ParseError as XMLParseError
@@ -33,6 +35,7 @@ from xml.etree.ElementTree import ParseError as XMLParseError
 import requests
 from requests.exceptions import InvalidSchema, InvalidURL, MissingSchema
 
+from helper import CWD
 
 VERSION = 0.1
 LOGGER = logging.getLogger(__name__)
@@ -47,6 +50,8 @@ try:
 except KeyError:
     HOST_PLATFORM = sys.platform
 
+DEFAULT_DOWNLOAD_DIR = CWD + "/download"
+DEFAULT_EXTRACT_DIR = CWD + "/bin"
 DEFAULT_REPOSITORY = "https://dl-ssl.google.com/android/repository/repository-12.xml"
 USER_AGENT = "".join(
     ["ToolGrabber/", str(VERSION),
@@ -194,7 +199,81 @@ def find_packages(repository=DEFAULT_REPOSITORY, api_level="",
 
     return package_dict
 
-#TODO: actually write the code for fetching packages
-#TODO: step2: download that package
-#TODO: step3: extract the needed tools from the package
+
+def download_package(url, size, checksum, download_to=DEFAULT_DOWNLOAD_DIR):
+    """Download tool package.
+    Returns path fo the downloaded archive (string).
+    """
+    package_path = Path(download_to)
+    package_path.mkdir(parents=True, exist_ok=True)
+    package_path = package_path / url.rsplit("/", maxsplit=1)[-1]
+
+    downloaded_path = download(url, str(package_path), False)
+    validated = True
+
+    if downloaded_path:
+        local_size = package_path.stat().st_size
+        if local_size != int(size):
+            LOGGER.error("Size of downloaded package does not match size announced in repo:")
+            LOGGER.error("local size %s vs %s remote", local_size, size)
+            validated = False
+
+        local_checksum = generate_sha1_hash(str(downloaded_path))
+        if local_checksum != checksum:
+            LOGGER.error("Checksum of downloaded package differs from one announced in repo:")
+            LOGGER.error("local checksum %s vs %s remote", local_checksum, checksum)
+            validated = False
+
+        if not validated:
+            package_path.unlink()
+            downloaded_path = ""
+
+    return downloaded_path
+
+
+def extract_tools(package_path, package_type, platform, extract_to=DEFAULT_EXTRACT_DIR):
+    """
+    """
+    Path(extract_to).mkdir(parents=True, exist_ok=True)
+    include = {
+        "build-tool": {
+            "windows": ("aapt.exe",),
+            "macosx":  ("aapt", "lib64/libc++.so"),
+            "linux":   ("aapt", "lib64/libc++.so")
+        },
+        "platform-tool": {
+            "windows": ("adb.exe", "AdbWinApi.dll", "AdbWinUsbApi.dll"),
+            "macosx":  ("adb",),
+            "linux":   ("adb",)
+        }
+    }
+    extract_path = Path(extract_to)
+    extract_path.mkdir(parents=True, exist_ok=True)
+    files_to_extract = include[package_type][platform]
+    files_in_archive = []
+
+    with ZipFile(package_path) as archive:
+        for zip_filename in archive.namelist():
+            for filename in files_to_extract:
+                if zip_filename.endswith(filename):
+                    files_in_archive.append(zip_filename)
+                    break
+
+        if len(files_to_extract) != len(files_in_archive):
+            LOGGER.error("Archive does not contain all of required files!")
+            LOGGER.error("expected %s", files_to_extract)
+            LOGGER.error("found %s", files_in_archive)
+            return ""
+
+        for src, dest, in zip(files_in_archive, files_to_extract):
+            dest_path = extract_path / dest
+            dest_path.parent.mkdir(parents=True, exist_ok=True)
+            with dest_path.open(mode="bw") as dest_file:
+                with archive.open(src) as src_file:
+                    shutil.copyfileobj(src_file, dest_file)
+
+            dest_path.chmod(0o775)
+
+    return str(extract_path)
+
 #TODO: make this a cli utility
