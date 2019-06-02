@@ -23,9 +23,16 @@ listed above will need to be used (links should still be working)
 """
 
 import sys
-import hashlib
 import logging
+import hashlib
+
+from pathlib import Path
+import xml.etree.ElementTree as ET
+from xml.etree.ElementTree import ParseError as XMLParseError
+
 import requests
+from requests.exceptions import InvalidSchema, InvalidURL, MissingSchema
+
 
 VERSION = 0.1
 LOGGER = logging.getLogger(__name__)
@@ -104,8 +111,81 @@ def generate_sha1_hash(file_path, chunk_size=None):
     return sha1_hash.hexdigest()
 
 
+def find_packages(repository=DEFAULT_REPOSITORY, api_level="",
+                  desired_packages=("build-tool", "platform-tool"),
+                  accept_platform=HOST_PLATFORM, disable_previews=False):
+    """
+    """
+    if not repository.startswith("http") and Path(repository).is_file():
+        with open(repository, mode="r") as local_xml:
+            xml_file = local_xml.read()
+    else:
+        LOGGER.info("Provided repository string is not a path")
+        try:
+            xml_file = download(repository)
+        except (InvalidSchema, InvalidURL, MissingSchema) as err:
+            LOGGER.error("nonexistent file or invalid url, error caught:")
+            LOGGER.error(err)
+            return {}
+
+    try:
+        xml = ET.fromstring(xml_file)
+    except XMLParseError as err:
+        LOGGER.error("could not parse the file, error caught:")
+        LOGGER.error(err)
+        return {}
+
+    package_dict = {x:None for x in desired_packages}
+
+    default_ns = xml.tag.split("}", maxsplit=1)[0] + "}"
+
+    # I opted for not doing much of error checking here
+    # if any of these elements are missing, it probably means the
+    # structure of the repository has changed and this function will
+    # need to be rewritten anyway
+    # the implementation relies on the fact that the first item in group
+    # of packages will be the newest one
+    # I'm doing this because the repository structure hasn't changed in years
+    for package_group in desired_packages:
+        for package in xml.findall(default_ns+package_group):
+            tag = package.tag[len(default_ns)::]
+
+            revision = package.find(default_ns+"revision")
+
+            package_api_level = []
+            package_api_level.append(revision.find(default_ns+"major").text)
+            package_api_level.append(revision.find(default_ns+"minor").text)
+            package_api_level.append(revision.find(default_ns+"micro").text)
+            preview = revision.find(default_ns+"preview")
+            if preview is not None:
+                package_api_level.append("rc" + preview.text)
+            package_api_level = ".".join(package_api_level)
+
+            if disable_previews and preview is not None:
+                continue
+
+            if api_level and package_api_level[:len(api_level)] != api_level:
+                continue
+
+            package_info = {}
+            package_info["api_level"] = package_api_level
+
+            for archive in package.find(default_ns+"archives"):
+                platform = archive.find(default_ns+"host-os").text
+
+                if platform == accept_platform:
+                    package_info["platform"] = platform
+                    package_info["url"] = archive.find(default_ns+"url").text
+                    package_info["checksum"] = archive.find(default_ns+"checksum").text
+                    package_info["size"] = archive.find(default_ns+"size").text
+                    break
+
+            package_dict[tag] = package_info
+            break
+
+    return package_dict
+
 #TODO: actually write the code for fetching packages
-#TODO: step1: scan the whole repository for packages with matching versions
 #TODO: step2: download that package
 #TODO: step3: extract the needed tools from the package
 #TODO: make this a cli utility
