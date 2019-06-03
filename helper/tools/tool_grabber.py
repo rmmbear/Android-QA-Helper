@@ -73,7 +73,7 @@ def download(link, to_file=False, max_retries=3):
             response = requests.get(
                 link, headers={"User-agent":USER_AGENT}, stream=True, timeout=10)
         except requests.exceptions.ReadTimeout:
-            print("Error: connection timed out.")
+            LOGGER.error("Connection timed out.")
             if retry_count >= max_retries:
                 break
 
@@ -81,8 +81,7 @@ def download(link, to_file=False, max_retries=3):
             continue
 
         if response.status_code != 200:
-            print("Error: received HTTP status code {}."\
-                  .format(response.status_code), end="")
+            LOGGER.error("Received HTTP error code %s", response.status_code)
             # give up if max_retries has been reached or response is 4xx
             if retry_count >= max_retries or str(response.status_code)[0] == '4':
                 break
@@ -100,7 +99,7 @@ def download(link, to_file=False, max_retries=3):
 
         return response.text
 
-    print("\nERROR: COULD NOT COMPLETE DOWNLOAD")
+    LOGGER.error("COULD NOT COMPLETE DOWNLOAD")
     return ""
 
 
