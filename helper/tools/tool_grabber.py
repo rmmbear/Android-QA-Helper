@@ -23,6 +23,7 @@ listed above will need to be used (links should still be working)
 """
 
 import sys
+import time
 import shutil
 import logging
 import hashlib
@@ -61,6 +62,50 @@ USER_AGENT = "".join(
     ]
 )
 
+class DownloadIndicator:
+    def __init__(self, total_size, write_to=sys.stdout):
+        self.total_size = total_size
+        self.console = write_to
+        self.downloaded = 0
+        self.start_time = 0
+        self.previous_chunk_time = 0
+
+
+    def update(self, chunk_size):
+        self.downloaded += chunk_size
+        time_now = time.time()
+        elapsed = time_now - self.previous_chunk_time
+        self.previous_chunk_time = time_now
+        speed = (chunk_size/elapsed)/1024**2
+        if self.total_size:
+            percentage = f"{(self.downloaded/self.total_size*100):.2f}%"
+        else:
+            percentage = f"{self.downloaded/(1024**2)}/? MB"
+
+        self.clear()
+        self.console.write(f"{speed:.2f} MiB/s, {percentage}, {time.time() - self.start_time:.2f}s")
+        self.console.flush()
+
+
+    def clear(self):
+        # clear line, move cursor to start of the line
+        self.console.write("\033[2K\033[1G")
+
+
+    def __enter__(self):
+        self.start_time = time.time()
+        self.previous_chunk_time = time.time()
+        return self
+
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.clear()
+        time_elapsed = time.time() - self.start_time
+        downloaded_mb = self.downloaded/(1024**2)
+        self.console.write(f"Downloaded {downloaded_mb:.2f} MBs in {time_elapsed:.2f}s ({downloaded_mb/time_elapsed:.2f} MB/s avg)\n")
+        self.console.flush()
+        #return False
+
 def download(link, to_file=False, max_retries=3):
     """
     """
@@ -90,10 +135,18 @@ def download(link, to_file=False, max_retries=3):
             print(" Retrying({}/{})".format(retry_count, max_retries))
             continue
 
+
         if to_file:
-            with open(to_file, mode="wb") as downloaded_file:
-                for chunk in response.iter_content(chunk_size=(1024**2)*3):
-                    downloaded_file.write(chunk)
+            try:
+                total_size = int(response.headers["Content-Length"])
+            except KeyError:
+                total_size = 0
+
+            with DownloadIndicator(total_size) as indicator:
+                with open(to_file, mode="wb") as downloaded_file:
+                    for chunk in response.iter_content(chunk_size=(1024**2)*3):
+                        indicator.update(len(chunk))
+                        downloaded_file.write(chunk)
 
             return to_file
 
