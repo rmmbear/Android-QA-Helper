@@ -9,8 +9,6 @@ Current repositories:
 - https://dl-ssl.google.com/android/repository/repository-11.xml
 - https://dl-ssl.google.com/android/repository/repository-12.xml
 
-https://docs.python.org/3.8/whatsnew/3.8.html#f-strings-now-support-for-quick-and-easy-debugging
-https://docs.python.org/3.8/whatsnew/3.8.html#f-strings-now-support-for-quick-and-easy-debugging
 11 and 12 are nearly identical - the only difference is that 12 includes
 lldb entries.
 
