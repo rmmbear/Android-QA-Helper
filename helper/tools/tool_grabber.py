@@ -100,8 +100,6 @@ def download(link, to_file=False, max_retries=3):
 
         return response.text
 
-        return str(response.status_code)
-
     print("\nERROR: COULD NOT COMPLETE DOWNLOAD")
     return ""
 
