@@ -397,7 +397,11 @@ def main(arguments=None):
             package_path, package_type, package_dict["platform"], args.extract_dir)
         if tool_path:
             downloaded_packages.append(package_type)
+            Path(package_path).unlink()
 
     if downloaded_packages:
         print("DONE! Your tools can be found in:")
         print(args.extract_dir)
+
+if __name__ == "__main__":
+    main()
