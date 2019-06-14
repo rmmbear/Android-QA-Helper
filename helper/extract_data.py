@@ -84,7 +84,7 @@ while true; do
     fi;
     ((NUM++));
 done;
-""".strip().replace("\n", "")
+""".strip()
 
 
 INFO_SOURCES = {
@@ -691,7 +691,6 @@ def extract_cpu(device):
                     break
 
                 next_dict = cpu_dict[current_id + unknown_cores]
-
                 try:
                     current_cpu_dict['cpuinfo_max_freq']
                     current_cpu_dict['cpuinfo_min_freq']
@@ -852,7 +851,6 @@ def extract_storage(device):
     internal_sd = None
     external_sd = None
     trace_path = None
-    filesystem, size, used, free, blksize = [None for x in range(5)]
     shell_env = run_extraction_command(device, "shell_environment")
 
     try:
@@ -863,7 +861,6 @@ def extract_storage(device):
         external_sd = re.search("(?:SECONDARY_STORAGE=)([^\\s]*)", shell_env).group(1)
     except AttributeError:
         pass
-
 
     getprop = run_extraction_command(device, "getprop")
     try:
@@ -885,7 +882,6 @@ def extract_storage(device):
         except AttributeError:
             pass
 
-
     if not device.is_dir(internal_sd):
         guesses = ["/mnt/sdcard", "/storage/emulated/legacy", "/mnt/shell/emulated/0"]
 
@@ -901,13 +897,9 @@ def extract_storage(device):
     external_sd_space = run_extraction_command(device, "external_sd_space")
     if "no such file or directory" in external_sd_space.lower() or \
        "permission denied" in external_sd_space:
-        filesystem, size, used, free, blksize = ["Unavailable" for x in range(5)]
+        filesystem, size, used, free = ["Unavailable" for x in range(4)]
     else:
-        try:
-            filesystem, size, used, free, blksize = external_sd_space.strip().splitlines()[1].split(maxsplit=4)
-        except IndexError:
-            pass
-
+        filesystem, size, used, free = df_parser(external_sd_space.strip())[0]
 
     device.info_dict["external_sd_capacity"] = size
     device.info_dict["external_sd_free"] = free
@@ -915,12 +907,9 @@ def extract_storage(device):
     internal_sd_space = run_extraction_command(device, "internal_sd_space")
     if "no such file or directory" in internal_sd_space.lower() or \
        "permission denied" in internal_sd_space:
-        filesystem, size, used, free, blksize = ["Unavailable" for x in range(5)]
+        filesystem, size, used, free = ["Unavailable" for x in range(4)]
     else:
-        try:
-            filesystem, size, used, free, blksize = internal_sd_space.strip().splitlines()[1].split(maxsplit=4)
-        except (IndexError, ValueError):
-            pass
+        filesystem, size, used, free = df_parser(internal_sd_space.strip())[0]
 
     device.info_dict["internal_sd_capacity"] = size
     device.info_dict["internal_sd_free"] = free
@@ -962,15 +951,15 @@ def extract_system_packages(device):
 def extract_thirdparty_packages(device):
     """"""
     device.info_dict["third-party_apps"] = []
-    count = 0
-    for count, package in enumerate(run_extraction_command(device, "third-party_apps", use_cache=False, keep_cache=False).splitlines()):
+    #count = 0
+    for line in run_extraction_command(device, "third-party_apps", use_cache=False, keep_cache=False).splitlines():
         try:
-            app = package.split("package:", maxsplit=1)[1]
+            app = line.split("package:", maxsplit=1)[1]
         except IndexError:
-            LOGGER.warning("Could not split package line: %s", package)
+            LOGGER.warning("Could not split package line: %s", line)
             continue
 
         device.info_dict["third-party_apps"].append(app.strip())
 
-    if count == 0:
-        device.info_dict["third-party_apps"] = "-none-"
+    #if count == 0:
+    #    device.info_dict["third-party_apps"] = "-none-"
