@@ -28,15 +28,16 @@ VERSION = "0.15"
 VERSION_STRING = f"Android Helper v{VERSION}"
 SOURCE_STRING = "Check the source code at https://github.com/rmmbear/Android-QA-Helper"
 
-LOG_FORMAT = logging.Formatter("[%(levelname)s] T+%(relativeCreated)d: %(name)s.%(funcName)s() line:%(lineno)d %(message)s")
+LOG_FORMAT_FILE = logging.Formatter("[%(levelname)s] T+%(relativeCreated)d: %(name)s.%(funcName)s() line:%(lineno)d %(message)s")
+LOG_FORMAT_TERM = logging.Formatter("[%(levelname)s] %(message)s")
 LOGGER = logging.getLogger("helper")
 LOGGER.setLevel(logging.DEBUG)
 FH = logging.FileHandler("lastrun.log", mode="w")
 FH.setLevel(logging.DEBUG)
-FH.setFormatter(LOG_FORMAT)
+FH.setFormatter(LOG_FORMAT_FILE)
 CH = logging.StreamHandler()
 CH.setLevel(logging.WARN)
-CH.setFormatter(LOG_FORMAT)
+CH.setFormatter(LOG_FORMAT_TERM)
 
 LOGGER.addHandler(CH)
 LOGGER.addHandler(FH)
