@@ -379,18 +379,20 @@ class Device:
         return True
 
 
-    def full_info_string(self, initialize=True, indent=4):
-        """Return a formatted string containing all device info"""
+    def info_dump(self, out_file, initialize=True, indent=4):
+        """Write all available info on device to file-like object 'out_file'.
+
+        """
         # ensure all required info is available
         if initialize:
             self.extract_data()
 
         indent = " " * indent
-        full_info_string = "# Android QA Helper v.{}".format(VERSION)
-        full_info_string += "\n# Generated at {}\n".format(strftime("%Y-%m-%d %H:%M:%S"))
+        written = out_file.write(f"# Android QA Helper v.{VERSION}\n")
+        written += out_file.write(f"# Generated at {strftime('%Y-%m-%d %H:%M:%S %z')}\n")
 
         for info_section in extract.SURFACED_VERBOSE:
-            full_info_string = f"{full_info_string}\n{info_section[0]}:\n"
+            written += out_file.write(f"\n{info_section[0]}:\n")
             if isinstance(info_section, list):
                 for info_name, info_key in info_section[1]:
                     info_value = self.info_dict[info_key]
@@ -400,7 +402,7 @@ class Device:
                     elif isinstance(info_value, (list, tuple)):
                         info_value = ", ".join(info_value)
 
-                    full_info_string = "".join([full_info_string, indent, info_name, " : ", str(info_value), "\n"])
+                    written += out_file.write(f"{indent}{info_name}:{info_value}\n")
 
             else:
                 info_name, info_key = info_section
@@ -411,9 +413,9 @@ class Device:
                 elif isinstance(info_value, (list, tuple)):
                     info_value = ", ".join(info_value)
 
-                full_info_string = "".join([full_info_string, indent, info_value, "\n"])
+                written += out_file.write(f"{indent}{info_value}\n")
 
-        return full_info_string
+        return written
 
 
     def basic_info_string(self):
