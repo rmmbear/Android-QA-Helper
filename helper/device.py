@@ -17,37 +17,16 @@ LOGGER = logging.getLogger(__name__)
 EXTRACTION_FUNCTIONS = {x[8::]:getattr(extract, x) for x in dir(extract) if x.startswith("extract_")}
 
 SH_FILE_TEST = """
-if [ -e "{}" ]; then
-    echo -n 1;
-    if [ -L "{}" ]; then
-        echo -n 1;
-    else echo -n 0;
-    fi;
-    if [ -r "{}" ]; then
-        echo -n 1;
-    else echo -n 0;
-    fi;
-    if [ -w "{}" ]; then
-        echo -n 1;
-    else echo -n 0;
-    fi;
-    if [ -x "{}" ]; then
-        echo -n 1;
-    else echo -n 0;
-    fi;
-    if [ -{} "{}" ]; then
-        echo -n 1;
-    else echo -n 0;
-    fi;
-else echo -n 000000;
-fi
-""".strip().replace("\n", "")
+if [ -e "{}" ]; then echo -n 1;
+if [ -L "{}" ]; then echo -n 1; else echo -n 0; fi;
+if [ -r "{}" ]; then echo -n 1; else echo -n 0; fi;
+if [ -w "{}" ]; then echo -n 1; else echo -n 0; fi;
+if [ -x "{}" ]; then echo -n 1; else echo -n 0; fi;
+if [ -{} "{}" ]; then echo -n 1; else echo -n 0; fi;
+else echo -n 000000; fi
+""".strip().replace("\n", " ")
 
-SH_ECHO_GLOB = """
-for path in {}; do
-    echo -n $path\\;;
-done
-""".strip().replace("\n", "")
+SH_ECHO_GLOB = "for path in {}; do echo -n $path\\;; done"
 
 
 def adb_command(*args, check_server=None, **kwargs):
@@ -421,7 +400,7 @@ class Device:
                     elif isinstance(info_value, (list, tuple)):
                         info_value = ", ".join(info_value)
 
-                    full_info_string = "".join([full_info_string, indent, info_name, " : ", info_value, "\n"])
+                    full_info_string = "".join([full_info_string, indent, info_name, " : ", str(info_value), "\n"])
 
             else:
                 info_name, info_key = info_section
