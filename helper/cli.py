@@ -132,7 +132,7 @@ CMD = COMMANDS.add_parser(
     epilog="Issue a shell command for a device.")
 
 CMD.add_argument(
-    "command_", nargs="+", metavar="command",
+    "command_", nargs="*", metavar="command",
     help="""Note: put "--" as the first argument to suppress argument parsing
     (necessary if your shell command contains dashes).""")
 
@@ -142,7 +142,7 @@ CMD = COMMANDS.add_parser(
     epilog="Issue an adb command for a device.")
 
 CMD .add_argument(
-    "command_", nargs="+", metavar="command",
+    "command_", nargs="*", metavar="command",
     help="""Note: put "--" as the first argument to suppress argument parsing
     (necessary if your shell command contains dashes).""")
 
@@ -272,20 +272,18 @@ def scan(args):
         print()
 
 
-def detailed_scan(device, args):
+def info_dump(device, args):
     """"""
     device.extract_data(limit_to=["identity"])
     print(f"Collecting info from {device.name} ...")
 
-    info_string = device.full_info_string()
-    if args.output:
-        filename = f"{device.filename}_REPORT"
-        output_path = (Path(args.output) / filename).resolve()
-        with output_path.open(mode="w") as device_report:
-            device_report.write(info_string)
-        print(f"Report saved to {str(output_path)}")
-    else:
-        print(info_string)
+    filename = f"{device.filename}_REPORT"
+    output_path = (Path(args.output) / filename).resolve()
+    with output_path.open(mode="w") as device_report:
+        device.info_dump(device_report)
+
+    print(f"Report saved to {str(output_path)}")
+
 
 
 def debug_dump(device, args):
@@ -332,7 +330,7 @@ COMMAND_DICT = { #command : (function, required_devices),
     #these commands will run even when only one device is available
     "clean":(clean, 2), "c":(clean, 2),
     "debug-dump":(debug_dump, 2),
-    "dump":(detailed_scan, 2), "d":(detailed_scan, 2),
+    "dump":(info_dump, 2), "d":(info_dump, 2),
 }
 
 
