@@ -75,7 +75,7 @@ API_LEVEL_MATRIX = {
 }
 
 
-def aapt_command(*args, stdout_=sys.stdout, **kwargs):
+def aapt_command(*args, **kwargs):
     """Execute AAPT command."""
     LOGGER.debug("Executing %s", str(["AAPT", *args]))
     return helper_.exe(AAPT, *args, **kwargs)
