@@ -60,7 +60,24 @@ AAPT_VERSION = "Unknown"
 AAPT_AVAILABLE = False
 EDITED_CONFIG = False
 HELPER_CONFIG_VARS = ["ADB", "AAPT"]
-DEFAULT_CLEANER_CONFIG = """# lines starting with '#' will be ignored
+DEFAULT_CLEANER_CONFIG = """# This is default cleaner config file, it contains explanation of all available
+# commands, examples, and some default rules for removing helper's leftover files.
+# This config file is used by helper's 'clean' command if no other config is
+# supplied.
+#
+# To use custom config you can either edit and add custom operations to this file
+# (it will then be used by default when using 'helper clean') or create a separate
+# file and pass it as an argument to the clean command (see 'helper clean -h'
+# for more info).
+#
+# One line can contain only one command, but a command can be continued over
+# multiple lines with backslash (as in the example for the shell command below).
+# Lines starting with '#' are ignored (the character has no effect if not at the
+# start of a line and will not be treated specially otherwise).
+# If deleted, this file will be regenerated upon helper's launch.
+# All paths concerning the device must be in unix format ('/' is the root,
+# elements delimited by '/'), but those concerning host PC can be in either
+# windows or unix format.
 #
 ####COMMANDS:
 # 'remove' or 'rm' - Remove file or empty directory. Accepts wildcards.
@@ -143,10 +160,13 @@ DEFAULT_CLEANER_CONFIG = """# lines starting with '#' will be ignored
 # (above bash one-liner is equivalent to 'uninstall from com.android.vending')
 #
 
+####DEFAULT CLEANER COMMANDS:
 # remove files left by helper
-remove : /mnt/sdcard/*_screenrecord_*.mp4
-remove : /mnt/sdcard/*_anr_*.txt
-remove : /data/local/tmp/helper_*
+remove {internal_storage}/helper_*
+recursiverm /data/local/tmp/helper
+# make sure install location is set to 'auto'
+shell pm set-install-location 0
+
 """
 
 def _get_working_dir():
