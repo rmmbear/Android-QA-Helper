@@ -62,40 +62,48 @@ EDITED_CONFIG = False
 HELPER_CONFIG_VARS = ["ADB", "AAPT"]
 DEFAULT_CLEANER_CONFIG = """# lines starting with '#' will be ignored
 #
-# categories:
-# 'remove'          - Specify a file or directory to be removed. Dirs
-#                     cannot be removed. Accepts wildcards (*).
-# 'remove_recursive'- Specify a directory for deletion. Directory and
-#                     ALL its contents -- including sub-directories --
-#                     will be removed.
-# 'clear_data'      - Clear application data of the specified package.
-#                     Package can be specified by name or .apk file.
-# 'uninstall'       - Remove an app, by specifying its name or path to
-#                     local apk file. Some apps cannot be removed.
-# 'replace'         - Replace specified remote file with a local file.
-#                     If the remote file does not exist, the local will
-#                     still be placed in the remote path. Must provide
-#                     two -- no more, no less -- semicolon delimited
-#                     files.
+####COMMANDS:
+# 'remove' or 'rm' - Remove file or empty directory. Accepts wildcards.
+#                    Mimics behavior of the unix command 'rm'
+# 'recursiverm'    - Remove directory and all its contents. Accepts wildcards.
+#                    Behaves like unix's 'rm -R'.
+# 'findremove'     - Perform a recursive, case-insensitive search for files
+#                    matching specified name. This is like unix's
+#                    'find <arg1> -iname <arg2> -type f -delete'. First argument
+#                    is the directory in which to search, second is name to
+#                    search for, which can use star wildcards. Only removes files.
+# 'dataclear'      - Clear app's data. Argument can be a package id, "helper
+#                    activity", "from <name>" (where <name> is the name of the
+#                    installer), or "3rdparty"
+# 'uninstall'      - Remove installed app from device. Argument can be a
+#                    package id (for example "com.android.browser") to remove a
+#                    specific known app, "helper activity" to remove app
+#                    installed by helper (Note that this will not work for apps
+#                    installed with a non-default installer name),
+#                    "from <name>" to remove apps installed by <name>, or
+#                    "3rdparty" to remove ALL third party apps (use caution)
+# 'move' or 'mv'   - Move a file or directory. 1st argument is always the source
+#                    (the item being moved) and the second is the destination.
+#                    behaves like unix 'mv'. Operates only on
+# 'copy' or 'cp'   - Copy a file or directory. 1st argument is the source (the
+#                    item being copied) and second is the destination. Behaves
+#                    like the unix 'cp'.
+# 'push'           - Same functionality as adb's push - copy files from host PC
+#                    onto connected device. 1st argument is a file or directory
+#                    on host PC (in unix or window format), while the second is
+#                    the destination path on device.
+# 'pull'           - Same functionality as adb's pull - copy files from device
+#                    onto host PC. 1st argument is the source file on the device
+#                    that is being copied into directory on host PC in second
+#                    argument. Host PC path can be in either unix or windows
+#                    format.
+# 'shell' or 'sh'  - Raw shell command/bash script.
 #
+####SPECIAL TOKENS:
+# The following names have special meaning and can be inserted into paths:
 #
-# Example usage:
-# remove : /mnt/sdcard/Screenshots/*   - Remove all Screenshots
-#
-# remove_recursive : /mnt/sdcard/DCIM  - Remove the whole DCIM directory
-#
-# uninstall : com.android.browser      - Remove a package by its name
-# uninstall : /home/user/some.apk      - Remove a package by its apk
-#
-# clear_data : com.android.browser     - Clear application data (name)
-# clear_data : /home/user/some.apk     - Clear application data (local
-#                                                                  file)
-#
-#                                | semicolon as delimiter
-#                                v
-# replace : /mnt/sdcard/somefile ; /home/user/Desktop/someotherfile
-#            ^                      ^
-#            | remote file          | local file
+# {internal_storage} - Path to the internal storage (also called internal SD).
+# {external_storage} - Path to external storage (usually a removable SD Card).
 #
 
 # remove files left by helper
