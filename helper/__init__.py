@@ -105,6 +105,43 @@ DEFAULT_CLEANER_CONFIG = """# lines starting with '#' will be ignored
 # {internal_storage} - Path to the internal storage (also called internal SD).
 # {external_storage} - Path to external storage (usually a removable SD Card).
 #
+####EXAMPLES:
+#
+# remove /mnt/sdcard/Screenshots/* #Remove all files from the screenshots folder
+# recursiverm /mnt/sdcard/DCIM     #Remove DCIM directory and all its contents
+#
+# Remove all mp4 files from DCIM folder and all folders below it:
+#    findremove {internal_storage}/DCIM *.mp4
+#
+# dataclear com.android.browser      #Clear data of the default android browser
+# dataclear helper activity          #Clear data of all helper-installed apps
+# dataclear from com.android.vending #Clear data of Play Store apps
+# dataclear 3rdparty                 #Clear data of all non-system apps
+#
+# uninstall com.android.browser      #Uninstall default android browser
+# uninstall helper activity          #Uninstall all helper-installed apps
+# uninstall from com.android.vending #Uninstall apps installed by Play Store
+# uninstall 3rdparty                 #Uninstalls all third party apps
+#
+# Move screenshots folder from internal storage to root of external storage:
+#    move {internal_storage}/Pictures/Screenshots {external_storage}/
+#
+# Copy apk to a file named "browser_backup.apk" on external storage:
+#    copy /data/app/com.android.browser.apk {external_storage}/browser_backup.apk
+#
+# Save m's music folder as 'm_music' on device's external storage:
+#    push /home/m/Music {external_storage}/m_music
+#
+# Copy the screenshots folder and all its content onto m's desktop:
+#    pull {internal_storage}/Pictures/Screenshots C:\\Users\\m\\Desktop\\
+#
+# Execute a long shell one-liner which removes all packages installed by GPStore
+#    shell pm list packages -i | grep installer=com.android.vending | \\
+#          while read pline; do pline=${pline#package:}; pline=${pline% *}; \\
+#          echo "removing app $pline"; pm uninstall $pline; done
+#
+# (above bash one-liner is equivalent to 'uninstall from com.android.vending')
+#
 
 # remove files left by helper
 remove : /mnt/sdcard/*_screenrecord_*.mp4
