@@ -1,6 +1,5 @@
 import re
 from pathlib import Path
-from time import strftime
 
 import pytest
 
@@ -29,87 +28,24 @@ DUMP_DATA_REQUIRED = pytest.mark.skipif(
 class TestExtractModule:
     def verify_info_config(self, config):
         """Verify that provided config is formatted correctly and uses existing info keys"""
-        # config is a non-empty iterable
-        assert config and hasattr(config, "__iter__")
+        # config is a dictionary
+        # dict = {section_name : ((variable_name, variable_value),)}
+        for section, section_items in config.items():
+            try:
+                #section's value must be iterable
+                iter(section_items)
+            except TypeError:
+                pytest.fail(f"value of key '{section}' is not an iterable")
 
-        for section in config:
-            # each item in config is either a list or tuple containing two elements
-            assert isinstance(section, (list, tuple)) and len(section) == 2
-
-            if isinstance(section, list):
-                # section name is a non-empty string
-                assert section[0] and isinstance(section[0], str)
-
-                for pair in section[1]:
-                    # each item within a section is an iterable containing two elements
-                    assert len(pair) == 2
-                    # the two are non-empty strings
-                    assert ((pair[0] and pair[1]) and
-                            isinstance(pair[0], str) and isinstance(pair[1], str))
-
-                    assert pair[1] in INFO_KEYS
-            else:
-                # each of the objects in loose (name, key) tuple is a non-empty string
-                assert (section[0] and section[1] and
-                        isinstance(section[0], str) and isinstance(section[1], str))
-
-                assert section[1] in INFO_KEYS
-
-
-    def test_verify_config_test(self):
-        """Test validity of the config test."""
-        # input that is not an iterable
-        bad_input = [None, 1, 1.5]
-
-        with pytest.raises(AssertionError):
-            for config in bad_input:
-                self.verify_info_config(config)
-
-        # bad structure
-        bad_structure = [
-            [[[]]], "12", [([],)],
-            # reversed expectations
-            [["Identity", [["Model", "device_model"]]], ["CPU Features", "cpu_features"]],
-            (("Identity", (("Model", "device_model"),)), ("CPU Features", "cpu_features")),
-            (("Identity", (("Model", "device_model"),)),),
-            [["CPU Cores", "cpu_core_count"]],
-            # wrong number of items
-            (["Identity", [["Model", "device_model"]], "OwO"],),
-            (["Identity", [["Model", "device_model", "hewwo"]]],),
-            (["Identity", [["Model"]]],),
-            [("CPU Features", "cpu_features", "'sup")],
-            [("CPU Features",)],
-        ]
-        with pytest.raises(AssertionError):
-            for config in bad_structure:
-                self.verify_info_config(config)
-
-        # valid structure, bad contents
-        bad_contents = [
-            # empty nested iterables
-            [([],), [[], []]], [([],)], [[[]]],
-            # empty strings
-            [("", ""), ["", ("", "")]], [("", "")], [["", ("", "")]],
-            # unexpected type
-            [(1, 2), [3, (4, 5)]], [(0.1, 0.2)], [[True, (True, True)]],
-            [("dd"), ["c", ("cc")]], [("bb")], [["a", ("aa")]],
-        ]
-        with pytest.raises(AssertionError):
-            for config in bad_contents:
-                self.verify_info_config(config)
-
-        # valid config
-        valid_configs = [
-            # section -> (name, key), loose (name, key)
-            (["Identity", [("Model", "device_model")]], ("CPU Features", "cpu_features")),
-            # no loose tuple
-            (["Identity", [["Model", "device_model"]]],),
-            # only loose (name, key)
-            [("CPU Features", "cpu_features")],
-        ]
-        for config in valid_configs:
-            print(config)
-            self.verify_info_config(config)
+            for pair in section_items:
+                # each item is an iterable containing two values
+                assert len(pair) == 2
+                var_name, var_ref = pair
+                # name must be a string or None, in which case it is ignored
+                assert isinstance(var_name, str) or var_name is None
+                # var reference must be a string and a reference to existing info variable
+                assert isinstance(var_ref, str)
+                assert var_ref in INFO_KEYS
 
 
     def test_verify_brief_surfaced_config(self):
