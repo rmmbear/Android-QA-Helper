@@ -7,6 +7,8 @@ import re
 import string
 import logging
 
+from collections import OrderedDict
+
 import helper
 
 LOGGER = logging.getLogger(__name__)
@@ -136,117 +138,100 @@ NOTABLE_FEATURES = [
 
 # information surfaced to the user in detailed scan
 # (short scan shows only serial number, model, manufacturer and device status)
-SURFACED_BRIEF = [
-    # it follows the following structure:
-    # [section name, [(name, corresponding key from INFO_KEYS), ...]]
-    # if putting values in sections does not make much sense,
-    # the (name, INFO_KEY) tuple can be entered into the config directly
-    # without its own section
-    ["Identity",
-     [("Model", "device_model"),
-      ("Manufacturer", "device_manufacturer"),
-      ("Device", "device_device"),
-     ]
-    ],
-    ["System",
-     [("API Level", "android_api_level"),
-      ("Android Version", "android_version"),
-      ("Aftermarket Firmware", "aftermarket_firmware"),
-      ("Aftermarket Firmware Version", "aftermarket_firmware_version"),
-     ]
-    ],
-    ["Chipset",
-     [("Board", "board"),
-      ("RAM", "ram_capacity"),
-      ("CPU Architecture", "cpu_architecture"),
-      ("CPU Summary", "cpu_summary"),
-      ("GPU Vendor", "gpu_vendor"),
-      ("GPU Model", "gpu_model"),
-      ("OpenGL ES Version", "gles_version"),
-      ("Known Texture Compression Types", "gles_texture_compressions"),
-     ]
-    ],
-    ["Display",
-     [("Resolution", "display_resolution"),
-      ("Density", "display_density"),
-      ("Size", "display_physical_size")
-     ]
-    ],
-    ["Storage",
-     [("Internal Storage Space Total", "internal_sd_capacity"),
-      ("Internal Storage Space Available", "internal_sd_free"),
-      ("SD Card Space Total", "external_sd_capacity"),
-      ("SD Card Space Available", "external_sd_free"),
-     ]
-    ],
-    ("Notable Features", "device_notable_features")
-]
+SURFACED_BRIEF = OrderedDict()
+SURFACED_BRIEF["Identiy"] = (
+    ("Model", "device_model"),
+    ("Manufacturer", "device_manufacturer"),
+    ("Device", "device_device"),
+)
+SURFACED_BRIEF["System"] = (
+    ("API Level", "android_api_level"),
+    ("Android Version", "android_version"),
+    ("Aftermarket Firmware", "aftermarket_firmware"),
+    ("Aftermarket Firmware Version", "aftermarket_firmware_version"),
+)
+SURFACED_BRIEF["Chipset"] = (
+    ("Board", "board"),
+    ("RAM", "ram_capacity"),
+    ("CPU Architecture", "cpu_architecture"),
+    ("CPU Summary", "cpu_summary"),
+    ("GPU Vendor", "gpu_vendor"),
+    ("GPU Model", "gpu_model"),
+    ("OpenGL ES Version", "gles_version"),
+    ("Known Texture Compression Types", "gles_texture_compressions"),
+)
+SURFACED_BRIEF["Display"] = (
+    ("Resolution", "display_resolution"),
+    ("Density", "display_density"),
+    ("Size", "display_physical_size"),
+)
+SURFACED_BRIEF["Storage"] = (
+    ("Internal Storage Space Total", "internal_sd_capacity"),
+    ("Internal Storage Space Available", "internal_sd_free"),
+    ("SD Card Space Total", "external_sd_capacity"),
+    ("SD Card Space Available", "external_sd_free"),
+)
+SURFACED_BRIEF["Notable Features"] = ((None, "device_notable_features"),)
 
 # information surfaced to the user in dump
 # follows the same structure as brief config
-SURFACED_VERBOSE = [
-    ["Identity",
-     [("Model", "device_model"),
-      ("Manufacturer", "device_manufacturer"),
-      ("Device", "device_device"),
-      ("Name", "device_name"),
-      ("Brand", "device_brand"),
-      ("Serial Number", "device_serial_number"),
-     ]
-    ],
-    ["System",
-     [("API Level", "android_api_level"),
-      ("Android Version", "android_version"),
-      ("Aftermarket Firmware", "aftermarket_firmware"),
-      ("Aftermarket Firmware Version", "aftermarket_firmware_version"),
-      ("Build ID", "android_build_id"),
-      ("Build Fingerprint", "android_build_fingerprint"),
-      ("Kernel Version", "kernel_version"),
-     ]
-    ],
-    ["Chipset",
-     [("Board", "board"),
-      ("RAM", "ram_capacity"),
-      ("GPU Vendor", "gpu_vendor"),
-      ("GPU Model", "gpu_model"),
-      ("OpenGL ES Version", "gles_version"),
-      ("Known Texture Compression Types", "gles_texture_compressions"),
-      ("CPU Summary", "cpu_summary"),
-      ("CPU Architecture", "cpu_architecture"),
-      ("CPU Clock Range", "cpu_clock_range"),
-      ("Available ABIs", "cpu_abis"),
-      ("CPU Features", "cpu_features"),
-      # Some chipsets include multiple CPUs that device switches between depending on power needed for given task
-      # in such cases, following entries will be added for each cpu
-      # ("CPU# Core Count", "cpu#_core_count"),
-      # ("CPU# Clock Range", "cpu#_clock_range"),
-      # ("CPU# Clock Jump intervals", "cpu#_clock_intervals"),
-     ]
-    ],
-    ["Display",
-     [("Resolution", "display_resolution"),
-      ("Density", "display_density"),
-      ("X-DPI", "display_x-dpi"),
-      ("Y-DPI", "display_y-dpi"),
-      ("Size", "display_physical_size"),
-     ]
-    ],
-    ["Storage",
-     [("Internal Storage Path", "internal_sd_path"),
-      ("Internal Storage Space Total", "internal_sd_capacity"),
-      ("Internal Storage Space Available", "internal_sd_free"),
-      ("SD Card Path", "external_sd_path"),
-      ("SD Card Space Total", "external_sd_capacity"),
-      ("SD Card Space Available", "external_sd_free"),
-     ]
-    ],
-    ("Notable Features", "device_notable_features"),
-    ("Device Features", "device_features"),
-    ("System Apps", "system_apps"),
-    ("Third-Party Apps", "third-party_apps"),
-    ("Shell Commands", "shell_commands"),
-    ("GLES Extensions", "gles_extensions"),
-]
+SURFACED_VERBOSE = OrderedDict()
+SURFACED_VERBOSE["Identity"] = (
+    ("Model", "device_model"),
+    ("Manufacturer", "device_manufacturer"),
+    ("Device", "device_device"),
+    ("Name", "device_name"),
+    ("Brand", "device_brand"),
+    ("Serial Number", "device_serial_number"),
+)
+SURFACED_VERBOSE["System"] = (
+    ("API Level", "android_api_level"),
+    ("Android Version", "android_version"),
+    ("Aftermarket Firmware", "aftermarket_firmware"),
+    ("Aftermarket Firmware Version", "aftermarket_firmware_version"),
+    ("Build ID", "android_build_id"),
+    ("Build Fingerprint", "android_build_fingerprint"),
+    ("Kernel Version", "kernel_version"),
+)
+SURFACED_VERBOSE["Chipset"] = (
+    ("Board", "board"),
+    ("RAM", "ram_capacity"),
+    ("GPU Vendor", "gpu_vendor"),
+    ("GPU Model", "gpu_model"),
+    ("OpenGL ES Version", "gles_version"),
+    ("Known Texture Compression Types", "gles_texture_compressions"),
+    ("CPU Summary", "cpu_summary"),
+    ("CPU Architecture", "cpu_architecture"),
+    ("CPU Clock Range", "cpu_clock_range"),
+    ("Available ABIs", "cpu_abis"),
+    ("CPU Features", "cpu_features"),
+    # Some chipsets include multiple CPUs that device switches between depending on power needed for given task
+    # in such cases, following entries will be added for each cpu
+    # ("CPU# Core Count", "cpu#_core_count"),
+    # ("CPU# Clock Range", "cpu#_clock_range"),
+    # ("CPU# Clock Jump intervals", "cpu#_clock_intervals"),
+)
+SURFACED_VERBOSE["Display"] = (
+    ("Resolution", "display_resolution"),
+    ("Density", "display_density"),
+    ("X-DPI", "display_x-dpi"),
+    ("Y-DPI", "display_y-dpi"),
+    ("Size", "display_physical_size"),
+)
+SURFACED_VERBOSE["Storage"] = (
+    ("Internal Storage Path", "internal_sd_path"),
+    ("Internal Storage Space Total", "internal_sd_capacity"),
+    ("Internal Storage Space Available", "internal_sd_free"),
+    ("SD Card Path", "external_sd_path"),
+    ("SD Card Space Total", "external_sd_capacity"),
+    ("SD Card Space Available", "external_sd_free"),
+)
+SURFACED_VERBOSE["Notable Features"] = ((None, "device_notable_features"),)
+SURFACED_VERBOSE["Device Features"] = ((None, "device_features"),)
+SURFACED_VERBOSE["System Apps"] = ((None, "system_apps"),)
+SURFACED_VERBOSE["Third-Party Apps"] = ((None, "third-party_apps"),)
+SURFACED_VERBOSE["Shell Commands"] = ((None, "shell_commands"),)
+SURFACED_VERBOSE["GLES Extensions"] = ((None, "gles_extensions"),)
 
 INFO_KEYS = [
     "aftermarket_firmware",
@@ -733,7 +718,7 @@ def extract_cpu(device):
         device.info_dict[f"cpu{cpu_id}_core_count"] = cpu["core_count"]
 
         device.info_dict["cpu_summary"].append(
-            "{}-core {} MHz".format(cpu["core_count"], cpu["max_frequency"]))
+            "{}-core {} GHz".format(cpu["core_count"], cpu["max_frequency"]))
 
     device.info_dict["cpu_clock_range"] = " - ".join(
         [str(min_frequency), str(max_frequency)]) + " GHz"

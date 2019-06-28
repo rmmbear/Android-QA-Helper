@@ -391,29 +391,24 @@ class Device:
         written = out_file.write(f"# Android QA Helper v.{VERSION}\n")
         written += out_file.write(f"# Generated at {strftime('%Y-%m-%d %H:%M:%S %z')}\n")
 
-        for info_section in extract.SURFACED_VERBOSE:
-            written += out_file.write(f"\n{info_section[0]}:\n")
-            if isinstance(info_section, list):
-                for info_name, info_key in info_section[1]:
-                    info_value = self.info_dict[info_key]
+        for section_name, section_items in extract.SURFACED_VERBOSE.items():
+            written += out_file.write(f"\n{section_name}:\n")
 
-                    if not info_value:
-                        info_value = "Unknown"
-                    elif isinstance(info_value, (list, tuple)):
-                        info_value = ", ".join(info_value)
+            for val_name, val_ref in section_items:
+                written += out_file.write(f"{indent}")
+                if val_name:
+                    written += out_file.write(f"{val_name}: ")
 
-                    written += out_file.write(f"{indent}{info_name}:{info_value}\n")
+                val_val = self.info_dict[val_ref]
 
-            else:
-                info_name, info_key = info_section
-                info_value = self.info_dict[info_key]
-
-                if not info_value:
-                    info_value = "Unknown"
-                elif isinstance(info_value, (list, tuple)):
-                    info_value = ", ".join(info_value)
-
-                written += out_file.write(f"{indent}{info_value}\n")
+                if not val_val:
+                    written += out_file.write("Unknown\n")
+                elif isinstance(val_val, (list, tuple)):
+                    for item in val_val[:-1]:
+                        written += out_file.write(f"{item}, ")
+                    written += out_file.write(f"{val_val[-1]}\n")
+                else:
+                    written += out_file.write(f"{val_val}\n")
 
         return written
 
