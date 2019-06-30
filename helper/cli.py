@@ -148,7 +148,6 @@ CMD .add_argument(
 
 
 ### Hidden commands
-#COMMANDS.add_parser("gui")
 CMD = COMMANDS.add_parser("debug-dump", parents=[OPT_DEVICE, OPT_OUTPUT])
 CMD.add_argument("--full", action="store_true")
 COMMANDS.add_parser("run-tests")
@@ -344,11 +343,6 @@ def main(args=None):
     if args == PARSER_NO_ARGS:
         PARSER.parse_args(["-h"])
         return
-
-    #if args.command == "gui":
-    #    LOGGER.info("Launching GUI")
-    #    from helper.GUI import helper_gui
-    #    sys.exit(helper_gui.main())
 
     if hasattr(args, "output"):
         if not Path(args.output[0]).is_dir():
