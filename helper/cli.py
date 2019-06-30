@@ -293,7 +293,7 @@ def debug_dump(device, args):
     dump_device(device, args.output, args.full)
 
 
-def run_tests():
+def run_tests(args):
     try:
         import pytest
     except ImportError:
@@ -319,6 +319,7 @@ COMMAND_DICT = { #command : (function, required_devices),
     "adb":(adb_command, 0),
     "run-tests":(run_tests, 0),
     "scan":(scan, 0), "s": (scan, 0),
+    "run-tests":(run_tests, 0),
     #Single device commands
     "extract":(extract_apk, 1), "x":(extract_apk, 1),
     "install":(install, 1), "i":(install, 1),
