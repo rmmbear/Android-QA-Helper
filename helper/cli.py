@@ -103,8 +103,8 @@ CMD = COMMANDS.add_parser(
 
 # TODO: Update detailed description after implementing obb extraction
 CMD = COMMANDS.add_parser(
-    "extract-apk", parents=[OPT_DEVICE, OPT_OUTPUT], aliases="x",
-    help="""Extract the .apk file of an installed application.""",
+    "extract", parents=[OPT_DEVICE, OPT_OUTPUT], aliases="x",
+    help="""Extract .apk file of an installed application.""",
     epilog="""Extract the .apk file from device's storage. On some devices
     the archives cannot be extracted. In general, if it is possible to
     extract third part apps, it should be also possible to the same with
