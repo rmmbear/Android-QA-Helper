@@ -163,7 +163,7 @@ SURFACED_BRIEF["Chipset"] = (
 SURFACED_BRIEF["Display"] = (
     ("Resolution", "display_resolution"),
     ("Density", "display_density"),
-    ("Size", "display_physical_size"),
+    #("Size", "display_physical_size"),
 )
 SURFACED_BRIEF["Storage"] = (
     ("Internal Storage Space Total", "internal_sd_capacity"),
@@ -216,7 +216,7 @@ SURFACED_VERBOSE["Display"] = (
     ("Density", "display_density"),
     ("X-DPI", "display_x-dpi"),
     ("Y-DPI", "display_y-dpi"),
-    ("Size", "display_physical_size"),
+    #("Size", "display_physical_size"),
 )
 SURFACED_VERBOSE["Storage"] = (
     ("Internal Storage Path", "internal_sd_path"),
@@ -266,7 +266,7 @@ INFO_KEYS = [
     "device_notable_features",
     "device_serial_number",
     "display_density",
-    "display_physical_size",
+    #"display_physical_size",
     "display_resolution",
     "display_x-dpi",
     "display_y-dpi",
