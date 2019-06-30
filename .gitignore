@@ -98,8 +98,8 @@ aapt/
 
 #helper-specific stuff
 helper_config
-compression_identifiers
 cleaner_config
+bin/
 
 *.apk
 *.obb
