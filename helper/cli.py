@@ -11,11 +11,11 @@ import helper.device as device_
 LOGGER = logging.getLogger(__name__)
 
 PARSER = ArgumentParser(
-    prog="helper", description=helper_.VERSION_STRING,
+    prog="helper", description="",
     epilog=""
 )
 PARSER.add_argument(
-    "-v", "--version", action="version", version=helper_.VERSION_STRING)
+    "-v", "--version", action="version", version=helper_.VERSION)
 
 COMMANDS = PARSER.add_subparsers(title="Commands", dest="command", metavar="")
 
@@ -288,7 +288,7 @@ def info_dump(device, args):
 def debug_dump(device, args):
     print("Please remember that ALL dumped files may contain sensitive data. Use caution.")
 
-    from helper.tests import dump_device
+    from helper.extract_data import dump_device
 
     dump_device(device, args.output, args.full)
 
@@ -319,7 +319,6 @@ COMMAND_DICT = { #command : (function, required_devices),
     "adb":(adb_command, 0),
     "run-tests":(run_tests, 0),
     "scan":(scan, 0), "s": (scan, 0),
-    "run-tests":(run_tests, 0),
     #Single device commands
     "extract":(extract_apk, 1), "x":(extract_apk, 1),
     "install":(install, 1), "i":(install, 1),

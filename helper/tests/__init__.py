@@ -1,16 +1,12 @@
 import sys
-import random
-import string
 import logging
 from pathlib import Path
 
 from helper import extract_data
-from helper.extract_data import INFO_SOURCES
 from helper.device import DeviceOfflineError, Device
 
 LOGGER = logging.getLogger(__name__)
 EXTRACTION_FUNCTIONS = {x[8::]:getattr(extract_data, x) for x in dir(extract_data) if x.startswith("extract_")}
-
 
 class DummyDevice(Device):
     def __init__(self, config_dir, *args, **kwargs):
@@ -90,7 +86,7 @@ class DummyDevice(Device):
         if not config_dir:
             config_dir = self.config_dir
 
-        for source_name in INFO_SOURCES:
+        for source_name in extract_data.INFO_SOURCES:
             try:
                 with (Path(config_dir) / source_name).open(mode="r", encoding="utf-8") as dummy_data:
                     self._init_cache[source_name] = dummy_data.read()
@@ -119,47 +115,3 @@ class DummyDevice(Device):
                 self._extracted_info_groups.append(command_id)
 
         #self._init_cache = {}
-
-
-def get_nonexistent_path():
-    """Generate a path that does not exist"""
-    chars = string.ascii_letters + string.digits
-    base = Path()
-    while True:
-        nonexistent_path = base / "".join(
-            [chars[random.randrange(0, len(chars)-1)] for i in range(16)])
-        if not nonexistent_path.exists():
-            return str(nonexistent_path.resolve())
-
-
-def dump_device(device, directory=".", full=False):
-    """Dump device data to files.
-    What is dumped is controlled by extract_data's INFO_SOURCES.
-    This data is meant to be loaded into DummyDevice for debugging and
-    compatibility tests.
-    """
-    Path(directory).mkdir(exist_ok=True)
-
-    device.extract_data(limit_to=("identity",))
-    device_dir = Path(directory, (device.filename + "_DUMP"))
-    device_dir.mkdir(exist_ok=True)
-    print()
-    print("Dumping", device.name)
-
-    #device.extract_data()
-
-    for source_name, command in INFO_SOURCES.items():
-        if source_name.startswith("debug") and not full:
-            continue
-
-        output = device.shell_command(*command, return_output=True, as_list=False)
-
-        with Path(device_dir, source_name).open(mode="w", encoding="utf-8") as dump_file:
-            dump_file.write(output)
-        sys.stdout.write(".")
-        sys.stdout.flush()
-
-    sys.stdout.write("\n")
-
-    print("Device dumped to", str(device_dir.resolve()))
-    return str(device_dir.resolve())
