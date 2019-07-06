@@ -1,10 +1,11 @@
 """Module for analyzing apk packages with aapt"""
 import re
-import sys
 import logging
-
+from pathlib import Path
+from argparse import ArgumentParser
 import helper as helper_
 
+VERSION = 0.1
 LOGGER = logging.getLogger(__name__)
 AAPT = helper_.AAPT
 
@@ -318,3 +319,25 @@ class App:
             lines.append(f"{indent*' '}{permission}")
 
         return "\n".join(lines)
+
+
+def main(arguments=None):
+    parser = ArgumentParser(prog="ApkInspector")
+    parser.add_argument("apk")
+    parser.add_argument("--option", action="store_true")
+    parser.add_argument(
+        "--version", "-v", action="version", version="%(prog)s {}".format(VERSION))
+
+    arg = parser.parse_args(arguments)
+
+    if not Path(arg.apk).is_file:
+        print("ERROR: provided path is not a file")
+        print(f"     : {arg.apk}")
+        return
+
+    args = parser.parse_args(arguments)
+    print(App(args.apk).get_report(True))
+
+
+if __name__ == "__main__":
+    main()
