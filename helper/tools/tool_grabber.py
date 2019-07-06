@@ -102,7 +102,7 @@ class DownloadIndicator:
         downloaded_mb = self.downloaded/(1024**2)
         self.console.write(f"Downloaded {downloaded_mb:.2f} MBs in {time_elapsed:.2f}s ({downloaded_mb/time_elapsed:.2f} MB/s avg)\n")
         self.console.flush()
-        #return False
+
 
 def download(link, to_file=False, max_retries=3):
     """
@@ -132,7 +132,6 @@ def download(link, to_file=False, max_retries=3):
             retry_count += 1
             print(" Retrying({}/{})".format(retry_count, max_retries))
             continue
-
 
         if to_file:
             try:
@@ -330,6 +329,8 @@ def extract_tools(package_path, package_type, platform, extract_to=DEFAULT_EXTRA
 def main(arguments=None):
     parser = ArgumentParser(prog="ToolGrabber")
     parser.add_argument(
+        "--version", "-v", action="version", version="%(prog)s {}".format(VERSION))
+    parser.add_argument(
         "--tool", choices=["adb", "aapt", "all"], default="all",
         help="Pick which tool will be downloaded. Defaults to 'all' (will download both adb and aapt).")
     parser.add_argument(
@@ -402,6 +403,7 @@ def main(arguments=None):
     if downloaded_packages:
         print("DONE! Your tools can be found in:")
         print(args.extract_dir)
+
 
 if __name__ == "__main__":
     main()
