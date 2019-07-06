@@ -14,19 +14,15 @@
 #   You should have received a copy of the GNU General Public License
 #   along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-import os
 import sys
-import time
-import shutil
-import inspect
 import logging
 import subprocess
-from pathlib import Path
 
-# Program metadata
+from pathlib import Path
+from time import strftime
+from inspect import getabsfile
+
 VERSION = "0.15"
-VERSION_STRING = f"Android Helper v{VERSION}"
-SOURCE_STRING = "Check the source code at https://github.com/rmmbear/Android-QA-Helper"
 
 LOG_FORMAT_FILE = logging.Formatter("[%(levelname)s] T+%(relativeCreated)d: %(name)s.%(funcName)s() line:%(lineno)d %(message)s")
 LOG_FORMAT_TERM = logging.Formatter("[%(levelname)s] %(message)s")
@@ -42,7 +38,7 @@ CH.setFormatter(LOG_FORMAT_TERM)
 LOGGER.addHandler(CH)
 LOGGER.addHandler(FH)
 
-LOGGER.info("----- %s : Starting %s -----", time.strftime("%Y-%m-%d %H:%M:%S"), VERSION_STRING)
+LOGGER.info("----- %s : Starting Android Helper v%s -----", strftime("%Y-%m-%d %H:%M:%S"), VERSION)
 
 
 # Global config variables
@@ -178,7 +174,7 @@ def _get_working_dir():
     if getattr(sys, 'frozen', False):
         cwd = Path(sys.executable).parent
     else:
-        cwd = Path(inspect.getabsfile(_get_working_dir)).parent / ".."
+        cwd = Path(getabsfile(_get_working_dir)).parent / ".."
 
     return str(cwd.resolve())
 
@@ -243,7 +239,7 @@ def exe(executable, *args, return_output=False, as_list=True,
         sys.exit()
     except FileNotFoundError:
         stdout_.write(
-            f"ERROR: Provided executable does not exist: {executable}.\n")
+            f"ERROR: Executable does not exist: {executable}.\n")
         sys.exit()
     except OSError as error:
         stdout_.write(
