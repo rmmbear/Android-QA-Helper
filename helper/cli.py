@@ -4,9 +4,9 @@ import logging
 from pathlib import Path
 from argparse import ArgumentParser
 
-import helper as helper_
-import helper.main as main_
-import helper.device as device_
+import helper
+import helper.main
+import helper.device
 
 LOGGER = logging.getLogger(__name__)
 
@@ -15,7 +15,7 @@ PARSER = ArgumentParser(
     epilog=""
 )
 PARSER.add_argument(
-    "-v", "--version", action="version", version=helper_.VERSION)
+    "-v", "--version", action="version", version="%(prog)s {}".format(helper.VERSION))
 
 COMMANDS = PARSER.add_subparsers(title="Commands", dest="command", metavar="")
 
@@ -81,10 +81,10 @@ CMD = COMMANDS.add_parser(
     Currently available options are: removing files and directories, clearing
     app data, uninstalling apps and replacing files on device with local
     versions. For configuration example, see the default config file:
-    {helper_.CLEANER_CONFIG}.""")
+    {helper.CLEANER_CONFIG}.""")
 
 CMD.add_argument(
-    "clean", nargs="?", default=helper_.CLEANER_CONFIG, metavar="config",
+    "clean", nargs="?", default=helper.CLEANER_CONFIG, metavar="config",
     help="""Path to a valid cleaner config file. For example of a
     valid config, see the default file in this program's root directory.""")
 
@@ -161,7 +161,7 @@ def pick_device():
     devices. If only one is available, it will be chosen automatically.
     None is returned if there aren't any devices.
     """
-    device_list = device_.get_devices(limit_init=["identity"])
+    device_list = helper.device.get_devices(limit_init=["identity"])
     if not device_list:
         return None
 
@@ -189,7 +189,7 @@ def pick_device():
 
 
 def record(device, args):
-    destination = main_.record(device, args.output)
+    destination = helper.main.record(device, args.output)
     if destination:
         print("Recorded video was saved to:")
         print(destination)
@@ -203,13 +203,14 @@ def install(device, args):
         print("ERROR: Provided path does not point to an existing file:")
         print(args.install)
         return
-    main_.install(device, args.install, args.obb, install_location=args.location,
-                  keep_data=args.keep_data, installer_name=args.installer_name)
+    helper.main.install(
+        device, args.install, args.obb, install_location=args.location,
+        keep_data=args.keep_data, installer_name=args.installer_name)
 
 
 def pull_traces(device, args):
     """"""
-    destination = main_.pull_traces(device, args.output)
+    destination = helper.main.pull_traces(device, args.output)
     if destination:
         print("Traces file was saved to:")
         print(destination)
@@ -234,7 +235,7 @@ def clean(device, args):
         print(config_file)
         return
 
-    main_.clean(device, config_file)
+    helper.main.clean(device, config_file)
 
 
 def scan(args):
@@ -245,7 +246,7 @@ def scan(args):
     #      the end result should be a table that automatically adjusts
     #      column width to its contents
     headers = ["#", "serial num", "manufacturer", "model", "status"]
-    device_list = device_.get_devices(True, limit_init=["identity"])
+    device_list = helper.device.get_devices(True, limit_init=["identity"])
     device_ids = {device.serial:device for device in device_list}
     #FIXME: unauthorized devices are not shown
     #FIXME: broken output when no devices are connected
@@ -311,7 +312,7 @@ def shell_command(device, args):
 
 def adb_command(args):
     """"""
-    device_.adb_command(*args.command_, return_output=False, check_server=False)
+    helper.device.adb_command(*args.command_, return_output=False, check_server=False)
 
 
 COMMAND_DICT = { #command : (function, required_devices),
@@ -361,9 +362,9 @@ def main(args=None):
 
     #TODO: Implement a timeout
     print("Waiting for any device to come online...")
-    device_.adb_command('wait-for-device', return_output=True)
+    helper.device.adb_command('wait-for-device', return_output=True)
 
-    connected_devices = device_.get_devices(initialize=False)
+    connected_devices = helper.device.get_devices(initialize=False)
     connected_serials = {device.serial:device for device in connected_devices}
 
     if hasattr(args, "device"):
@@ -382,7 +383,7 @@ def main(args=None):
 
         try:
             command(chosen_device, args)
-        except device_.DeviceOfflineError:
+        except helper.device.DeviceOfflineError:
             print("Device has been suddenly disconnected!")
 
     if required_devices == 2:
@@ -391,7 +392,7 @@ def main(args=None):
         for device in connected_devices:
             try:
                 command(device, args)
-            except device_.DeviceOfflineError:
+            except helper.device.DeviceOfflineError:
                 print(f"Device {device.name} has been suddenly disconnected!")
 
 #TODO: Implement screenshot command
