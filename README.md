@@ -1,43 +1,29 @@
 # Android-QA-Helper
-For changelog and Windows binaries see releases page: https://github.com/rmmbear/Android-QA-Helper/releases/
-
-# Requirements:
-- Python 3.6 (if not using binary package)
-- ADB
-- AAPT
-- PyQt5 [optional - GUI]
-- pytest [optyional - for tests]
-
-# Getting AAPT and ADB
-Both ADB and AAPT are required for this program to work. To get them, you can do one of two things:
-- Download the whole Android SDK suite and get their packages using the SDK manager
-- Download the latest release of platform-tools (ADB) package from https://developer.android.com/studio/releases/platform-tools#downloads
-- Download the packages directly from Google's Android repositories
-
-
-To download the platform-tools package, search for ```<sdk:url>platform-tools```, find the package corresponding to your platform, copy the url and replace the last part of the page's url with it. At the time of writing, this would be https://dl-ssl.google.com/android/repository/platform-tools_r25.0.3-linux.zip .
-Do the same for build-tools: search for ```<sdk:url>build-tools```, find your platform, replace the last part of the page's url with the found url and download (at the time of writing: https://dl-ssl.google.com/android/repository/build-tools_r25.0.2-linux.zip).
-
-# Installation:
-Download or clone this repository using ```git clone``` (if you are on windows, you can also download the frozen code from the [releases page](https://github.com/rmmbear/Android-QA-Helper/releases)).
-
-In the root directory of the project there should be two directories: "adb" and "aapt". Place the adb (and its dlls, if on windows) and aapt into their corresponding directories. See requirements section on instructions how to get them.
-
-# Usage:
-From the root of the project:```python -m helper <option>```. You can use ```--help``` to see the list of available options.
-If you're using the frozen code package on windows, you must call the 'helper.exe' from cmd.
-
+Android QA Helper is a collection of utilities for Android devices. As the name implies, the project was meant to help with tasks often needed in QA on mobile devices (automated installation, gathering logs and device information, automated cleaning, etc.).
 
 # Functionality:
-- Extract info about connected devices
-- Record videos
-- Read ANR logs
-- Read logcat logs
-- Install remove apps (with obbs)
-- Extract app files from device
-- Test app/device compatibility
+- Extract device information into a file in human-readable format (system info, GPU, CPU, storage, installed apps, hardware capabilities, and more!)
+- Install and remove apps (with support for OBB files, built-in compatibility checks)
+- View app requirements, used permissionsand compatibility info extracted from the apk's AndroidManifest.xml
+- Record your device's screen and automatically pull videos and screenshots to your pc
+- ToolGrabber utility which automatically downloads adb and aapt from Android project repository
+
+Planned:
+- Cleaner utility with extensible config, allowing you to remove files, apps, clear app data from connected devices
+- View and save live system logs
+
+# Usage:
+Download or clone this repository using ```git clone``` (frozen code package for windows can be found on [releases page](https://github.com/rmmbear/Android-QA-Helper/releases)). From the root of the project:```python -m helper <option>```. Use ```--help``` to see the list of available commands.
+If you're using the frozen code package on windows, you must use call 'helper.exe' from cmd and not use the exe directly.
+
+# Requirements:
+- Python 3.6
+- [requests](https://requests.kennethreitz.org/en/master/) [used in toolgrabber]
+
+# Getting AAPT and ADB
+Both ADB and AAPT are required for this program to work. A ToolGrabber utility is included in the project, which will automatically download necessary packages from Android project repositories and extract the required tools. Simply run it on the command line If you prefer, you can also:
+- Download the latest release of platform-tools (which contains adb only) from https://developer.android.com/studio/releases/platform-tools#downloads
+- Download the whole Android SDK suite and get platform-tools (adb) and build-tools (aapt) using the SDK manager
+- Download the packages directly from Google's Android repositories (listing can be found in xml form at https://dl-ssl.google.com/android/repository/repository-12.xml)
 
 
-
-# GUI:
-The current GUI prototype can be accessed with ```helper gui```
