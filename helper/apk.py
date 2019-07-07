@@ -324,9 +324,8 @@ class App:
 def main(arguments=None):
     parser = ArgumentParser(prog="ApkInspector")
     parser.add_argument("apk")
-    parser.add_argument("--option", action="store_true")
     parser.add_argument(
-        "--version", "-v", action="version", version="%(prog)s {}".format(VERSION))
+        "-v", "--version", action="version", version="%(prog)s {}".format(VERSION))
 
     arg = parser.parse_args(arguments)
 
