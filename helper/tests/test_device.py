@@ -7,7 +7,7 @@ import helper as helper_
 import helper.device as device_
 from helper.tests import DummyDevice
 
-from helper.extract_data import INFO_KEYS, SURFACED_BRIEF, SURFACED_VERBOSE
+from helper.extract_data import INFO_KEYS, SURFACED_VERBOSE
 
 FULL_DEVICE_CONFIG = helper_.CWD + "/tests/full_config"
 COMPATIBILITY_DIR = helper_.CWD + "/../compat_data"
@@ -46,11 +46,6 @@ class TestExtractModule:
                 # var reference must be a string and a reference to existing info variable
                 assert isinstance(var_ref, str)
                 assert var_ref in INFO_KEYS
-
-
-    def test_verify_brief_surfaced_config(self):
-        """Verify that brief surfaced info config is formatted correctly and references existing info keys."""
-        self.verify_info_config(SURFACED_BRIEF)
 
 
     def test_verify_verbose_surfaced_config(self):

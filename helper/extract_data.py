@@ -121,7 +121,6 @@ INFO_SOURCES = {
     "debug_device_instrumentation" : ("pm", "list", "instrumentation"),
     }
 
-# list of features that one might be looking for in a device
 NOTABLE_FEATURES = [
     ("Bluetooth", "feature:android.hardware.bluetooth"),
     ("Bluetooth Low-Energy", "feature:android.hardware.bluetooth_le"),
@@ -137,45 +136,7 @@ NOTABLE_FEATURES = [
     ("WiFi", "feature:android.hardware.wifi"),
 ]
 
-# information surfaced to the user in detailed scan
-# (short scan shows only serial number, model, manufacturer and device status)
-SURFACED_BRIEF = OrderedDict()
-SURFACED_BRIEF["Identiy"] = (
-    ("Model", "device_model"),
-    ("Manufacturer", "device_manufacturer"),
-    ("Device", "device_device"),
-)
-SURFACED_BRIEF["System"] = (
-    ("API Level", "android_api_level"),
-    ("Android Version", "android_version"),
-    ("Aftermarket Firmware", "aftermarket_firmware"),
-    ("Aftermarket Firmware Version", "aftermarket_firmware_version"),
-)
-SURFACED_BRIEF["Chipset"] = (
-    ("Board", "board"),
-    ("RAM", "ram_capacity"),
-    ("CPU Architecture", "cpu_architecture"),
-    ("CPU Summary", "cpu_summary"),
-    ("GPU Vendor", "gpu_vendor"),
-    ("GPU Model", "gpu_model"),
-    ("OpenGL ES Version", "gles_version"),
-    ("Known Texture Compression Types", "gles_texture_compressions"),
-)
-SURFACED_BRIEF["Display"] = (
-    ("Resolution", "display_resolution"),
-    ("Density", "display_density"),
-    #("Size", "display_physical_size"),
-)
-SURFACED_BRIEF["Storage"] = (
-    ("Internal Storage Space Total", "internal_sd_capacity"),
-    ("Internal Storage Space Available", "internal_sd_free"),
-    ("SD Card Space Total", "external_sd_capacity"),
-    ("SD Card Space Available", "external_sd_free"),
-)
-SURFACED_BRIEF["Notable Features"] = ((None, "device_notable_features"),)
-
-# information surfaced to the user in dump
-# follows the same structure as brief config
+# information surfaced to the user in device dump
 SURFACED_VERBOSE = OrderedDict()
 SURFACED_VERBOSE["Identity"] = (
     ("Model", "device_model"),
@@ -937,8 +898,8 @@ def extract_system_packages(device):
 def extract_thirdparty_packages(device):
     """"""
     device.info_dict["third-party_apps"] = []
-    #count = 0
-    for line in run_extraction_command(device, "third-party_apps", use_cache=False, keep_cache=False).splitlines():
+    count = 0
+    for count, line in run_extraction_command(device, "third-party_apps", use_cache=False, keep_cache=False).splitlines():
         try:
             app = line.split("package:", maxsplit=1)[1]
         except IndexError:
@@ -946,9 +907,10 @@ def extract_thirdparty_packages(device):
             continue
 
         device.info_dict["third-party_apps"].append(app.strip())
+        count += 1
 
-    #if count == 0:
-    #    device.info_dict["third-party_apps"] = "-none-"
+    if count == 0:
+        device.info_dict["third-party_apps"] = "-none-"
 
 
 def dump_device(device, directory=".", full=False):
