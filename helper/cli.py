@@ -285,13 +285,59 @@ def info_dump(device, args):
     print(f"Report saved to {str(output_path)}")
 
 
-
 def debug_dump(device, args):
-    print("Please remember that ALL dumped files may contain sensitive data. Use caution.")
+    """Dump device data to files.
+    What is dumped is controlled by extract_data's INFO_SOURCES.
+    This data is meant to be loaded into DummyDevice for debugging and
+    compatibility tests.
+    """
+    print("Please remember that dumped files may contain sensitive data. Use caution.")
+    directory = Path(args.output)
+    directory.mkdir(exist_ok=True)
 
-    from helper.extract_data import dump_device
+    # this is very silly
+    # make _init_cache getter retrieve the value from immortal_cache
+    # while its setter simply does nothing, which prevents device.get_data from
+    # "deleting" the cache (it does so by assigning an empty dict to _init_cache)
+    # because doing it this way modifies the class definition at runtime and prevents
+    # updating device information (except for methods which skip cache checks
+    # explicitly), helper should exit immediately after data is dumped
+    # The only reason I'm going with this is because I don't want to mess with
+    # device module right now
+    device.immortal_cache = {}
+    helper.device.Device._init_cache = property(
+        lambda self: self.immortal_cache,
+        lambda self, value: None
+    )
 
-    dump_device(device, args.output, args.full)
+    device.extract_data(limit_to=("identity",))
+    device_dir = Path(directory, (device.filename + "_DUMP"))
+    device_dir.mkdir(exist_ok=True)
+    print("\nLoading data")
+    device.extract_data()
+    print("\nDumping", device.name)
+
+    from helper.extract_data import INFO_SOURCES
+    for source_name, command in INFO_SOURCES.items():
+        if source_name.startswith("debug") and not args.full:
+            continue
+
+        if source_name in device.immortal_cache:
+            output = device.immortal_cache[source_name]
+        else:
+            output = device.shell_command(*command, return_output=True, as_list=False)
+
+        with Path(device_dir, source_name).open(mode="w", encoding="utf-8") as dump_file:
+            dump_file.write(output)
+
+        print(".", end="", flush=True)
+
+    print("\nDumping device's info_dict")
+    with Path(device_dir, "device_info_dict").open(mode="w", encoding="utf-8") as info_dict_file:
+        for key, value in device.info_dict.items():
+            info_dict_file.write(f"{key}: {str(value)}\n")
+
+    print("Device dumped to", str(device_dir))
 
 
 def run_tests(args):

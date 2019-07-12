@@ -6,8 +6,6 @@ Other modules expect that all extraction functions' names start with
 import re
 import string
 import logging
-
-from pathlib import Path
 from collections import OrderedDict
 
 import helper
@@ -899,7 +897,7 @@ def extract_thirdparty_packages(device):
     """"""
     device.info_dict["third-party_apps"] = []
     count = 0
-    for count, line in run_extraction_command(device, "third-party_apps", use_cache=False, keep_cache=False).splitlines():
+    for line in run_extraction_command(device, "third-party_apps", use_cache=False, keep_cache=False).splitlines():
         try:
             app = line.split("package:", maxsplit=1)[1]
         except IndexError:
@@ -911,33 +909,3 @@ def extract_thirdparty_packages(device):
 
     if count == 0:
         device.info_dict["third-party_apps"] = "-none-"
-
-
-def dump_device(device, directory=".", full=False):
-    """Dump device data to files.
-    What is dumped is controlled by extract_data's INFO_SOURCES.
-    This data is meant to be loaded into DummyDevice for debugging and
-    compatibility tests.
-    """
-    directory = Path(directory)
-    directory.mkdir(exist_ok=True)
-
-    device.extract_data(limit_to=("identity",))
-    device_dir = Path(directory, (device.filename + "_DUMP"))
-    device_dir.mkdir(exist_ok=True)
-    print("Dumping", device.name)
-
-    for source_name, command in INFO_SOURCES.items():
-        if source_name.startswith("debug") and not full:
-            continue
-
-        output = device.shell_command(*command, return_output=True, as_list=False)
-        with Path(device_dir, source_name).open(mode="w", encoding="utf-8") as dump_file:
-            dump_file.write(output)
-
-        print(".", end="", flush=True)
-
-    print("Device dumped to", str(device_dir))
-    #TODO: also dump device's info dict
-
-    return str(device_dir)
