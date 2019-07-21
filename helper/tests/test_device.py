@@ -9,8 +9,8 @@ from helper.tests import DummyDevice
 
 from helper.extract_data import INFO_KEYS, SURFACED_VERBOSE
 
-FULL_DEVICE_CONFIG = helper_.CWD + "/tests/full_config"
-COMPATIBILITY_DIR = helper_.CWD + "/../compat_data"
+FULL_DEVICE_CONFIG = str(Path(helper_.CWD, "tests", "full_config"))
+COMPATIBILITY_DIR = str(Path(helper_.CWD, "..", "compat_data"))
 
 
 try:
@@ -55,10 +55,10 @@ class TestExtractModule:
 
     def test_reference_existing_keys_only(self):
         """Check if the modules references existing info keys."""
-        extraction_module = Path(helper_.CWD) / "helper/extract_data.py"
-        extraction_module = Path(helper_.CWD) / "helper/main.py"
-        extraction_module = Path(helper_.CWD) / "helper/cli.py"
-        extraction_module = Path(helper_.CWD) / "helper/apk.py"
+        extraction_module = Path(helper_.CWD, "helper", "extract_data.py")
+        extraction_module = Path(helper_.CWD, "helper", "main.py")
+        extraction_module = Path(helper_.CWD, "helper", "cli.py")
+        extraction_module = Path(helper_.CWD, "helper", "apk.py")
 
         with extraction_module.open(mode="r", encoding="utf-8") as module:
             extraction_code = module.read()

@@ -51,8 +51,8 @@ try:
 except KeyError:
     HOST_PLATFORM = sys.platform
 
-DEFAULT_DOWNLOAD_DIR = CWD + "/download"
-DEFAULT_EXTRACT_DIR = CWD + "/bin"
+DEFAULT_DOWNLOAD_DIR = str(Path(CWD, "download"))
+DEFAULT_EXTRACT_DIR = str(Path(CWD, "bin"))
 DEFAULT_REPOSITORY = "https://dl-ssl.google.com/android/repository/repository-12.xml"
 USER_AGENT = "".join(
     ["ToolGrabber/", str(VERSION),

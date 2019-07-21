@@ -39,10 +39,10 @@ def _get_working_dir():
 
 
 CWD = _get_working_dir()
-ADB = CWD + "/bin/adb"
-AAPT = CWD + "/bin/aapt"
-CONFIG = CWD + "/helper_config"
-CLEANER_CONFIG = CWD + "/cleaner_config"
+ADB = str(Path(CWD, "bin", "adb"))
+AAPT = str(Path(CWD, "bin", "aapt"))
+CONFIG = str(Path(CWD, "helper_config"))
+CLEANER_CONFIG = str(Path(CWD, "cleaner_config"))
 
 ADB_VERSION = "Unknown"
 AAPT_VERSION = "Unknown"
