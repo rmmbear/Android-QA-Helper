@@ -60,6 +60,16 @@ USER_AGENT = "".join(
     ]
 )
 
+# Enable processing of Ansi escape sequences on windows 10
+# https://docs.microsoft.com/en-us/windows/console/getstdhandle
+# https://docs.microsoft.com/en-us/windows/console/setconsolemode
+if sys.platform == "win32":
+    try:
+        import ctypes
+        ctypes.windll.kernel32.SetConsoleMode(ctypes.windll.kernel32.GetStdHandle(-11), 5)
+    except AttributeError:
+        pass
+
 class DownloadIndicator:
     def __init__(self, total_size, write_to=sys.stdout):
         self.total_size = total_size
