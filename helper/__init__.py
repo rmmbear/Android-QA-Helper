@@ -24,11 +24,37 @@ from inspect import getabsfile
 
 VERSION = "0.15"
 
+def _get_working_dir():
+    """Return string representing the current working directory.
+    If frozen, this will be the same directory as the one containing
+    base executable, otherwise it will be one directory above the source
+    code.
+    """
+    if getattr(sys, 'frozen', False):
+        cwd = Path(sys.executable).parent
+    else:
+        cwd = Path(getabsfile(_get_working_dir)).parent / ".."
+
+    return str(cwd.resolve())
+
+
+CWD = _get_working_dir()
+ADB = CWD + "/bin/adb"
+AAPT = CWD + "/bin/aapt"
+CONFIG = CWD + "/helper_config"
+CLEANER_CONFIG = CWD + "/cleaner_config"
+
+ADB_VERSION = "Unknown"
+AAPT_VERSION = "Unknown"
+AAPT_AVAILABLE = False
+EDITED_CONFIG = False
+HELPER_CONFIG_VARS = ["ADB", "AAPT"]
+
 LOG_FORMAT_FILE = logging.Formatter("[%(levelname)s] T+%(relativeCreated)d: %(name)s.%(funcName)s() line:%(lineno)d %(message)s")
 LOG_FORMAT_TERM = logging.Formatter("[%(levelname)s] %(message)s")
 LOGGER = logging.getLogger("helper")
 LOGGER.setLevel(logging.DEBUG)
-FH = logging.FileHandler("lastrun.log", mode="w")
+FH = logging.FileHandler(CWD + "/lastrun.log", mode="w")
 FH.setLevel(logging.DEBUG)
 FH.setFormatter(LOG_FORMAT_FILE)
 CH = logging.StreamHandler()
@@ -40,7 +66,6 @@ LOGGER.addHandler(FH)
 
 LOGGER.info("----- %s : Starting Android Helper v%s -----", strftime("%Y-%m-%d %H:%M:%S"), VERSION)
 
-
 # Global config variables
 ABI_TO_ARCH = {
     "armeabi"    :"32bit (ARM)",
@@ -51,11 +76,7 @@ ABI_TO_ARCH = {
     "mips"       :"32bit (Mips)",
     "mips64"     :"64bit (Mips64)",
 }
-ADB_VERSION = "Unknown"
-AAPT_VERSION = "Unknown"
-AAPT_AVAILABLE = False
-EDITED_CONFIG = False
-HELPER_CONFIG_VARS = ["ADB", "AAPT"]
+
 DEFAULT_CLEANER_CONFIG = """# This is default cleaner config file, it contains explanation of all available
 # commands, examples, and some default rules for removing helper's leftover files.
 # This config file is used by helper's 'clean' command if no other config is
@@ -164,26 +185,6 @@ recursiverm /data/local/tmp/helper
 shell pm set-install-location 0
 
 """
-
-def _get_working_dir():
-    """Return string representing the current working directory.
-    If frozen, this will be the same directory as the one containing
-    base executable, otherwise it will be one directory above the source
-    code.
-    """
-    if getattr(sys, 'frozen', False):
-        cwd = Path(sys.executable).parent
-    else:
-        cwd = Path(getabsfile(_get_working_dir)).parent / ".."
-
-    return str(cwd.resolve())
-
-
-CWD = _get_working_dir()
-ADB = CWD + "/bin/adb"
-AAPT = CWD + "/bin/aapt"
-CONFIG = CWD + "/helper_config"
-CLEANER_CONFIG = CWD + "/cleaner_config"
 
 if sys.platform == "win32":
     AAPT += ".exe"
@@ -304,5 +305,4 @@ LOGGER.info("Using AAPT version %s", AAPT_VERSION)
 
 # TODO: replace custom config files (helper, gles textures and cleaner) with cfg module
 # TODO: add an interface for editing various configs
-# TODO: validate aapt and adb using list of known checksums
 # TODO: count what adb/aapt calls are made during each session
