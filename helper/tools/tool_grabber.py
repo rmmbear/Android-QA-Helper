@@ -70,6 +70,7 @@ if sys.platform == "win32":
     except AttributeError:
         pass
 
+
 class DownloadIndicator:
     def __init__(self, total_size, write_to=sys.stdout):
         self.total_size = total_size
@@ -321,17 +322,17 @@ def extract_tools(package_path, package_type, platform, extract_to=DEFAULT_EXTRA
         for zip_filename in archive.namelist():
             for filename in files_to_extract:
                 if zip_filename.endswith(filename):
-                    files_in_archive.append(zip_filename)
+                    files_in_archive.append((zip_filename, filename))
                     break
 
 
         if len(files_to_extract) != len(files_in_archive):
             LOGGER.error("Archive does not contain all of required files!")
             LOGGER.error("expected %s", files_to_extract)
-            LOGGER.error("found %s", files_in_archive)
+            LOGGER.error("found %s", [x[0] for x in files_in_archive])
             return ""
 
-        for src, dest, in zip(files_in_archive, files_to_extract):
+        for src, dest in files_in_archive:
             dest_path = extract_path / dest
             dest_path.parent.mkdir(parents=True, exist_ok=True)
             with dest_path.open(mode="bw") as dest_file:
