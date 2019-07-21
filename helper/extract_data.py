@@ -342,6 +342,8 @@ def df_parser(df_output: str) -> list:
     accepted_chars = string.ascii_lowercase + string.digits + ",.%"
     accepted_chars = set(accepted_chars)
     for row in df_output:
+        if not row:
+            continue
         #TODO: improve error-checking
         if "denied" in row:
             lines.append((row[0], -1, -1, -1))
@@ -865,7 +867,7 @@ def extract_available_commands(device):
     device.info_dict["shell_commands"] = []
 
     commands = run_extraction_command(device, "available_commands").splitlines()
-    device.info_dict["shell_commands"] = commands
+    device.info_dict["shell_commands"] = [x for x in commands if x]
 
 
 def extract_installed_packages(device):
@@ -884,10 +886,12 @@ def extract_system_packages(device):
     device.info_dict["system_apps"] = []
 
     for package in run_extraction_command(device, "system_apps").splitlines():
+        if not package:
+            continue
         try:
             app = package.split("package:", maxsplit=1)[1]
         except IndexError:
-            LOGGER.warning("Could not split package line: %s", package)
+            LOGGER.warning("Could not split system package line: %s", package)
             continue
 
         device.info_dict["system_apps"].append(app.strip())
@@ -898,10 +902,12 @@ def extract_thirdparty_packages(device):
     device.info_dict["third-party_apps"] = []
     count = 0
     for line in run_extraction_command(device, "third-party_apps", use_cache=False, keep_cache=False).splitlines():
+        if not line:
+            continue
         try:
             app = line.split("package:", maxsplit=1)[1]
         except IndexError:
-            LOGGER.warning("Could not split package line: %s", line)
+            LOGGER.warning("Could not split thirdparty package line: %s", line)
             continue
 
         device.info_dict["third-party_apps"].append(app.strip())
