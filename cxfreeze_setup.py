@@ -7,7 +7,10 @@ options = {
     "build_exe": {
         "excludes": ["tkinter"],
         "optimize": 2,
-        "path": sys.path + ["helper", "helper/tools"]
+        "path": sys.path + ["helper", "helper/tools"],
+        # adding multiprocessing resolves issues with queue module not being available for requests
+        # this adds about 0.8MB to the final package size
+        "packages": ["multiprocessing"]
     },
 }
 
