@@ -22,11 +22,11 @@ listed above will need to be used (links should still be working)
 
 import sys
 import time
-import shutil
 import logging
-import hashlib
 from pathlib import Path
+from hashlib import sha1
 from zipfile import ZipFile
+from shutil import copyfileobj
 from urllib.parse import urljoin
 from argparse import ArgumentParser
 
@@ -74,7 +74,13 @@ class DownloadIndicator:
         time_now = time.time()
         elapsed = time_now - self.previous_chunk_time
         self.previous_chunk_time = time_now
-        speed = (chunk_size/elapsed)/1024**2
+
+        # it is possible for elapsed to become zero in last update before exit
+        try:
+            speed = (chunk_size/elapsed)/1024**2
+        except ZeroDivisionError:
+            speed = 0
+
         if self.total_size:
             percentage = f"{(self.downloaded/self.total_size*100):.2f}%"
         else:
@@ -155,7 +161,7 @@ def download(link, to_file=False, max_retries=3):
 
 def generate_sha1_hash(file_path, chunk_size=None):
     """small helper function for generating sha1 checksum"""
-    sha1_hash = hashlib.sha1()
+    sha1_hash = sha1()
     with open(file_path, mode="br") as file:
         chunk = file.read(chunk_size)
         while chunk:
@@ -308,6 +314,7 @@ def extract_tools(package_path, package_type, platform, extract_to=DEFAULT_EXTRA
                     files_in_archive.append(zip_filename)
                     break
 
+
         if len(files_to_extract) != len(files_in_archive):
             LOGGER.error("Archive does not contain all of required files!")
             LOGGER.error("expected %s", files_to_extract)
@@ -319,7 +326,7 @@ def extract_tools(package_path, package_type, platform, extract_to=DEFAULT_EXTRA
             dest_path.parent.mkdir(parents=True, exist_ok=True)
             with dest_path.open(mode="bw") as dest_file:
                 with archive.open(src) as src_file:
-                    shutil.copyfileobj(src_file, dest_file)
+                    copyfileobj(src_file, dest_file)
 
             dest_path.chmod(0o775)
 
@@ -329,7 +336,7 @@ def extract_tools(package_path, package_type, platform, extract_to=DEFAULT_EXTRA
 def main(arguments=None):
     parser = ArgumentParser(prog="ToolGrabber")
     parser.add_argument(
-        "--version", "-v", action="version", version="%(prog)s {}".format(VERSION))
+        "-v", "--version", action="version", version="%(prog)s {}".format(VERSION))
     parser.add_argument(
         "--tool", choices=["adb", "aapt", "all"], default="all",
         help="Pick which tool will be downloaded. Defaults to 'all' (will download both adb and aapt).")
