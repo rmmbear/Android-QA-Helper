@@ -114,7 +114,7 @@ class TestDummyDevice:
             print(device_dummy.name)
 
             with (device_dir / "__DUMMY_INFO_DUMP").open(mode="w", encoding="utf-8") as info_out:
-                info_out.write(device_dummy.full_info_string(initialize=False))
+                info_out.write(device_dummy.info_dump(initialize=False))
 
             unexpected_keys = []
             empty_keys = []
