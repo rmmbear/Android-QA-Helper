@@ -4,10 +4,8 @@ import re
 import sys
 import logging
 from pathlib import Path
-#from collections import OrderedDict
 from time import sleep, strftime
 
-#import helper as helper_
 import helper.apk as apk_
 import helper.extract_data as extract
 from helper import ADB, VERSION, exe
@@ -16,6 +14,8 @@ from helper import ADB, VERSION, exe
 LOGGER = logging.getLogger(__name__)
 EXTRACTION_FUNCTIONS = {x[8::]:getattr(extract, x) for x in dir(extract) if x.startswith("extract_")}
 
+#returns 6 integers, corresponding to following tests:
+# exists, is a symlink, user can read, user can write, user can execute, custom test
 SH_FILE_TEST = """
 if [ -e "{}" ]; then echo -n 1;
 if [ -L "{}" ]; then echo -n 1; else echo -n 0; fi;
@@ -51,47 +51,43 @@ def adb_command(*args, check_server=None, **kwargs):
     return exe(ADB, *args, **kwargs)
 
 
-def _get_devices(stdout_=sys.stdout):
-    """Return a list of tuples with serial number and status, for all
-    connected devices.
+def get_serials():
+    """Proxy function for 'adb devices'.
+    Return list of two-element tuples.
+    Tuple[0] = device's serial number
+    Tuple[1] = device's adb status
     """
+    adb_output = adb_command("devices", return_output=True).splitlines()
+    if not adb_output:
+        return []
+
+    status_line = adb_output.pop(0).lower()
+    if "list of devices attached" not in status_line:
+        LOGGER.error("Unexpected adb output:")
+        LOGGER.error("%s", status_line)
+        LOGGER.error("%s", adb_output)
+        return []
+
     device_list = []
-
-    device_specs = adb_command("devices", return_output=True, as_list=True)
-    # Check for unexpected output
-    # if such is detected, print it and return an empty list
-    if device_specs:
-        first_line = device_specs.pop(0).strip()
-        if first_line.lower() != "list of devices attached":
-            stdout_.write(first_line + "\n")
-            if device_specs:
-                stdout_.write(f"{device_specs}\n")
-                return []
-
-    for device_line in device_specs:
-        if not device_line.strip():
+    for line in adb_output:
+        if not line:
             continue
-
-        device = device_line.split(maxsplit=1)
-        if device[1] not in ("device", "unauthorized", "offline"):
-            if not "no permissions" in device[1]:
-                stdout_.write(
-                    " ".join(["ERROR: helper received unexpected",
-                              "output while scanning for devices:\n"]))
-                stdout_.write(f"      {device_line}\n")
-                device[1] = "unknown error"
-
-        device_list.append((device[0].strip(), device[1].strip()))
+        try:
+            serial, status = line.strip().split(maxsplit=1)
+            device_list.append((serial, status))
+        except ValueError:
+            LOGGER.error("Could not split line:")
+            LOGGER.error("%s", line)
 
     return device_list
 
 
-def get_devices(initialize=True, limit_init=()):
+def get_devices(initialize=True, limit_init=("identity",)):
     """Return a list of device objects for currently connected devices.
     """
     device_list = []
 
-    for device_serial, device_status in _get_devices():
+    for device_serial, device_status in get_serials():
         if device_status != "device":
             # device suddenly disconnected or usb debugging not authorized
             continue
@@ -192,7 +188,7 @@ class Device:
             return self._filename
 
         keep = [';', '$', '%', '=', '^', ']', '{', "'", '.', ',', '}', '+',
-                '#', '&', '-', '~', '!', '_', '`', '[', '@', '']
+                '#', '&', '-', '~', '!', '_', '`', '[', '@']
         filename = "".join([x if x.isalnum() or x in keep else "_" for x in self.name])
         self._filename = filename
 
@@ -205,7 +201,7 @@ class Device:
         if device was not found by adb.
         """
         self._status = "offline"
-        for device_specs in _get_devices():
+        for device_specs in get_serials():
             if self.serial == device_specs[0]:
                 self._status = device_specs[1]
                 break
@@ -230,6 +226,7 @@ class Device:
             LOGGER.info("'%s' - extracting info group '%s'", self.name, command_id)
             command(self)
             if command_id not in self._extracted_info_groups:
+                print(".", end="", flush=True)
                 self._extracted_info_groups.append(command_id)
 
         self._init_cache = {}
@@ -329,7 +326,6 @@ class Device:
         #TODO: Make "?" wildcards work
 
         safe_path = "*".join([f'"x"' for x in path.split("*")])
-        #safe_path = safe_path.replace("\\", "\\\\")
 
         shell_command = SH_ECHO_GLOB.format(safe_path)
         path_list = self.shell_command(shell_command, return_output=True, as_list=False).strip().split(";")
@@ -381,7 +377,6 @@ class Device:
 
     def info_dump(self, out_file, initialize=True, indent=4):
         """Write all available info on device to file-like object 'out_file'.
-
         """
         # ensure all required info is available
         if initialize:
