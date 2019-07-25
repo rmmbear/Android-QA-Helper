@@ -3,14 +3,14 @@ from pathlib import Path
 
 import pytest
 
-import helper as helper_
-import helper.device as device_
+import helper
+import helper.device
 from helper.tests import DummyDevice
 
 from helper.extract_data import INFO_KEYS, SURFACED_VERBOSE
 
-FULL_DEVICE_CONFIG = str(Path(helper_.CWD, "tests", "full_config"))
-COMPATIBILITY_DIR = str(Path(helper_.CWD, "..", "compat_data"))
+FULL_DEVICE_CONFIG = str(Path(helper.CWD, "tests", "full_config"))
+COMPATIBILITY_DIR = str(Path(helper.CWD, "..", "compat_data"))
 
 
 try:
@@ -19,7 +19,7 @@ except:
     DUMP_DATA_AVAILABLE = False
 
 PHYSICAL_DEVICE_REQUIRED = pytest.mark.skipif(
-    not device_.get_devices(initialize=False),
+    not helper.device.get_devices(initialize=False),
     reason="Physical (or emulated) device required, none found.")
 DUMP_DATA_REQUIRED = pytest.mark.skipif(
     not DUMP_DATA_AVAILABLE, reason="Dump data required, none found.")
@@ -55,10 +55,10 @@ class TestExtractModule:
 
     def test_reference_existing_keys_only(self):
         """Check if the modules references existing info keys."""
-        extraction_module = Path(helper_.CWD, "helper", "extract_data.py")
-        extraction_module = Path(helper_.CWD, "helper", "main.py")
-        extraction_module = Path(helper_.CWD, "helper", "cli.py")
-        extraction_module = Path(helper_.CWD, "helper", "apk.py")
+        extraction_module = Path(helper.CWD, "helper", "extract_data.py")
+        extraction_module = Path(helper.CWD, "helper", "main.py")
+        extraction_module = Path(helper.CWD, "helper", "cli.py")
+        extraction_module = Path(helper.CWD, "helper", "apk.py")
 
         with extraction_module.open(mode="r", encoding="utf-8") as module:
             extraction_code = module.read()
@@ -74,7 +74,7 @@ class TestExtractModule:
 class TestPhysicalDevice:
     @PHYSICAL_DEVICE_REQUIRED
     def test_full_init(self):
-        connected_devices = device_.get_devices()
+        connected_devices = helper.device.get_devices()
 
         if not connected_devices:
             pytest.skip("")

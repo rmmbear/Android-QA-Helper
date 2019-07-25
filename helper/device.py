@@ -6,13 +6,13 @@ import logging
 from pathlib import Path
 from time import sleep, strftime
 
-import helper.apk as apk_
-import helper.extract_data as extract
+import helper.apk
+import helper.extract_data
 from helper import ADB, VERSION, exe
 
 #ADB = helper_.ADB
 LOGGER = logging.getLogger(__name__)
-EXTRACTION_FUNCTIONS = {x[8::]:getattr(extract, x) for x in dir(extract) if x.startswith("extract_")}
+EXTRACTION_FUNCTIONS = {x[8::]:getattr(helper.extract_data, x) for x in dir(helper.extract_data) if x.startswith("extract_")}
 
 #returns 6 integers, corresponding to following tests:
 # exists, is a symlink, user can read, user can write, user can execute, custom test
@@ -122,7 +122,7 @@ class Device:
         self._filename = None
         self._init_cache = {}
 
-        self.info_dict = {x:None for x in extract.INFO_KEYS}
+        self.info_dict = {x:None for x in helper.extract_data.INFO_KEYS}
 
         self.initialized = False
         self._status = status
@@ -386,7 +386,7 @@ class Device:
         written = out_file.write(f"# Android QA Helper v.{VERSION}\n")
         written += out_file.write(f"# Generated at {strftime('%Y-%m-%d %H:%M:%S %z')}\n")
 
-        for section_name, section_items in extract.SURFACED_VERBOSE.items():
+        for section_name, section_items in helper.extract_data.SURFACED_VERBOSE.items():
             written += out_file.write(f"\n{section_name}:\n")
 
             for val_name, val_ref in section_items:
@@ -442,7 +442,7 @@ class Device:
         app object.
         """
 
-        if isinstance(app, apk_.App):
+        if isinstance(app, helper.apk.App):
             app_name = app.app_name
         else:
             app_name = app

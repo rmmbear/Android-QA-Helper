@@ -4,7 +4,7 @@ import logging
 from pathlib import Path
 from time import strftime
 
-import helper as helper_
+import helper
 from helper.apk import App
 
 LOGGER = logging.getLogger(__name__)
@@ -118,7 +118,7 @@ def push_obb(device, obb_file, app_name, stdout_=sys.stdout):
     obb_target_file = "/".join([
         device.info_dict["internal_sd_path"], "Android/obb", app_name, obb_name])
 
-    #pushing obb in two steps - some devices block adb push directly to obb folder
+    #pushing obb in two steps - some devices block pushing directly to obb folder
     device.adb_command("push", obb_file, device.info_dict["internal_sd_path"] + "/" + obb_name,
                        stdout_=stdout_)
     device.shell_command(
@@ -425,7 +425,7 @@ CLEANER_OPTIONS = {"remove"           :(remove,         1, [False]),
                   }
 
 
-def parse_cleaner_config(config=helper_.CLEANER_CONFIG):
+def parse_cleaner_config(config=helper.CLEANER_CONFIG):
     """Parse the provided cleaner_config file. If no file is provided,
     parse the default config file.
 
@@ -497,7 +497,7 @@ def clean(device, config=None, parsed_config=None, force=False,
     bad_config = ""
 
     if config is None:
-        config = helper_.CLEANER_CONFIG
+        config = helper.CLEANER_CONFIG
     #TODO: separate this function from the parser entirely
     if not parsed_config:
         parsed_config, bad_config = parse_cleaner_config(config=config)

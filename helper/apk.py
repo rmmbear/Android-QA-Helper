@@ -3,11 +3,11 @@ import re
 import logging
 from pathlib import Path
 from argparse import ArgumentParser
-import helper as helper_
+import helper
 
 VERSION = 0.1
 LOGGER = logging.getLogger(__name__)
-AAPT = helper_.AAPT
+AAPT = helper.AAPT
 
 # last updated: 2017.07.19
 # https://developer.android.com/reference/android/Manifest.permission.html
@@ -79,7 +79,7 @@ API_LEVEL_MATRIX = {
 def aapt_command(*args, **kwargs):
     """Execute AAPT command."""
     LOGGER.debug("Executing %s", str(["AAPT", *args]))
-    return helper_.exe(AAPT, *args, **kwargs)
+    return helper.exe(AAPT, *args, **kwargs)
 
 
 class App:
@@ -188,7 +188,7 @@ class App:
             self.supported_abis = self.supported_abis.replace("'", "").strip().split()
 
         if self.used_implied_features:
-            self.used_implied_features = {feature : reason for feature, reason in self.used_implied_features}
+            self.used_implied_features = dict(self.used_implied_features)
 
         if self.used_permissions:
             self.used_permissions = dict(self.used_permissions)
