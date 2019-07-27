@@ -82,13 +82,13 @@ def get_serials():
     return device_list
 
 
-def get_devices(initialize=True, limit_init=("identity",)):
+def get_devices(initialize=True, limit_init=("identity",), allow_offline=False):
     """Return a list of device objects for currently connected devices.
     """
     device_list = []
 
     for device_serial, device_status in get_serials():
-        if device_status != "device":
+        if device_status != "device" and not allow_offline:
             # device suddenly disconnected or usb debugging not authorized
             continue
 
@@ -226,9 +226,13 @@ class Device:
             LOGGER.info("'%s' - extracting info group '%s'", self.name, command_id)
             command(self)
             if command_id not in self._extracted_info_groups:
-                print(".", end="", flush=True)
                 self._extracted_info_groups.append(command_id)
+                # progress indicator for long loads
+                if not limit_to:
+                    print(".", end="", flush=True)
 
+        if not limit_to:
+            print()
         self._init_cache = {}
 
 
