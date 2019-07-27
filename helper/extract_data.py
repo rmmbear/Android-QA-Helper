@@ -254,7 +254,7 @@ INFO_KEYS = [
 def abi_to_arch(abi):
     """"""
     if abi not in helper.ABI_TO_ARCH:
-        return "Unknown ({abi})"
+        return f"Unknown ({abi})"
 
     return helper.ABI_TO_ARCH[abi]
 
@@ -299,7 +299,6 @@ def df_parser(df_output: str) -> list:
     May they burn in hell forever.
 
     Return list of four-element tuples. All sizes are in bytes,
-    1KB = 1024B.
     tuple[0] = file system
     tuple[1] = total space
     tuple[2] = used space
@@ -406,152 +405,122 @@ def df_parser(df_output: str) -> list:
 
 
 def extract_identity(device):
-    """"""
+    """
+    """
     #serial = run_extraction_command(device, "iserial")
-    getprop = run_extraction_command(device, "getprop")
-    getprop_keys = [
-        ("device_serial_number", "(?:\\[ro\\.boot\\.serialno\\]: \\[)([^\\]]*)"),
-        ("device_model", "(?:\\[ro\\.product\\.model\\]: \\[)([^\\]]*)"),
-        ("device_manufacturer", "(?:\\[ro\\.product\\.manufacturer\\]: \\[)([^\\]]*)"),
-        ("device_device", "(?:\\[ro\\.product\\.device\\]: \\[)([^\\]]*)"),
-        ("device_name", "(?:\\[ro\\.product\\.name\\]: \\[)([^\\]]*)"),
-        ("device_brand", "(?:\\[ro\\.product\\.brand\\]: \\[)([^\\]]*)"),
-    ]
-    # Sony devices specify human-readable model name in prop key [ro.semc.product.name]
+    propnames = OrderedDict([
+        # OS
+        ("[ro.build.version.release]", "android_version"),
+        ("[ro.build.version.sdk]", "android_api_level"),
+        ("[ro.build.id]", "android_build_id"),
+        ("[ro.build.fingerprint]", "android_build_fingerprint"),
+        # AFTERMARKET OS
+        # only one of these will be available, if any at all
+        ("[ro.build.version.fireos]", "aftermarket_firmware"),
+        ("[ro.miui.ui.version.name]", "aftermarket_firmware"),
+        ("[ro.oxygen.version]", "aftermarket_firmware"),
+        ("[ro.build.version.opporom]", "aftermarket_firmware"),
+        ("[ro.cm.version]", "aftermarket_firmware"),
+        ("[ro.lineage.version]", "aftermarket_firmware"),
+        ("[ro.aokp.version]", "aftermarket_firmware"),
+        ("[ro.pa.version]", "aftermarket_firmware"),
+        ("[ro.omni.version]", "aftermarket_firmware"),
+        ("[ro.rr.version]", "aftermarket_firmware"),
+        ("[ro.modversion]", "aftermarket_firmware_version"),
+        # AliOS, LeWaOS, Baidu Yi, CopperheadOS
+        # IDENTITY
+        # Sony devices specify human-readable model name in prop key [ro.semc.product.name]
+        ("[ro.boot.serialno]", "device_serial_number"),
+        ("[ro.product.model]", "device_model"),
+        ("[ro.product.manufacturer]", "device_manufacturer"),
+        ("[ro.product.device]", "device_device"),
+        ("[ro.product.name]", "device_name"),
+        ("[ro.product.brand]", "device_brand"),
+        # CPU
+        ("[ro.product.cpu.abi]", "abi1"),
+        ("[ro.product.cpu.abi2]", "abi2"),
+        ("[ro.product.cpu.abilist]", "abilist"),
+        ("[ro.board.platform]", "board"),
+        # PATHS
+        ("[dalvik.vm.stack-trace-file]", "anr_trace_path"),
+        ("[internal_sd_path]", "internal_sd_path"),
+        ("[external_sd_path]", "external_sd_path"),
+        # OTHER
+        ("[ro.boot.hardware.ddr]", "ram_type"),
+        ("[ro.sf.lcd_density]", "display_density"),
+    ])
 
-    for name, re_string in getprop_keys:
-        value = re.search(re_string, getprop)
-        if not value:
+    getprop = run_extraction_command(device, "getprop").splitlines()
+    continued_value = list()
+    multiline_prop = False
+    for line in getprop:
+        if multiline_prop:
+            # prop name is kept from last loop
+            prop_value += line.strip()
+        else:
+            prop_name, prop_value = line.split(": ", maxsplit=1)
+
+        if prop_value[-1] != "]":
+            multiline_prop = True
             continue
 
-        value = value.group(1).strip()
-        device.info_dict[name] = value
+        multiline_prop = False
 
-    device.info_dict["device_serial_number"] = device.serial
-
-
-def extract_os(device):
-    """"""
-    getprop = run_extraction_command(device, "getprop")
-    getprop_keys = [
-        ("android_version", "(?:\\[ro\\.build\\.version\\.release\\]\\:\\ \\[)([^\\]]*)"),
-        ("android_api_level", "(?:\\[ro\\.build\\.version\\.sdk\\]\\:\\ \\[)([^\\]]*)"),
-        ("android_build_id", "(?:\\[ro\\.build\\.id\\]\\:\\ \\[)([^\\]]*)"),
-        ("android_build_fingerprint", "(?:\\[ro\\.build\\.fingerprint\\]\\:\\ \\[)([^\\]]*)"),
-    ]
-    for name, re_string in getprop_keys:
-        value = re.search(re_string, getprop)
-        if not value:
+        prop_value = prop_value.strip("\n\r []")
+        if not prop_value:
+            continue
+        try:
+            destination = propnames[prop_name]
+        except KeyError:
             continue
 
-        value = value.group(1).strip()
-        device.info_dict[name] = value
+        device.info_dict[destination] = prop_value.strip()
+
+    if device.info_dict["aftermarket_firmware"] is None:
+        if device.info_dict["aftermarket_firmware_version"] is not None:
+            device.info_dict["aftermarket_firmware"] = "Unknown OS"
+        else:
+            device.info_dict["aftermarket_firmware"] = "-none-"
+            device.info_dict["aftermarket_firmware_version"] = "-none-"
+
+    all_abis = []
+    for abi in ["abi1", "abi2", "abilist"]:
+        if abi in device.info_dict:
+            all_abis.extend([x.strip() for x in device.info_dict[abi].split(",")])
+
+    cpu_arch = abi_to_arch(all_abis[0])
+    device.info_dict["cpu_architecture"] = cpu_arch
+
+    all_abis = set(all_abis) # removes duplicates
+    device.info_dict["cpu_abis"] = list(all_abis)
 
     kernel_version = run_extraction_command(device, "kernel_version").strip()
     device.info_dict["kernel_version"] = kernel_version
 
-    aftermarket_firmware_dict = {
-        "FireOS":"(?:\\[ro\\.build\\.version\\.fireos\\]\\:\\s*\\[)([^\\]]*)",
-        "MIUI":"(?:\\[ro\\.miui\\.ui\\.version\\.name\\]\\:\\s*\\[)([^\\]]*)",
-        "OxygenOS":"(?:\\[ro\\.oxygen\\.version\\]\\:\\s*\\[)([^\\]]*)",
-        "ColorOS":"(?:\\[ro\\.build\\.version\\.opporom\\]\\:\\s*\\[)([^\\]]*)",
-        "CyanogenMod":"(?:\\[ro\\.cm\\.version\\]\\:\\s*\\[)([^\\]]*)",
-        "LineageOS":"(?:\\[ro\\.lineage\\.version\\]\\:\\s*\\[)([^\\]]*)",
-        "AOKP":"(?:\\[ro\\.aokp\\.version\\]\\:\\s*\\[)([^\\]]*)",
-        "Paranoid Android":"(?:\\[ro\\.pa\\.version\\]\\:\\s*\\[)([^\\]]*)",
-        "OmniRom":"(?:\\[ro\\.omni\\.version\\]\\:\\s*\\[)([^\\]]*)",
-        "Resurrection Remix OS":"(?:\\[ro\\.rr\\.version\\]\\:\\s*\\[)([^\\]]*)",
-        #AliOS
-        #LeWaOS
-        #Baidu Yi
-        #CopperheadOS
-        "Unrecognized ROM":"(?:\\[ro\\.modversion\\]\\:\\s*\\[)([^\\]]*)",
-    }
-
-    device.info_dict["aftermarket_firmware"] = "-none-"
-    device.info_dict["aftermarket_firmware_version"] = "-none-"
-
-    for os_name, re_string in aftermarket_firmware_dict.items():
-        try:
-            aftermarket_firmware = re.search(re_string, getprop).group(1)
-            device.info_dict["aftermarket_firmware"] = os_name
-            device.info_dict["aftermarket_firmware_version"] = aftermarket_firmware
-
-            if os_name != "Unrecognized ROM":
-                detailed_version = re.search("(?:\\[ro\\.modversion\\]\\:\\s*\\[)([^\\]]*)", getprop).group(1)
-                # skip modversion if it's already contained in version or if modversion = <OSname> + <version>
-                if detailed_version not in device.info_dict["aftermarket_firmware_version"] or \
-                   detailed_version.endswith(device.info_dict["aftermarket_firmware_version"]):
-                    device.info_dict["aftermarket_firmware_version"] += f" ({detailed_version})"
-
-        except AttributeError:
-            pass
-
 
 def extract_chipset(device):
     """"""
-    getprop = run_extraction_command(device, "getprop")
     meminfo = run_extraction_command(device, "meminfo")
     ram = re.search("(?:MemTotal\\:\\s*)([^A-z\\ ]*)", meminfo)
     if ram:
         device.info_dict["ram_capacity"] = ram.group(1).strip()
 
-    ram_type = "ro.boot.hardware.ddr"
-
-    abi1 = re.search("(?:\\[ro\\.product\\.cpu\\.abi\\]: \\[)([^\\]]*)", getprop)
-    abi2 = re.search("(?:\\[ro\\.product\\.cpu\\.abi2\\]\\: \\[)([^\\]]*)", getprop)
-    abilist = re.search("(?:\\[ro\\.product\\.cpu\\.abilist\\]\\: \\[)([^\\]]*)", getprop)
-    cpu_arch = None
-
-    if abilist:
-        abilist = [x.strip() for x in abilist.group(1).split(",")]
-    else:
-        abilist = []
-
-    if abi1:
-        abi1 = abi1.group(1).strip()
-        abilist.append(abi1)
-        try:
-            cpu_arch = helper.ABI_TO_ARCH[abi1]
-        except KeyError:
-            cpu_arch = "UNKNOWN (ABI: {abi1})"
-    if abi2:
-        abi2 = abi2.group(1).strip()
-        abilist.append(abi1)
-
-    abilist.sort()
-    abilist = set(abilist)
-    device.info_dict["cpu_abis"] = list(abilist)
-
     cpuinfo = run_extraction_command(device, "cpuinfo")
-
-    re_sources = {"cpuinfo":cpuinfo, "getprop":getprop}
-    for re_ in [("(?:Hardware\\s*?\\:)([^\\n\\r]*)", "cpuinfo"),
-                ("(?:model\\ name\\s*?\\:)([^\\n\\r]*)", "cpuinfo"),
-                ("(?:\\[ro\\.board\\.platform\\]\\: \\[)([^\\]]*)", "getprop"),
-                #"(?:Processor\\s*?\\:)([^\\n\\r]*)"
-               ]:
-        board = re.search(re_[0], re_sources[re_[1]])
+    for re_ in ("(?:Hardware\\s*?\\:)([^\\n\\r]*)",
+                "(?:model\\ name\\s*?\\:)([^\\n\\r]*)",
+                #"(?:Processor\\s*?\\:)([^\\n\\r]*)",
+               ):
+        board = re.search(re_, cpuinfo)
         if board:
             board = board.group(1).strip()
+            device.info_dict["board"] = board
             break
 
     cpu_features = re.search("(?:Features\\s*?\\:)([^\\n\\r]*)", cpuinfo)
     if cpu_features:
         cpu_features = [x.strip() for x in cpu_features.group(1).split()]
 
-    device.info_dict["board"] = board
     device.info_dict["cpu_features"] = cpu_features
-    device.info_dict["cpu_architecture"] = cpu_arch
-
-    #max_frequency = run_extraction_command(device, "max_cpu_freq")
-    #if max_frequency:
-    #    device.info_dict["cpu_max_frequency"] = max_frequency.strip()
-
-    #core_count = run_extraction_command(device, "possible_cpu_cores")
-    #max_cores = re.search("(?:\\-)([0-9]*)", core_count)
-    #if max_cores:
-    #    device.info_dict["cpu_core_count"] = str(int(max_cores.group(1).strip()) + 1)
 
 
 def extract_cpu(device):
@@ -743,15 +712,12 @@ def extract_gpu(device):
                 device.info_dict["gles_texture_compressions"].append(
                     TEXTURE_COMPRESSION_IDS[extension])
             except KeyError:
-                # extension is not a type of texture compression, continue
+                # extension is not a known type of texture compression, continue
                 continue
 
 
 def extract_display(device):
     """"""
-    getprop = run_extraction_command(device, "getprop")
-    density = re.search("(?:\\[ro\\.sf\\.lcd_density\\]: \\[)([^\\]]*)", getprop)
-
     dumpsys = run_extraction_command(device, "surfaceflinger_dump")
     x_dpi = re.search("(?:x-dpi\\s*\\:\\s*)([^\\n]*)", dumpsys)
     y_dpi = re.search("(?:y-dpi\\s*\\:\\s*)([^\\n]*)", dumpsys)
@@ -761,20 +727,21 @@ def extract_display(device):
         wm_output = run_extraction_command(device, "screen_size")
         resolution = re.search("(?:Physical size:)([^\\n]*)", wm_output)
 
-    if not density:
+    if device.info_dict["display_density"] is None:
         wm_output = run_extraction_command(device, "screen_density")
         density = re.search("(?:Physical\\ density\\:)([0-9A-z]*)", wm_output)
+        if density:
+            density = density.group(1)
+            device.info_dict["display_density"] = density
 
     if resolution:
         resolution = resolution.group(1).strip()
-    if density:
-        density = density.group(1).strip()
     if x_dpi:
         x_dpi = x_dpi.group(1).strip()
     if y_dpi:
         y_dpi = y_dpi.group(1).strip()
 
-    device.info_dict["display_density"] = density
+
     device.info_dict["display_resolution"] = resolution
     device.info_dict["display_x-dpi"] = x_dpi
     device.info_dict["display_y-dpi"] = y_dpi
@@ -797,7 +764,6 @@ def extract_storage(device):
     """Extract list of various paths."""
     internal_sd = None
     external_sd = None
-    trace_path = None
     shell_env = run_extraction_command(device, "shell_environment")
 
     try:
@@ -809,25 +775,8 @@ def extract_storage(device):
     except AttributeError:
         pass
 
-    getprop = run_extraction_command(device, "getprop")
-    try:
-        trace_path = re.search("(?:\\[dalvik\\.vm\\.stack\\-trace\\-file\\]: \\[)([^\\]]*)", getprop).group(1).strip()
-        # TODO: Some devices specify only the directory containing the trace file and not the file itself
-        # Check whether there is any difference in traces on those devices
-    except AttributeError:
-        pass
-
-    if not device.is_dir(internal_sd):
-        try:
-            internal_sd = re.search("(?:\\[internal\\_sd\\_path\\]: \\[)([^\\]]*)", getprop).group(1)
-        except AttributeError:
-            pass
-
-    if not device.is_dir(external_sd):
-        try:
-            external_sd = re.search("(?:\\[external\\_sd\\_path\\]: \\[)([^\\]]*)", getprop).group(1)
-        except AttributeError:
-            pass
+    # TODO: Some devices specify only the directory containing the trace file and not the file itself
+    # Check whether there is any difference in traces on those devices
 
     if not device.is_dir(internal_sd):
         guesses = ["/mnt/sdcard", "/storage/emulated/legacy", "/mnt/shell/emulated/0"]
@@ -839,7 +788,6 @@ def extract_storage(device):
 
     device.info_dict["internal_sd_path"] = internal_sd
     device.info_dict["external_sd_path"] = external_sd
-    device.info_dict["anr_trace_path"] = trace_path
 
     external_sd_space = run_extraction_command(device, "external_sd_space")
     if "no such file or directory" in external_sd_space.lower() or \
