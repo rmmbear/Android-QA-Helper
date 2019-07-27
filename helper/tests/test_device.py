@@ -20,9 +20,9 @@ except:
 
 PHYSICAL_DEVICE_REQUIRED = pytest.mark.skipif(
     not helper.device.get_devices(initialize=False),
-    reason="Physical (or emulated) device required, none found.")
+    reason="Physical or emulated device required, none found")
 DUMP_DATA_REQUIRED = pytest.mark.skipif(
-    not DUMP_DATA_AVAILABLE, reason="Dump data required, none found.")
+    not DUMP_DATA_AVAILABLE, reason=f"Did not find debug-dump output in {COMPATIBILITY_DIR}")
 
 
 class TestExtractModule:
@@ -74,10 +74,10 @@ class TestExtractModule:
 class TestPhysicalDevice:
     @PHYSICAL_DEVICE_REQUIRED
     def test_full_init(self):
-        connected_devices = helper.device.get_devices()
+        connected_devices = helper.device.get_devices(True, ())
 
-        if not connected_devices:
-            pytest.skip("")
+        #if not connected_devices:
+        #    pytest.skip("")
 
         found_bad = False
         for p_device in connected_devices:
