@@ -454,6 +454,9 @@ def extract_identity(device):
     continued_value = list()
     multiline_prop = False
     for line in getprop:
+        if not line:
+            continue
+
         if multiline_prop:
             # prop name is kept from last loop
             prop_value += line.strip()
