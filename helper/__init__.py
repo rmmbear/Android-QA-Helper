@@ -191,7 +191,7 @@ if sys.platform == "win32":
     ADB += ".exe"
 
 
-def exe(executable, *args, return_output=False, as_list=True,
+def exe(executable, *args, return_output=False, as_list=False,
         stdout_=sys.stdout):
     """Run provided file as executable.
     Return string containing the output of executed command.
@@ -292,7 +292,6 @@ if not Path(CLEANER_CONFIG).is_file():
         cleaner_file.write(DEFAULT_CLEANER_CONFIG)
 
 
-CONFIG = CONFIG
 _load_config(CONFIG)
 
 CLEANER_CONFIG = str(Path(CLEANER_CONFIG).resolve())
