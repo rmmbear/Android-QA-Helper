@@ -240,36 +240,33 @@ def clean(device, args):
 
 def scan(args):
     """"""
-    format_str = "{:4}{:13}{:14}{:10}{}"
-    #       #, serial, manufacturer, model, status
-    #TODO: automatically change format string based on what's connected
-    #      the end result should be a table that automatically adjusts
-    #      column width to its contents
-    headers = ["#", "serial num", "manufacturer", "model", "status"]
-    device_list = helper.device.get_devices(True, limit_init=["identity"])
-    device_ids = {device.serial:device for device in device_list}
-    #FIXME: unauthorized devices are not shown
-    #FIXME: broken output when no devices are connected
-
-    print(format_str.format(*headers))
-    if not device_ids:
-        print(format_str.format(*(5*"None")))
+    device_list = helper.device.get_devices(True, ["identity"], True)
+    if not device_list:
+        print()
+        print("No devices detected")
         return
 
+    # Load everything into lines, including the headers
+    lengths = [2, 10, 12, 5, 6]
+    lines = [("#", "Serial #", "Manufacturer", "Model", "Status")]
     for count, device in enumerate(device_list):
-        del device_ids[device.serial]
+        count = str(count + 1)
+        serial = device.serial
+        manufacturer = device.info_dict["device_manufacturer"]
+        manufacturer = manufacturer if manufacturer else "Unknown"
+        model = device.info_dict["device_manufacturer"]
+        model = model if model else "Unknown"
+        status = device._status
+        for x, item in enumerate((count, serial, manufacturer, model, status)):
+            lengths[x] = max(len(item), lengths[x])
 
-        print(format_str.format(
-            "{}.".format(count), device.serial,
-            device.info_dict["device_manufacturer"],
-            device.info_dict["device_model"],
-            device._status))
+        lines.append((count, serial, manufacturer, model, status))
 
-    if device_ids:
-        print("\nThe following devices could not be initialized:")
-        for serial, status in device_ids.items():
-            print(f"{serial} : {status}")
-        print()
+    # create format string dynamically
+    # each column has a width of its widest element + 2
+    format_str = "{:" + "}{:".join([str(x+2) for x in lengths]) + "}"
+    for line in lines:
+        print(format_str.format(*line))
 
 
 def info_dump(device, args):
@@ -309,13 +306,10 @@ def debug_dump(device, args):
         lambda self: self.immortal_cache,
         lambda self, value: None
     )
-
-    device.extract_data(limit_to=("identity",))
+    print("-----")
+    print("\nDumping", device.name)
     device_dir = Path(directory, (device.filename + "_DUMP"))
     device_dir.mkdir(exist_ok=True)
-    print("\nLoading data")
-    device.extract_data()
-    print("\nDumping", device.name)
 
     from helper.extract_data import INFO_SOURCES
     for source_name, command in INFO_SOURCES.items():
@@ -333,6 +327,11 @@ def debug_dump(device, args):
         print(".", end="", flush=True)
 
     print("\nDumping device's info_dict")
+    print("\nLoading data")
+    try:
+        device.extract_data()
+    except:
+        print("ERROR: Encountered an exception during load, dumping as-is")
     with Path(device_dir, "device_info_dict").open(mode="w", encoding="utf-8") as info_dict_file:
         for key, value in device.info_dict.items():
             info_dict_file.write(f"{key}: {str(value)}\n")
@@ -442,6 +441,5 @@ def main(args=None):
                 print(f"Device {device.name} has been suddenly disconnected!")
 
 #TODO: Implement screenshot command
-#TODO: Implement app inspector as separate command
 #TODO: Implement keyboard and keyboard-interactive
 #      Enter text into textfields on Android device using PC's keyboard
