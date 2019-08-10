@@ -1,5 +1,5 @@
 #   Android QA Helper - helping you test Android apps!
-#   Copyright (C) 2017-2018 rmmbear
+#   Copyright (C) 2017-2019 rmmbear
 #
 #   This program is free software: you can redistribute it and/or modify
 #   it under the terms of the GNU General Public License as published by
@@ -20,22 +20,26 @@ import subprocess
 
 from pathlib import Path
 from time import strftime
-from inspect import getabsfile
 
 VERSION = "0.15"
 
 def _get_working_dir():
     """Return string representing the current working directory.
-    If frozen, this will be the same directory as the one containing
-    base executable, otherwise it will be one directory above the source
-    code.
+    This function accounts for three cases:
+    - package in frozen code form: same directory as executable
+    - installed as pip package: helper directory in user's home
+    - source code downloaded from github: one directory above source
     """
     if getattr(sys, 'frozen', False):
         cwd = Path(sys.executable).parent
     else:
-        cwd = Path(getabsfile(_get_working_dir)).parent / ".."
+        cwd = Path(__file__).parent / ".."
 
-    return str(cwd.resolve())
+    cwd = cwd.resolve()
+    if str(cwd.parent) in sys.path[1::]:
+        cwd = Path.home() / "AndroidQAH"
+
+    return str(cwd)
 
 
 CWD = _get_working_dir()
@@ -43,6 +47,12 @@ ADB = str(Path(CWD, "bin", "adb"))
 AAPT = str(Path(CWD, "bin", "aapt"))
 CONFIG = str(Path(CWD, "helper_config"))
 CLEANER_CONFIG = str(Path(CWD, "cleaner_config"))
+
+# Create the necessary directories and files if they don't yet exist
+Path(CWD).mkdir(parents=True, exist_ok=True)
+Path(ADB).parent.mkdir(parents=True, exist_ok=True)
+Path(AAPT).parent.mkdir(parents=True, exist_ok=True)
+Path(CONFIG).touch(exist_ok=True)
 
 ADB_VERSION = "Unknown"
 AAPT_VERSION = "Unknown"
@@ -206,15 +216,11 @@ def exe(executable, *args, return_output=False, as_list=False,
                                      stderr=subprocess.STDOUT).stdout
 
             cmd_out = cmd_out.decode("utf-8", "replace")
-            # TODO: there is an issue with line endings in adb output
             # on Linux each line is ended with '\r\n'
-            # on Windows this becomes '\r\r\n'
-            # the easy thing is to just search for double carriage return and
-            # replace it, which means that every adb command would gain some
-            # overhead. This could, although unlikely, result in mangled output
-            # soo... figure out what to do here
-            #if sys.platform == "win32" and executable == ADB:
-            #    cmd_out = cmd_out.replace("\r\r\n", "\n")
+            # on Windows for some reason this becomes '\r\r\n'
+            # which results in empty lines
+            # as long as all functions interacting directly with exe's output
+            # account for empty lines, this should not be a problem
 
             if as_list:
                 return cmd_out.splitlines()
@@ -240,11 +246,11 @@ def exe(executable, *args, return_output=False, as_list=False,
         sys.exit()
     except FileNotFoundError:
         stdout_.write(
-            f"ERROR: Executable does not exist: {executable}.\n")
+            f"ERROR: Executable does not exist: {executable}\n")
         sys.exit()
     except OSError as error:
         stdout_.write(
-            "ERROR: Could not execute provided file due to an OS Error.\n"
+            "ERROR: Could not execute provided file due to an OS Error\n"
             f"    Executable's path: {AAPT}\n"
             f"    OSError error number: {error.errno}\n"
             f"    Error message: {error}")
@@ -279,12 +285,6 @@ def _save_config(config):
         for name in HELPER_CONFIG_VARS:
             value = globals()[name]
             config_file.write(f"{name}={value}\n")
-
-
-# Create the necessary directories and files if they don't yet exist
-Path(ADB).parent.mkdir(parents=True, exist_ok=True)
-Path(AAPT).parent.mkdir(parents=True, exist_ok=True)
-Path(CONFIG).touch(exist_ok=True)
 
 
 if not Path(CLEANER_CONFIG).is_file():
