@@ -36,7 +36,6 @@ def adb_command(*args, check_server=None, **kwargs):
     If check_server is true, function will first make sure that an ADB
     server is available before executing the command.
     """
-    #LOGGER.debug("Executing %s", str(["ADB", *args]))
     if check_server is None:
         check_server = False
         try:

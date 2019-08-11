@@ -73,8 +73,7 @@ def exe(executable, *args, return_output=False, as_list=False, stdout_=sys.stdou
     """Run provided file as executable.
     Return string containing the output of executed command.
     """
-    if executable not in (ADB, AAPT):
-        LOGGER.debug("Executing %s %s", executable.name, args)
+    LOGGER.debug("Executing %s %s", executable.name, args)
     try:
         if return_output:
             cmd_out = subprocess.run((executable,) + args,
