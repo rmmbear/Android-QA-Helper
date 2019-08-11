@@ -38,6 +38,15 @@ TEXTURE_COMPRESSION_IDS = {
     "GL_EXT_texture_compression_bptc" : "BPTC",
 }
 
+ABI_TO_ARCH = {
+    "armeabi"    :"32bit (ARM)",
+    "armeabi-v7a":"32bit (ARM)",
+    "arm64-v8a"  :"64bit (ARM64)",
+    "x86"        :"32bit (Intel x86)",
+    "x86_64"     :"64bit (Intel x86_64)",
+    "mips"       :"32bit (Mips)",
+    "mips64"     :"64bit (Mips64)",
+}
 
 #shell script for finding executables in PATH
 SH_PATH_EXE = """
@@ -253,10 +262,10 @@ INFO_KEYS = [
 
 def abi_to_arch(abi):
     """"""
-    if abi not in helper.ABI_TO_ARCH:
+    if abi not in ABI_TO_ARCH:
         return f"Unknown ({abi})"
 
-    return helper.ABI_TO_ARCH[abi]
+    return ABI_TO_ARCH[abi]
 
 
 def run_extraction_command(device, source_name, use_cache=True, keep_cache=True):

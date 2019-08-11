@@ -36,7 +36,7 @@ from xml.etree.ElementTree import ParseError as XMLParseError
 import requests
 from requests.exceptions import InvalidSchema, InvalidURL, MissingSchema
 
-from helper import CWD
+from helper import CWD, BIN
 
 VERSION = 0.1
 LOGGER = logging.getLogger(__name__)
@@ -52,7 +52,7 @@ except KeyError:
     HOST_PLATFORM = sys.platform
 
 DEFAULT_DOWNLOAD_DIR = str(Path(CWD, "download"))
-DEFAULT_EXTRACT_DIR = str(Path(CWD, "bin"))
+DEFAULT_EXTRACT_DIR = BIN
 DEFAULT_REPOSITORY = "https://dl-ssl.google.com/android/repository/repository-12.xml"
 USER_AGENT = "".join(
     ["ToolGrabber/", str(VERSION),
