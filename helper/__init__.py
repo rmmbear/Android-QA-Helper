@@ -76,7 +76,7 @@ def exe(executable, *args, return_output=False, as_list=False, stdout_=sys.stdou
     LOGGER.debug("Executing %s %s", executable.name, args)
     try:
         if return_output:
-            cmd_out = subprocess.run((executable,) + args,
+            cmd_out = subprocess.run((executable.__fspath__(),) + args,
                                      stdout=subprocess.PIPE,
                                      stderr=subprocess.STDOUT).stdout
 
@@ -93,7 +93,7 @@ def exe(executable, *args, return_output=False, as_list=False, stdout_=sys.stdou
             return cmd_out
 
         if stdout_ != sys.__stdout__:
-            cmd_out = subprocess.Popen((executable,) + args,
+            cmd_out = subprocess.Popen((executable.__fspath__(),) + args,
                                        stdout=subprocess.PIPE,
                                        stderr=subprocess.STDOUT)
             lines = iter(cmd_out.stdout.readline, b'')
@@ -101,11 +101,11 @@ def exe(executable, *args, return_output=False, as_list=False, stdout_=sys.stdou
                 for line in lines:
                     stdout_.write(line.decode("utf-8", "replace"))
         else:
-            subprocess.run((executable,) + args)
+            subprocess.run((executable.__fspath__(),) + args)
 
         return ""
     except PermissionError:
-        if Path(executable).is_dir():
+        if executable.is_dir():
             stdout_.write("ERROR: Provided path points to a directory and not a file")
         else:
             stdout_.write(
