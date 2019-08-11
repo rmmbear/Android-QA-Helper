@@ -11,8 +11,9 @@ import helper.device
 LOGGER = logging.getLogger(__name__)
 
 PARSER = ArgumentParser(
-    prog="helper", description="",
-    epilog=""
+    prog="helper", description="CLI utility for interfacing with Android devices",
+    epilog="""You can pass the '-h' argument to all of the above commands for detailed description.
+    Feel free to check out the source code and report any issues at github.com/rmmbear/Android-QA-Helper"""
 )
 PARSER.add_argument(
     "-v", "--version", action="version", version="%(prog)s {}".format(helper.VERSION))
@@ -154,6 +155,65 @@ COMMANDS.add_parser("run-tests")
 
 del CMD
 PARSER_NO_ARGS = PARSER.parse_args([])
+
+
+def find_adb_and_aapt(require_adb=True, require_aapt=True):
+    """Find and set paths of the necessary tools.
+    Invokes helper.tools.tool_grabber if tools are not found.
+    This function modifies global state - it sets paths of ADB and AAPT,
+    as well as their _VERSION variables, in package's __init__'s scope .
+    """
+    if not require_adb and not require_aapt:
+        return
+
+    tools = ("ADB", "AAPT")
+    missing = []
+    required = {"ADB":require_adb, "AAPT":require_aapt}
+
+    for tool_name in tools:
+        tool_path = getattr(helper, tool_name)
+        # only care about the executable if it's required
+        if required[tool_name] and not tool_path:
+            missing.append(tool_name)
+
+    if missing:
+        print(f"Tools missing: {missing}")
+        print("Helper cannot run without above tools - would you like to download them now?")
+        try:
+            userinput = input("Y/N ")
+        except EOFError:
+            print("Aborting...")
+            sys.exit()
+
+        if userinput[0] not in "yY":
+            LOGGER.info("early exit - user did not allow download of missing tools")
+            sys.exit()
+
+        if len(missing) == 2:
+            tool = "all"
+        else:
+            tool = missing[0].lower()
+        # download the missing tool(s) using helper.tools.tool_grabber
+        from .tools import tool_grabber
+        tool_grabber.main(arguments=f"--tool {tool}".split())
+
+        for tool in missing:
+            out = helper.find_executable(tool.lower())
+            setattr(helper, tool, out[0])
+            setattr(helper, f"{tool}_VERSION", out[1])
+
+        # it is possible that tool_grabber fails to download all tools
+        # this could be because of user-side errors
+        # (faulty internet connection, for example)
+        # so we need to make sure they have really been found
+        found_all = True
+        for tool in missing:
+            if not getattr(helper, tool):
+                found_all = False
+
+        if not found_all:
+            LOGGER.error("Could not find downloaded tools, aborting")
+            sys.exit()
 
 
 def pick_device():
@@ -381,6 +441,7 @@ COMMAND_DICT = { #command : (function, required_devices),
 
 def main(args=None):
     """Parse and execute input commands."""
+    find_adb_and_aapt()
     LOGGER.info("Starting parsing arguments")
     args = PARSER.parse_args(args)
 

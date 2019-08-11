@@ -6,6 +6,7 @@ import logging
 from pathlib import Path
 from time import sleep, strftime
 
+import helper
 import helper.apk
 import helper.extract_data
 from helper import ADB, VERSION, exe
@@ -35,7 +36,7 @@ def adb_command(*args, check_server=None, **kwargs):
     If check_server is true, function will first make sure that an ADB
     server is available before executing the command.
     """
-    LOGGER.debug("Executing %s", str(["ADB", *args]))
+    #LOGGER.debug("Executing %s", str(["ADB", *args]))
     if check_server is None:
         check_server = False
         try:
@@ -46,9 +47,9 @@ def adb_command(*args, check_server=None, **kwargs):
 
     if check_server:
         # return_output set to True to suppress printing
-        exe(ADB, "start-server", return_output=True)
+        exe(helper.ADB, "start-server", return_output=True)
 
-    return exe(ADB, *args, **kwargs)
+    return exe(helper.ADB, *args, **kwargs)
 
 
 def get_serials():
