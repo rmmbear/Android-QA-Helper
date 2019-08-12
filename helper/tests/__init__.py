@@ -10,7 +10,7 @@ EXTRACTION_FUNCTIONS = {x[8::]:getattr(extract_data, x) for x in dir(extract_dat
 
 class DummyDevice(Device):
     def __init__(self, config_dir, *args, **kwargs):
-        self.config_dir = config_dir
+        self.config_dir = Path(config_dir)
         self._loaded_dummy_data = False
         self.ignore_load_errors = True
 
@@ -35,8 +35,8 @@ class DummyDevice(Device):
     @property
     def name(self):
         """Property holding a human-readable name of the device.
-
-        Name consists of: dummy number, manufacturer, model and serial number."""
+        Name consists of: dummy number, manufacturer, model and serial number.
+        """
         if self._name:
             return self._name
 
@@ -91,27 +91,7 @@ class DummyDevice(Device):
                 with (Path(config_dir) / source_name).open(mode="r", encoding="utf-8") as dummy_data:
                     self._init_cache[source_name] = dummy_data.read()
             except FileNotFoundError:
-                LOGGER.error("Could not open %s", "/".join([str(config_dir), source_name]))
+                LOGGER.error("Could not open %s", config_dir / source_name)
                 if not self.ignore_load_errors:
                     raise
 
-
-    def extract_data(self, limit_to=(), force_extract=False):
-        """Extracting data with a dummy will result in loading all
-        dump data, no matter what is specified in limit_to.
-        """
-        for command_id, command in EXTRACTION_FUNCTIONS.items():
-            if limit_to:
-                if command_id not in limit_to:
-                    continue
-
-            if command in self._extracted_info_groups:
-                if not force_extract:
-                    #LOGGER.debug("'%s' - skipping extraction of '%s' - command already executed", self.name, command_id)
-                    continue
-
-            command(self)
-            if command_id not in self._extracted_info_groups:
-                self._extracted_info_groups.append(command_id)
-
-        #self._init_cache = {}

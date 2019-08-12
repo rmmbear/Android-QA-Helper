@@ -9,8 +9,8 @@ from helper.tests import DummyDevice
 
 from helper.extract_data import INFO_KEYS, SURFACED_VERBOSE
 
-FULL_DEVICE_CONFIG = str(Path(helper.CWD, "tests", "full_config"))
-COMPATIBILITY_DIR = str(Path(helper.CWD, "..", "compat_data"))
+FULL_DEVICE_CONFIG = Path(helper.CWD, "tests", "full_config")
+COMPATIBILITY_DIR = Path(helper.CWD, "compat_data")
 
 
 try:
@@ -76,9 +76,6 @@ class TestPhysicalDevice:
     def test_full_init(self):
         connected_devices = helper.device.get_devices(True, ())
 
-        #if not connected_devices:
-        #    pytest.skip("")
-
         found_bad = False
         for p_device in connected_devices:
             for key in INFO_KEYS:
@@ -114,7 +111,7 @@ class TestDummyDevice:
             print(device_dummy.name)
 
             with (device_dir / "__DUMMY_INFO_DUMP").open(mode="w", encoding="utf-8") as info_out:
-                info_out.write(device_dummy.info_dump(initialize=False))
+                device_dummy.info_dump(info_out, initialize=False)
 
             unexpected_keys = []
             empty_keys = []
@@ -167,88 +164,3 @@ class TestDummyDevice:
             assert bool(not device_list[device]["unexpected"])
             assert bool(not device_list[device]["missing"])
             assert bool(not device_list[device]["empty"])
-
-# TODO: rewrite everything below this comment
-
-"""
-class TestDeviceInit:
-    def test_full(self, config_dir=FULL_DEVICE_CONFIG, write_output=None,
-                  ignore_nonexistent_files=False):
-        """"""Test device initialization with a complete input from an actual
-        device.
-        """"""
-        device = DummyDevice("dummy_full", config_dir=config_dir,
-                             ignore_nonexistent_files=ignore_nonexistent_files)
-        device.device_init()
-
-        print(device.full_info_string(initialize=False))
-        if write_output:
-            device_file = "".join(["/", device.info('Product', 'Manufacturer'),
-                                   "_", device.info('Product', 'Model')])
-            write_output += device_file
-            with open(write_output, mode='w', encoding='utf-8') as output_file:
-                output_file.write(device.full_info_string())
-                output_file.write("\n\n\n")
-                for key, value in device.__dict__.items():
-                    output_file.write("".join([str(key), " : ", str(value)]))
-                    output_file.write("\n")
-
-        assert device.available_commands
-        assert device.anr_trace_path
-
-        for category in device.info_dict.values():
-            if isinstance(category, list):
-                assert category
-            else:
-                for key, value in category.items():
-                    # extracting resolution is not all that reliant
-                    # I'm fine with missing this one key if all others are present
-                    if key == 'Resolution':
-                        continue
-                    assert key and value
-
-
-    def test_compatibility(self, config_dir=COMPATIBILITY_DIR,
-                           output_dir=COMPATIBILITY_OUT_DIR):
-        config_dir = Path(config_dir)
-        config_dir.mkdir(exist_ok=True)
-        output_dir = Path(output_dir)
-        output_dir.mkdir(exist_ok=True)
-
-        for path in config_dir.iterdir():
-            if path.is_dir():
-                self.test_full(str(path), write_output=str(output_dir),
-                               ignore_nonexistent_files=True)
-
-
-    def test_all_limited(self, config_dir=FULL_DEVICE_CONFIG):
-        #""""""
-        device = DummyDevice("dummy_fill_limited", limit_init=('asssss',),
-                             config_dir=config_dir)
-
-        print(device.full_info_string(initialize=False))
-
-        assert not device.available_commands
-        assert not device.anr_trace_path
-
-        for category in device.info_dict.values():
-            for key, value in category.items():
-                assert key and not value
-
-
-    def test_empty(self):
-        """"""Test device initialization without any actual input.
-        """"""
-        random_dir = tests_.get_nonexistent_path()
-        device = DummyDevice("dummy_empty", config_dir=random_dir,
-                             ignore_nonexistent_files=True)
-
-        print(device.full_info_string(initialize=False))
-
-        assert not device.available_commands
-        assert not device.anr_trace_path
-
-        for category in device.info_dict.values():
-            for key, value in category.items():
-                assert key and not value
-"""
