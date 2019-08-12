@@ -2,7 +2,7 @@
 """
 from pathlib import Path
 from . import CWD
-CONFIG = str(Path(CWD, "helper_config"))
+
 
 CONFIG_VALS = {
     "adb":"",
@@ -11,9 +11,10 @@ CONFIG_VALS = {
 # TODO: replace custom config files (helper, gles textures and cleaner) with cfg module
 # TODO: add an interface for editing various configs
 
-DEFAULT_ADB = str(Path(CWD, "bin", "adb"))
-DEFAULT_AAPT = str(Path(CWD, "bin", "aapt"))
-CLEANER_CONFIG = str(Path(CWD, "cleaner_config"))
+CONFIG = Path(CWD, "helper_config")
+DEFAULT_ADB = Path(CWD, "bin", "adb")
+DEFAULT_AAPT = Path(CWD, "bin", "aapt")
+CLEANER_CONFIG = Path(CWD, "cleaner_config")
 
 DEFAULT_CLEANER_CONFIG = """# This is default cleaner config file, it contains explanation of all available
 # commands, examples, and some default rules for removing helper's leftover files.

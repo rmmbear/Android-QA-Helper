@@ -43,8 +43,7 @@ def install(device, apk_file, obb_files=(), install_location="automatic",
 def install_app(device, apk_file, install_location="automatic",
                 installer_name="android.helper", keep_data=False, stdout_=sys.stdout):
     """Install an application from a local apk file."""
-    possible_install_locations = {"automatic":"", "external":"-s",
-                                  "internal":"-f"}
+    possible_install_locations = {"automatic":"", "external":"-s", "internal":"-f"}
 
     if apk_file.app_name.startswith("Unknown"):
         LOGGER.warning("This app does not appear to be a valid .apk archive")
@@ -114,7 +113,7 @@ def push_obb(device, obb_file, app_name, stdout_=sys.stdout):
         stdout_.write("ERROR: Could not create obb folder.\n")
         return False
 
-    obb_name = str(Path(obb_file).name)
+    obb_name = Path(obb_file).name
     obb_target_file = "/".join([
         device.info_dict["internal_sd_path"], "Android/obb", app_name, obb_name])
 
@@ -209,11 +208,11 @@ def record(device, output=".", name=None, silent=False, stdout_=sys.stdout):
         stdout_.write("ERROR: Recorded video was not found on device!\n")
         return False
 
-    output = str(Path(output) / Path(remote_recording).name)
+    output = Path(output) / Path(remote_recording).name
 
     device.adb_command("pull", remote_recording, output, stdout_=stdout_)
-    if Path(output).is_file():
-        return str(Path(output).resolve())
+    if output.is_file():
+        return Path(output).resolve()
 
     stdout_.write("ERROR: Could not copy recorded video!\n")
     return False
@@ -239,10 +238,10 @@ def pull_traces(device, output=None, stdout_=sys.stdout):
         return False
 
     device.adb_command(
-        "pull", remote_anr_file, str(output / anr_filename), stdout_=stdout_)
+        "pull", remote_anr_file, output / anr_filename, stdout_=stdout_)
 
     if (output / anr_filename).is_file():
-        return str((output / anr_filename).resolve())
+        return (output / anr_filename).resolve()
 
     stdout_.write("ERROR: The file was not copied!\n")
     return False

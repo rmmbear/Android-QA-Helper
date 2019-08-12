@@ -85,7 +85,7 @@ class App:
     def __init__(self, apk_file):
 
         #basic info
-        self.host_path = apk_file
+        self.host_path = Path(apk_file)
         self.app_name = ''
 
         self.display_name = 'Unknown'
@@ -137,7 +137,8 @@ class App:
 
             if apk_path:
                 self.device_path = apk_path.group().strip()
-                local_path = f"./{device.filename}"
+                local_path = Path(device.filename)
+                local_path.mkdir(exist_ok=True, parents=True)
                 device.adb_command("pull", self.device_path, local_path)
                 self.host_path = local_path
                 self.from_file()
@@ -145,11 +146,11 @@ class App:
 
     def from_file(self):
         """Load app data from a local apk file."""
-        dump = aapt_command("dump", "badging", self.host_path,
+        dump = aapt_command("dump", "badging", self.host_path.__fspath__(),
                             return_output=True, as_list=False)
 
         if "error: dump failed" in dump.lower():
-            unknown = "Unknown! ({Path(self.host_path).name})"
+            unknown = f"Unknown! ({self.host_path.name})"
             self.app_name = unknown
             self.display_name = unknown
 
@@ -326,14 +327,13 @@ def main(arguments=None):
     parser.add_argument(
         "-v", "--version", action="version", version="%(prog)s {}".format(VERSION))
 
-    arg = parser.parse_args(arguments)
+    args = parser.parse_args(arguments)
 
-    if not Path(arg.apk).is_file:
+    if not Path(args.apk).is_file:
         print("ERROR: provided path is not a file")
-        print(f"     : {arg.apk}")
+        print(f"    : {args.apk}")
         return
 
-    args = parser.parse_args(arguments)
     print(App(args.apk).get_report(True))
 
 

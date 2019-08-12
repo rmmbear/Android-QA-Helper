@@ -445,7 +445,6 @@ class Device:
         To specify the application, provide either an app name or an
         app object.
         """
-
         if isinstance(app, helper.apk.App):
             app_name = app.app_name
         else:
@@ -473,10 +472,10 @@ class Device:
         out_file = Path(out_dir, filename)
 
         stdout_.write("Copying {}'s apk file...\n".format(app_name))
-        self.adb_command("pull", app_path, str(out_file), stdout_=stdout_)
+        self.adb_command("pull", app_path, out_file.__fspath__(), stdout_=stdout_)
 
         if out_file.is_file():
-            return str(out_file.resolve())
+            return out_file.resolve()
 
         stdout_.write("ERROR: The apk file could not be copied!\n")
         return False

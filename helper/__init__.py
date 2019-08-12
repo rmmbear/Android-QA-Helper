@@ -37,17 +37,17 @@ def _get_working_dir():
         cwd = Path(__file__).parent / ".."
 
     cwd = cwd.resolve()
-    if str(cwd.parent) in sys.path[1::]:
+    if cwd.parent in sys.path[1::]:
         cwd = Path.home() / "AndroidQAH"
 
-    return str(cwd)
+    return cwd
 
 CWD = _get_working_dir()
-BIN = str(Path(CWD, "bin"))
-CLEANER_CONFIG = str(Path(CWD, "cleaner_config"))
-Path(CWD).mkdir(parents=True, exist_ok=True)
-Path(BIN).mkdir(parents=True, exist_ok=True)
-Path(CLEANER_CONFIG).touch(exist_ok=True)
+BIN = Path(CWD, "bin")
+CLEANER_CONFIG = Path(CWD, "cleaner_config")
+CWD.mkdir(parents=True, exist_ok=True)
+BIN.mkdir(parents=True, exist_ok=True)
+CLEANER_CONFIG.touch(exist_ok=True)
 
 #config requires CWD from this module
 from . import config
@@ -56,7 +56,7 @@ LOG_FORMAT_FILE = logging.Formatter("[%(levelname)s] T+%(relativeCreated)d: %(na
 LOG_FORMAT_TERM = logging.Formatter("[%(levelname)s] %(message)s")
 LOGGER = logging.getLogger("helper")
 LOGGER.setLevel(logging.DEBUG)
-FH = logging.FileHandler(CWD + "/lastrun.log", mode="w")
+FH = logging.FileHandler(CWD / "lastrun.log", mode="w")
 FH.setLevel(logging.DEBUG)
 FH.setFormatter(LOG_FORMAT_FILE)
 CH = logging.StreamHandler()

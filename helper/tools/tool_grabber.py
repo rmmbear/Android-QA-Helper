@@ -38,7 +38,7 @@ from requests.exceptions import InvalidSchema, InvalidURL, MissingSchema
 
 from helper import CWD, BIN
 
-VERSION = 0.1
+VERSION = "0.1"
 LOGGER = logging.getLogger(__name__)
 
 SUPPORTED_PLATFORMS = {
@@ -51,11 +51,11 @@ try:
 except KeyError:
     HOST_PLATFORM = sys.platform
 
-DEFAULT_DOWNLOAD_DIR = str(Path(CWD, "download"))
+DEFAULT_DOWNLOAD_DIR = Path(CWD, "download")
 DEFAULT_EXTRACT_DIR = BIN
 DEFAULT_REPOSITORY = "https://dl-ssl.google.com/android/repository/repository-12.xml"
 USER_AGENT = "".join(
-    ["ToolGrabber/", str(VERSION),
+    ["ToolGrabber/", VERSION,
      "(+https://github.com/rmmbear/Android-QA-Helper)"
     ]
 )
@@ -274,7 +274,7 @@ def download_package(url, size, checksum, download_to=DEFAULT_DOWNLOAD_DIR):
     package_path.mkdir(parents=True, exist_ok=True)
     package_path = package_path / url.rsplit("/", maxsplit=1)[-1]
 
-    downloaded_path = download(url, str(package_path), False)
+    downloaded_path = download(url, package_path, False)
     validated = True
 
     if downloaded_path:
@@ -284,7 +284,7 @@ def download_package(url, size, checksum, download_to=DEFAULT_DOWNLOAD_DIR):
             LOGGER.error("local size %s vs %s remote", local_size, size)
             validated = False
 
-        local_checksum = generate_sha1_hash(str(downloaded_path))
+        local_checksum = generate_sha1_hash(downloaded_path)
         if local_checksum != checksum:
             LOGGER.error("Checksum of downloaded package differs from one announced in repo:")
             LOGGER.error("local checksum %s vs %s remote", local_checksum, checksum)
@@ -341,7 +341,7 @@ def extract_tools(package_path, package_type, platform, extract_to=DEFAULT_EXTRA
 
             dest_path.chmod(0o775)
 
-    return str(extract_path)
+    return extract_path
 
 
 def main(arguments=None):
